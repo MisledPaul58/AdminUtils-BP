@@ -750,7 +750,6 @@ function simPlayer(p) {
                             .thenExecuteFor(timeInTicks, async () => {
                                 try { closestP = [...overworld.getPlayers(query)][0] } catch (e) { }
                                 try { player.lookAtEntity(closestP) } catch (e) { } //whyy
-                                runCmd(overworld, `say ${query.location.x}, ${query.location.y}, ${query.location.z}`);
                                 if (!tpped) {
                                     try {
                                         await runCmd(player, `tp ${p.name}`);
