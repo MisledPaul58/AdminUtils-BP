@@ -4,7 +4,7 @@ import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/serve
 
 const overworld = world.getDimension("overworld");
 let firstPlayer = false;
-let players;
+let players = [];
 let admins = [];
 let simtest = 0;
 
@@ -339,7 +339,7 @@ function banPlayer(p) {
                 if (isBanned(player)) {
                     await runTellraw(p, `§cError, the specified player is already banned.`);
 
-                } else if (isAdmin(player))  {
+                } else if (isAdmin(player)) {
                     await runTellraw(p, `§cError, the specified player is an admin, cannot ban.`);
 
                 } else if (!isValidUsername(player)) {
@@ -538,6 +538,7 @@ function simPlayer(p) {
                             }
                         });
                     } else if (response.selection > 1) {
+                        let locPlayers = players; //El array no sirve en el mundo si cambian los jugadores
                         let form = new ModalFormData()
                             .title("Kill and follow a player")
                             .textField("Type below the name of the simulated player", "Simulated player's name")
@@ -545,9 +546,11 @@ function simPlayer(p) {
                         form.show(p).then(async result => {
                             let simName = result.formValues[0];
                             let timeInTicks = result.formValues[1] * 20;
-                            let selectedPlayerRaw = players[response.selection - 2];
+                            let selectedPlayerRaw = locPlayers[response.selection - 2];
                             let offset = 0;
                             let summoned = false;
+
+                            await runCmd(p, `say ${selectedPlayerRaw.name}`);
 
                             GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
                                 const spawnLoc = new BlockLocation(1, 2, 1);
@@ -730,11 +733,13 @@ function simPlayer(p) {
                 let form = new ModalFormData()
                     .title("Idle")
                     .textField("Type below the name of the simulated player", "Simulated player's name")
-                    .slider("Time in seconds the simulated player should follow the target", 2, 600, 1, 15);
+                    .slider("Time in seconds the simulated player should follow the target", 2, 600, 1, 15)
+                    .toggle("Look at close players", true);
 
                 form.show(p).then(async result => {
                     let simName = result.formValues[0];
                     let timeInTicks = result.formValues[1] * 20;
+                    let lookClosePlayers = result.formValues[2];
                     let offset = 0;
                     let summoned = false;
                     let tpped = false;
@@ -748,15 +753,17 @@ function simPlayer(p) {
                         test
                             .startSequence()
                             .thenExecuteFor(timeInTicks, async () => {
-                                let closestP = [];
-                                let playerLoc = new Location(player.location.x, player.location.y, player.location.z);
-                                const query = {
-                                    closest: 1,
-                                    excludeNames: [player.name],
-                                    location: playerLoc
-                                };
-                                try { closestP = [...overworld.getPlayers(query)][0] } catch (e) { }
-                                try { player.lookAtEntity(closestP) } catch (e) { }
+                                if (lookClosePlayers === true) {
+                                    let closestP = [];
+                                    let playerLoc = new Location(player.location.x, player.location.y, player.location.z);
+                                    const query = {
+                                        closest: 1,
+                                        excludeNames: [player.name],
+                                        location: playerLoc
+                                    };
+                                    try { closestP = [...overworld.getPlayers(query)][0] } catch (e) { }
+                                    try { player.lookAtEntity(closestP) } catch (e) { }
+                                }
                                 if (!tpped) {
                                     try {
                                         await runCmd(player, `tp ${p.name}`);
