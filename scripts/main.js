@@ -748,8 +748,15 @@ function simPlayer(p) {
                         test
                             .startSequence()
                             .thenExecuteFor(timeInTicks, async () => {
+                                let closestP = [];
+                                let playerLoc = new Location(player.location.x, player.location.y, player.location.z);
+                                const query = {
+                                    closest: 1,
+                                    excludeNames: [player.name],
+                                    location: playerLoc
+                                };
                                 try { closestP = [...overworld.getPlayers(query)][0] } catch (e) { }
-                                try { player.lookAtEntity(closestP) } catch (e) { } //whyy
+                                try { player.lookAtEntity(closestP) } catch (e) { }
                                 if (!tpped) {
                                     try {
                                         await runCmd(player, `tp ${p.name}`);
