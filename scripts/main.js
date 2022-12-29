@@ -457,6 +457,7 @@ function simPlayer(p) {
         switch (response.selection) {
             case 0: { //Kill and follow a player
                 let playersArray = players.map(pname => pname.name);
+                let locPlayers = players;
                 const form = new ActionFormData()
                     .title("Kill and follow a player")
                     .body("Select an online player to kill and follow")
@@ -534,11 +535,11 @@ function simPlayer(p) {
                                     await runTellraw(p, '§cError, the player you entered is not online.')
                                 }
                             } else {
-                                await runTellraw(p, `§cError, the username you entered is invalid.`);
+                                await runTellraw(p, '§cError, the username you entered is invalid.');
                             }
                         });
                     } else if (response.selection > 1) {
-                        let locPlayers = players; //El array no sirve en el mundo si cambian los jugadores
+                        //El array no sirve en el mundo si cambian los jugadores (solucionado)
                         let form = new ModalFormData()
                             .title("Kill and follow a player")
                             .textField("Type below the name of the simulated player", "Simulated player's name")
@@ -550,53 +551,57 @@ function simPlayer(p) {
                             let offset = 0;
                             let summoned = false;
 
-                            await runCmd(p, `say ${selectedPlayerRaw.name}`);
+                            try {
+                                await runCmd(p, `testfor ${selectedPlayerRaw.name}`);
+                                GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
+                                    const spawnLoc = new BlockLocation(1, 2, 1);
+                                    const player = test.spawnSimulatedPlayer(spawnLoc, simName);
+                                    player.addEffect(MinecraftEffectTypes.speed, 99999, 4, false);
+                                    player.addEffect(MinecraftEffectTypes.jumpBoost, 99999, 1, false);
+                                    player.addEffect(MinecraftEffectTypes.strength, 99999, 2, false);
+                                    player.setGameMode(GameMode.creative);
+                                    player.addTag("simPlayer");
 
-                            GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
-                                const spawnLoc = new BlockLocation(1, 2, 1);
-                                const player = test.spawnSimulatedPlayer(spawnLoc, simName);
-                                player.addEffect(MinecraftEffectTypes.speed, 99999, 4, false);
-                                player.addEffect(MinecraftEffectTypes.jumpBoost, 99999, 1, false);
-                                player.addEffect(MinecraftEffectTypes.strength, 99999, 2, false);
-                                player.setGameMode(GameMode.creative);
-                                player.addTag("simPlayer");
-
-                                test
-                                    .startSequence()
-                                    .thenExecuteFor(timeInTicks, async () => {
-                                        player.lookAtEntity(selectedPlayerRaw);
-                                        player.navigateToEntity(selectedPlayerRaw);
-                                        player.attackEntity(selectedPlayerRaw);
-                                        try {
-                                            await runCmd(player, `testfor @a[name=${selectedPlayerRaw.name}, r=10]`);
-                                        } catch (e) {
-                                            try { await runCmd(player, `tp @s ${selectedPlayerRaw.name}`) } catch (e) { }
-                                        }
-                                    })
-                            })
-                                .maxTicks(timeInTicks)
-                                .setupTicks(0)
-                                .structureName("SimFolder:simtest")
-                                .tag(GameTest.Tags.suiteDefault);
-                            while (!summoned) {
-                                try {
-                                    await runCmd(p, `testfor @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=9]`);
-                                    offset = offset + 10;
-                                } catch (e) {
-                                    await runCmd(p, `execute @s ~${offset} ~ ~ fill ~4 317 ~-4 ~-4 317 ~4 glass`);
-                                    await runCmd(p, `execute @s ~${offset} 318 ~ gametest run simtest:sim_test${simtest} false 1`);
-                                    await runCmd(p, `summon au:basedetect ~${offset} 318 ~`);
-                                    await runCmd(p, `tag @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=1, c=1] add simNotSpawned`);
-                                    summoned = true;
+                                    test
+                                        .startSequence()
+                                        .thenExecuteFor(timeInTicks, async () => {
+                                            player.lookAtEntity(selectedPlayerRaw);
+                                            player.navigateToEntity(selectedPlayerRaw);
+                                            player.attackEntity(selectedPlayerRaw);
+                                            try {
+                                                await runCmd(player, `testfor @a[name=${selectedPlayerRaw.name}, r=10]`);
+                                            } catch (e) {
+                                                try { await runCmd(player, `tp @s ${selectedPlayerRaw.name}`) } catch (e) { }
+                                            }
+                                        })
+                                })
+                                    .maxTicks(timeInTicks)
+                                    .setupTicks(0)
+                                    .structureName("SimFolder:simtest")
+                                    .tag(GameTest.Tags.suiteDefault);
+                                while (!summoned) {
+                                    try {
+                                        await runCmd(p, `testfor @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=9]`);
+                                        offset = offset + 10;
+                                    } catch (e) {
+                                        await runCmd(p, `execute @s ~${offset} ~ ~ fill ~4 317 ~-4 ~-4 317 ~4 glass`);
+                                        await runCmd(p, `execute @s ~${offset} 318 ~ gametest run simtest:sim_test${simtest} false 1`);
+                                        await runCmd(p, `summon au:basedetect ~${offset} 318 ~`);
+                                        await runCmd(p, `tag @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=1, c=1] add simNotSpawned`);
+                                        summoned = true;
+                                    }
                                 }
+                                simtest++;
+                            } catch (e) {
+                                await runTellraw(p, '§cError, the player you selected is now offline.');
                             }
-                            simtest++;
                         });
                     }
                 });
             } break;
             case 1: { //Follow a player
                 let playersArray = players.map(pname => pname.name);
+                let locPlayers = players;
                 const form = new ActionFormData()
                     .title("Follow a player")
                     .body("Select an online player to follow")
@@ -672,7 +677,7 @@ function simPlayer(p) {
                                     await runTellraw(p, '§cError, the player you entered is not online.')
                                 }
                             } else {
-                                await runTellraw(p, `§cError, the username you entered is invalid.`);
+                                await runTellraw(p, '§cError, the username you entered is invalid.');
                             }
                         });
                     } else if (response.selection > 1) {
@@ -684,47 +689,52 @@ function simPlayer(p) {
                         form.show(p).then(async result => {
                             let simName = result.formValues[0];
                             let timeInTicks = result.formValues[1] * 20;
-                            let selectedPlayerRaw = players[response.selection - 2];
+                            let selectedPlayerRaw = locPlayers[response.selection - 2];
                             let offset = 0;
                             let summoned = false;
 
-                            GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
-                                const spawnLoc = new BlockLocation(1, 2, 1);
-                                const player = test.spawnSimulatedPlayer(spawnLoc, simName);
-                                player.addEffect(MinecraftEffectTypes.speed, 99999, 4, false);
-                                player.addEffect(MinecraftEffectTypes.jumpBoost, 99999, 1, false);
-                                player.setGameMode(GameMode.creative);
-                                player.addTag("simPlayer");
+                            try {
+                                await runCmd(p, `testfor ${selectedPlayerRaw.name}`);
+                                GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
+                                    const spawnLoc = new BlockLocation(1, 2, 1);
+                                    const player = test.spawnSimulatedPlayer(spawnLoc, simName);
+                                    player.addEffect(MinecraftEffectTypes.speed, 99999, 4, false);
+                                    player.addEffect(MinecraftEffectTypes.jumpBoost, 99999, 1, false);
+                                    player.setGameMode(GameMode.creative);
+                                    player.addTag("simPlayer");
 
-                                test
-                                    .startSequence()
-                                    .thenExecuteFor(timeInTicks, async () => {
-                                        player.lookAtEntity(selectedPlayerRaw);
-                                        player.navigateToEntity(selectedPlayerRaw);
-                                        try {
-                                            await runCmd(player, `testfor @a[name=${selectedPlayerRaw.name}, r=10]`);
-                                        } catch (e) {
-                                            try { await runCmd(player, `tp @s ${selectedPlayerRaw.name}`) } catch (e) { }
-                                        }
-                                    })
-                            })
-                                .maxTicks(timeInTicks)
-                                .setupTicks(0)
-                                .structureName("SimFolder:simtest")
-                                .tag(GameTest.Tags.suiteDefault);
-                            while (!summoned) {
-                                try {
-                                    await runCmd(p, `testfor @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=9]`);
-                                    offset = offset + 10;
-                                } catch (e) {
-                                    await runCmd(p, `execute @s ~${offset} ~ ~ fill ~4 317 ~-4 ~-4 317 ~4 glass`);
-                                    await runCmd(p, `execute @s ~${offset} 318 ~ gametest run simtest:sim_test${simtest} false 1`);
-                                    await runCmd(p, `summon au:basedetect ~${offset} 318 ~`);
-                                    await runCmd(p, `tag @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=1, c=1] add simNotSpawned`);
-                                    summoned = true;
+                                    test
+                                        .startSequence()
+                                        .thenExecuteFor(timeInTicks, async () => {
+                                            player.lookAtEntity(selectedPlayerRaw);
+                                            player.navigateToEntity(selectedPlayerRaw);
+                                            try {
+                                                await runCmd(player, `testfor @a[name=${selectedPlayerRaw.name}, r=10]`);
+                                            } catch (e) {
+                                                try { await runCmd(player, `tp @s ${selectedPlayerRaw.name}`) } catch (e) { }
+                                            }
+                                        })
+                                })
+                                    .maxTicks(timeInTicks)
+                                    .setupTicks(0)
+                                    .structureName("SimFolder:simtest")
+                                    .tag(GameTest.Tags.suiteDefault);
+                                while (!summoned) {
+                                    try {
+                                        await runCmd(p, `testfor @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=9]`);
+                                        offset = offset + 10;
+                                    } catch (e) {
+                                        await runCmd(p, `execute @s ~${offset} ~ ~ fill ~4 317 ~-4 ~-4 317 ~4 glass`);
+                                        await runCmd(p, `execute @s ~${offset} 318 ~ gametest run simtest:sim_test${simtest} false 1`);
+                                        await runCmd(p, `summon au:basedetect ~${offset} 318 ~`);
+                                        await runCmd(p, `tag @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=1, c=1] add simNotSpawned`);
+                                        summoned = true;
+                                    }
                                 }
+                                simtest++;
+                            } catch (e) {
+                                await runTellraw(p, '§cError, the player you selected is now offline.');
                             }
-                            simtest++;
                         });
                     }
                 });
