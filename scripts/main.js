@@ -185,9 +185,9 @@ function adminCommands(p) {
     form.body("Select a command");
     form.button("<-- Back");
     form.button("Ban or unban menu");
+    form.button("Simulated player");
     form.button("Kill a player");
     form.button("Launch a player");
-    form.button("Simulated player");
     form.show(p).then((response) => {
         switch (response.selection) {
             case 0: { //Back
@@ -196,37 +196,78 @@ function adminCommands(p) {
             case 1: { //Ban or unban menu
                 banUnbanMenu(p);
             } break;
-            case 2: { //Kill a player
-                let form = new ModalFormData();
+            case 2: { //Make a sim player menu
+                simPlayer(p);
+            } break;
+            case 3: { //Kill a player
+                let playersArray = players.map(pname => pname.name);
+                let locPlayers = players;
+                const form = new ActionFormData()
+                    .title("Kill a player")
+                    .body("Select an online player to kill")
+                    .button("<-- Back")
+                    .button("Type a player manually instead");
+                for (const player of playersArray) {
+                    form.button(player, "textures/icons/steve_icon.png");
+                }
 
-                form.title("Kill a player");
-                form.textField("Type below the player you would like to kill.", "Player name");
-                form.toggle("Force death", true);
-                form.show(p).then(async result => {
-                    if (result.formValues[1] === true) {
-                        let playerToKill = result.formValues[0].toString();
-                        try {
-                            const query = {
-                                name: playerToKill
+                form.show(p).then((response) => {
+                    if (response.selection === 0) {
+                        adminCommands(p);
+                    } else if (response.selection === 1) {
+                        let form = new ModalFormData()
+                            .title("Kill a player")
+                            .textField("Type below the player you would like to kill.", "Player name")
+                            .toggle("Force death", true);
+                        form.show(p).then(async result => {
+                            let playerName = result.formValues[0];
+                            if (result.formValues[1] === true) {
+                                try {
+                                    const query = {
+                                        name: playerName
+                                    };
+                                    let playerEntity = [...world.getPlayers(query)][0];
+                                    playerEntity.kill();
+                                    await runTellraw(p, `§aThe player §b${playerName}§a has been succesfully killed.`);
+                                } catch (e) {
+                                    await runTellraw(p, `§cError, the player couldn't be killed or wasn't found.`);
+                                }
+                            } else if (result.formValues[1] === false) {
+                                try {
+                                    await runCmd(overworld, `kill ${playerName}`);
+                                    await runTellraw(p, `§aThe player §b${playerName}§a has been succesfully killed.`);
+                                } catch (e) {
+                                    await runTellraw(p, `§cError, the player couldn't be killed or wasn't found.`);
+                                }
                             }
-                            let playerEntity = [...world.getPlayers(query)];
-                            playerEntity[0].kill();
-                            await runTellraw(p, `§aThe player §b${playerToKill}§a has been succesfully killed.`);
-                        } catch (e) {
-                            await runTellraw(p, `§cError, the player couldn't be killed or wasn't found.`);
-                        }
-                    } else if (result.formValues[1] === false) {
-                        let playerToKill = result.formValues[0].toString();
-                        try {
-                            await runCmd(overworld, `kill ${playerToKill}`);
-                            await runTellraw(p, `§aThe player §b${playerToKill}§a has been succesfully killed.`);
-                        } catch (e) {
-                            await runTellraw(p, `§cError, the player couldn't be killed or wasn't found.`);
-                        }
+                        });
+                    } else if (response.selection > 1) {
+                        let selectedPlayer = locPlayers[response.selection - 2];
+                        
+                        let form = new ModalFormData()
+                            .title("Kill a player")
+                            .toggle("Force death", true);
+                        form.show(p).then(async result => {
+                            if (result.formValues[0] === true) {
+                                try {
+                                    selectedPlayer.kill();
+                                    await runTellraw(p, `§aThe player §b${selectedPlayer.name}§a has been succesfully killed.`);
+                                } catch (e) {
+                                    await runTellraw(p, `§cError, the player couldn't be killed or wasn't found.`);
+                                }
+                            } else if (result.formValues[0] === false) {
+                                try {
+                                    await runCmd(overworld, `kill ${selectedPlayer.name}`);
+                                    await runTellraw(p, `§aThe player §b${selectedPlayer.name}§a has been succesfully killed.`);
+                                } catch (e) {
+                                    await runTellraw(p, `§cError, the player couldn't be killed or wasn't found.`);
+                                }
+                            }
+                        });
                     }
                 });
             } break;
-            case 3: { //Launch a player
+            case 4: { //Launch a player
                 let playersArray = players.map(pname => pname.name);
                 const form = new ActionFormData()
                     .title("Launch a player")
@@ -282,9 +323,6 @@ function adminCommands(p) {
                         });
                     }
                 });
-            } break;
-            case 4: { //Make a sim player menu
-                simPlayer(p);
             } break;
         }
     });
