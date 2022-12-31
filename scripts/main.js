@@ -265,7 +265,7 @@ function adminCommands(p) {
 
                         let form = new MessageFormData()
                             .title("Launch a player")
-                            .body(`Are you sure you would like to launch §b${selectedPlayer}§r?`)
+                            .body(`Are you sure you want to launch §b${selectedPlayer}§r?`)
                             .button1("Yes")
                             .button2("No");
                         form.show(p).then(async result => {
@@ -348,7 +348,7 @@ function banPlayer(p) {
                 } else {
                     try {
                         await runCmd(overworld, `scoreboard players set "${player}-aureason${reason}-auban${bannedBy}" -auban 0`);
-                        await runCmd(overworld, `kick "${player}" "\n§l§6------------------------------------------------------\n§l§4§k|||||§r§l§cYou have been banned by §4${bannedBy}§c.§4§k|||||§r\n§l§4Reason: §c${reason}\n§r§l§6------------------------------------------------------§r"`);
+                        try { await runCmd(overworld, `kick "${player}" "\n§l§6------------------------------------------------------\n§l§4§k|||||§r§l§cYou have been banned by §4${bannedBy}§c.§4§k|||||§r\n§l§4Reason: §c${reason}\n§r§l§6------------------------------------------------------§r"`) } catch (e) { }
                         await runTellraw(p, `§aThe player §b${player}§a has been banned successfully with reason: §c${reason}§a.`);
                     } catch (e) {
                         await runTellraw(p, `§cError, couldn't ban the player.`);
@@ -366,7 +366,7 @@ function banPlayer(p) {
                 let bannedBy = p.name;
                 try {
                     await runCmd(overworld, `scoreboard players set "${selectedPlayer}-aureason${reason}-auban${bannedBy}" -auban 0`);
-                    await runCmd(overworld, `kick "${selectedPlayer}" "\n§l§6------------------------------------------------------\n§l§4§k|||||§r§l§cYou have been banned by §4${bannedBy}§c.§4§k|||||§r\n§l§4Reason: §c${reason}\n§r§l§6------------------------------------------------------§r"`);
+                    try { await runCmd(overworld, `kick "${selectedPlayer}" "\n§l§6------------------------------------------------------\n§l§4§k|||||§r§l§cYou have been banned by §4${bannedBy}§c.§4§k|||||§r\n§l§4Reason: §c${reason}\n§r§l§6------------------------------------------------------§r"`) } catch (e) { }
                     await runTellraw(p, `§aThe player §b${selectedPlayer}§a has been banned successfully with reason: §c${reason}§a.`);
                 } catch (e) {
                     await runTellraw(p, `§cError, couldn't ban the player.`);
@@ -427,7 +427,7 @@ function unBanPlayer(p) {
 
             let form = new MessageFormData();
             form.title("Unban menu");
-            form.body(`Are you sure you would like to unban §b${selectedPlayer}§r?`);
+            form.body(`Are you sure you want to unban §b${selectedPlayer}§r?`);
             form.button1("Yes");
             form.button2("No");
             form.show(p).then(async result => {
@@ -450,17 +450,17 @@ function simPlayer(p) {
     const form = new ActionFormData()
         .title("Create a simulated player")
         .body("What would you like the simulated player to do?")
-        .button("Kill and follow a player")
+        .button("Attack and follow a player")
         .button("Follow a player")
         .button("Idle")
     form.show(p).then((response) => {
         switch (response.selection) {
-            case 0: { //Kill and follow a player
+            case 0: { //Attack and follow a player
                 let playersArray = players.map(pname => pname.name);
                 let locPlayers = players;
                 const form = new ActionFormData()
-                    .title("Kill and follow a player")
-                    .body("Select an online player to kill and follow")
+                    .title("Attack and follow a player")
+                    .body("Select an online player to attack and follow")
                     .button("<-- Back")
                     .button("Type a player manually instead");
                 for (const player of playersArray) {
@@ -472,7 +472,7 @@ function simPlayer(p) {
                         simPlayer(p);
                     } else if (response.selection === 1) {
                         let form = new ModalFormData()
-                            .title("Kill and follow a player")
+                            .title("Attack and follow a player")
                             .textField("Type below the victim's name", "Online player's name")
                             .textField("Type below the name of the simulated player", "Simulated player's name")
                             .slider("Time in seconds the simulated player should attack", 2, 600, 1, 15);
@@ -541,7 +541,7 @@ function simPlayer(p) {
                     } else if (response.selection > 1) {
                         //El array no sirve en el mundo si cambian los jugadores (solucionado)
                         let form = new ModalFormData()
-                            .title("Kill and follow a player")
+                            .title("Attack and follow a player")
                             .textField("Type below the name of the simulated player", "Simulated player's name")
                             .slider("Time in seconds the simulated player should attack", 2, 600, 1, 15);
                         form.show(p).then(async result => {
@@ -749,7 +749,7 @@ function simPlayer(p) {
                 form.show(p).then(async result => {
                     let simName = result.formValues[0];
                     let timeInTicks = result.formValues[1] * 20;
-                    let lookClosePlayers = result.formValues[2];
+                    let lookClosePlayer = result.formValues[2];
                     let offset = 0;
                     let summoned = false;
                     let tpped = false;
@@ -763,11 +763,12 @@ function simPlayer(p) {
                         test
                             .startSequence()
                             .thenExecuteFor(timeInTicks, async () => {
-                                if (lookClosePlayers === true) {
+                                if (lookClosePlayer === true) {
                                     let closestP = [];
                                     let playerLoc = new Location(player.location.x, player.location.y, player.location.z);
                                     const query = {
                                         closest: 1,
+                                        maxDistance: 15,
                                         excludeNames: [player.name],
                                         location: playerLoc
                                     };
