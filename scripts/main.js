@@ -59,6 +59,15 @@ world.events.beforeItemUse.subscribe(data => {
     }
 });
 
+world.events.entityHurt.subscribe(async event => { //Usar scoreboard y operador terciario para saber está activo o no en el mundo
+    if (event.cause == "fall") {
+        await runCmd(overworld, 'say caída');
+    }
+    const { projectile, damagingEntity } = event;
+    try { await runCmd(overworld, `say ${projectile.typeId}`) } catch (e) { }
+    try { await runCmd(overworld, `say ${damagingEntity.typeId}`) } catch (e) { }
+});
+
 function adminUtilsGui(p) {
     const form = new ActionFormData();
 
@@ -101,7 +110,7 @@ function adminSettings(p) {
                 form.title("Admin settings");
                 form.textField("Set an admin", "Player name (all admins will be deleted)");
                 form.show(p).then(async result => {
-                    let admin = result.formValues[0].toString();
+                    let admin = result.formValues[0];
                     if (admin == "" || !admin) {
                         await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§cError, please specify the player name you would like to set as an admin.§r" }]}`);
                     } else if (isValidUsername(admin) == false) {
@@ -134,7 +143,7 @@ function adminSettings(p) {
                 form.title("Admin settings");
                 form.textField("Add an admin", "Player name");
                 form.show(p).then(async result => {
-                    let admin = result.formValues[0].toString();
+                    let admin = result.formValues[0];
                     if (admin == "" || !admin) {
                         await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§cError, please specify the player name you would like to add as an admin.§r" }]}`);
                     } else if (isValidUsername(admin) == false) {
@@ -243,7 +252,7 @@ function adminCommands(p) {
                         });
                     } else if (response.selection > 1) {
                         let selectedPlayer = locPlayers[response.selection - 2];
-                        
+
                         let form = new ModalFormData()
                             .title("Kill a player")
                             .toggle("Force death", true);
@@ -785,59 +794,61 @@ function simPlayer(p) {
                     .toggle("Look at close players", true);
 
                 form.show(p).then(async result => {
-                    let simName = result.formValues[0];
-                    let timeInTicks = result.formValues[1] * 20;
-                    let lookClosePlayer = result.formValues[2];
-                    let offset = 0;
-                    let summoned = false;
-                    let tpped = false;
+                    if (result.canceled === false) {
+                        let simName = result.formValues[0];
+                        let timeInTicks = result.formValues[1] * 20;
+                        let lookClosePlayer = result.formValues[2];
+                        let offset = 0;
+                        let summoned = false;
+                        let tpped = false;
 
-                    GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
-                        const spawnLoc = new BlockLocation(1, 2, 1);
-                        const player = test.spawnSimulatedPlayer(spawnLoc, simName);
-                        player.setGameMode(GameMode.creative);
-                        player.addTag("simPlayer");
+                        GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
+                            const spawnLoc = new BlockLocation(1, 2, 1);
+                            const player = test.spawnSimulatedPlayer(spawnLoc, simName);
+                            player.setGameMode(GameMode.creative);
+                            player.addTag("simPlayer");
 
-                        test
-                            .startSequence()
-                            .thenExecuteFor(timeInTicks, async () => {
-                                if (lookClosePlayer === true) {
-                                    let closestP = [];
-                                    let playerLoc = new Location(player.location.x, player.location.y, player.location.z);
-                                    const query = {
-                                        closest: 1,
-                                        maxDistance: 15,
-                                        excludeNames: [player.name],
-                                        location: playerLoc
-                                    };
-                                    try { closestP = [...overworld.getPlayers(query)][0] } catch (e) { }
-                                    try { player.lookAtEntity(closestP) } catch (e) { }
-                                }
-                                if (!tpped) {
-                                    try {
-                                        await runCmd(player, `tp ${p.name}`);
-                                        tpped = true;
-                                    } catch (e) { }
-                                }
-                            })
-                    })
-                        .maxTicks(timeInTicks)
-                        .setupTicks(0)
-                        .structureName("SimFolder:simtest")
-                        .tag(GameTest.Tags.suiteDefault);
-                    while (!summoned) {
-                        try {
-                            await runCmd(p, `testfor @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=9]`);
-                            offset = offset + 10;
-                        } catch (e) {
-                            await runCmd(p, `execute @s ~${offset} ~ ~ fill ~4 317 ~-4 ~-4 317 ~4 glass`);
-                            await runCmd(p, `execute @s ~${offset} 318 ~ gametest run simtest:sim_test${simtest} false 1`);
-                            await runCmd(p, `summon au:basedetect ~${offset} 318 ~`);
-                            await runCmd(p, `tag @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=1, c=1] add simNotSpawned`);
-                            summoned = true;
+                            test
+                                .startSequence()
+                                .thenExecuteFor(timeInTicks, async () => {
+                                    if (lookClosePlayer === true) {
+                                        let closestP = [];
+                                        let playerLoc = new Location(player.location.x, player.location.y, player.location.z);
+                                        const query = {
+                                            closest: 1,
+                                            maxDistance: 15,
+                                            excludeNames: [player.name],
+                                            location: playerLoc
+                                        };
+                                        try { closestP = [...overworld.getPlayers(query)][0] } catch (e) { }
+                                        try { player.lookAtEntity(closestP) } catch (e) { }
+                                    }
+                                    if (!tpped) {
+                                        try {
+                                            await runCmd(player, `tp ${p.name}`);
+                                            tpped = true;
+                                        } catch (e) { }
+                                    }
+                                })
+                        })
+                            .maxTicks(timeInTicks)
+                            .setupTicks(0)
+                            .structureName("SimFolder:simtest")
+                            .tag(GameTest.Tags.suiteDefault);
+                        while (!summoned) {
+                            try {
+                                await runCmd(p, `testfor @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=9]`);
+                                offset = offset + 10;
+                            } catch (e) {
+                                await runCmd(p, `execute @s ~${offset} ~ ~ fill ~4 317 ~-4 ~-4 317 ~4 glass`);
+                                await runCmd(p, `execute @s ~${offset} 318 ~ gametest run simtest:sim_test${simtest} false 1`);
+                                await runCmd(p, `summon au:basedetect ~${offset} 318 ~`);
+                                await runCmd(p, `tag @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=1, c=1] add simNotSpawned`);
+                                summoned = true;
+                            }
                         }
+                        simtest++;
                     }
-                    simtest++;
                 });
             }
         }
