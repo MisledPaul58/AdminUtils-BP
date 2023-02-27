@@ -12,10 +12,11 @@ world.events.tick.subscribe(async ({ currentTick }) => {
     players = [...world.getPlayers()];
 
     try { admins = [...world.scoreboard.getObjective('-au').getParticipants().map(admin => admin.displayName)] } catch (e) { }
-    if (players.length == 1 && firstPlayer == false) {
-        try { await runCmd(overworld, `scoreboard objectives add -au dummy`) } catch (e) { }
-        try { await runCmd(overworld, `scoreboard objectives add -auban dummy`) } catch (e) { }
+    if (players.length === 1 && firstPlayer === false) {
+        try { await runCmd(overworld, 'scoreboard objectives add -au dummy') } catch (e) { }
+        try { await runCmd(overworld, 'scoreboard objectives add -auban dummy') } catch (e) { }
         try { await runCmd(overworld, 'scoreboard objectives add snowProj dummy') } catch (e) { }
+        try { await runCmd(overworld, 'scoreboard objectives add arrowProj dummy') } catch (e) { }
         if (currentTick % 200 === 0) {
             await runCmd(overworld, `execute @a ~~~ tellraw @s {"rawtext":[{"text":"§l§4§kqww§r§l§bThanks for using Admin Utils! §aMade by §6MisledPaul58§4§kqww§r"}]}`);
             try {
@@ -60,13 +61,11 @@ world.events.beforeItemUse.subscribe(data => {
     }
 });
 
-world.events.entityHurt.subscribe(async event => { //Usar scoreboard y operador terciario para saber está activo o no en el mundo 
-    if (event.cause == "fall") {
-        await runCmd(overworld, 'say caída');
+world.events.entityHurt.subscribe(async event => { //Usar scoreboard y operador terciario para saber está activo o no en el mundo
+    const { projectile, damagingEntity, hurtEntity } = event;
+    if (damagingEntity.typeId === "minecraft:player" && isLightningBoltEnabled(damagingEntity.nameTag) && projectile) {
+        await runCmd(damagingEntity.dimension, `summon lightning_bolt ${hurtEntity.location.x} ${hurtEntity.location.y} ${hurtEntity.location.z}`);
     }
-    const { projectile, damagingEntity } = event;
-    try { await runCmd(overworld, `say ${projectile.typeId}`) } catch (e) { }
-    try { await runCmd(overworld, `say ${damagingEntity.typeId}`) } catch (e) { }
 });
 
 function adminUtilsGui(p) {
@@ -109,12 +108,12 @@ function adminSettings(p) {
                 let form = new ModalFormData();
 
                 form.title("Admin settings");
-                form.textField("Set an admin", "Player name (all admins will be deleted)");
+                form.textField("Set an admin", "Player's name (all admins will be deleted)");
                 form.show(p).then(async result => {
                     let admin = result.formValues[0];
                     if (admin == "" || !admin) {
-                        await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§cError, please specify the player name you would like to set as an admin.§r" }]}`);
-                    } else if (isValidUsername(admin) == false) {
+                        await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§cError, please specify the player's name you would like to set as an admin.§r" }]}`);
+                    } else if (isValidUsername(admin) === false) {
                         await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§cError, that doesn't look like a valid username.§r" }]}`);
                     } else {
                         let form = new MessageFormData();
@@ -123,7 +122,7 @@ function adminSettings(p) {
                         form.button1("Yes");
                         form.button2("No");
                         form.show(p).then(async (response) => {
-                            if (response.selection == 1) {
+                            if (response.selection === 1) {
                                 admins.forEach(async (value) => {
                                     try { await runCmd(overworld, `scoreboard players reset ${value} -au`) } catch (e) { }
                                 }); //Quizás intentar añadir alguna forma para poder asignar a varios admins a la vez 
@@ -142,12 +141,12 @@ function adminSettings(p) {
                 let form = new ModalFormData();
 
                 form.title("Admin settings");
-                form.textField("Add an admin", "Player name");
+                form.textField("Add an admin", "Player's name");
                 form.show(p).then(async result => {
                     let admin = result.formValues[0];
                     if (admin == "" || !admin) {
-                        await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§cError, please specify the player name you would like to add as an admin.§r" }]}`);
-                    } else if (isValidUsername(admin) == false) {
+                        await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§cError, please specify the player's name you would like to add as an admin.§r" }]}`);
+                    } else if (isValidUsername(admin) === false) {
                         await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§cError, that doesn't look like a valid username.§r" }]}`);
                     } else {
                         await runCmd(overworld, `scoreboard players set "-au${admin}-au" -au 0`);
@@ -159,12 +158,12 @@ function adminSettings(p) {
                 let form = new ModalFormData();
 
                 form.title("Admin settings");
-                form.textField("Remove an admin", "Player name");
+                form.textField("Remove an admin", "Player's name");
                 form.show(p).then(async result => {
-                    let admin = result.formValues[0].toString();
+                    let admin = result.formValues[0];
                     if (admin == "" || !admin) {
-                        await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§cError, please specify the admin player name you would like to remove.§r" }]}`);
-                    } else if (isValidUsername(admin) == false) {
+                        await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§cError, please specify the admin's name you would like to remove.§r" }]}`);
+                    } else if (isValidUsername(admin) === false) {
                         await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§cError, that doesn't look like a valid username.§r" }]}`);
                     } else {
                         try {
@@ -211,7 +210,7 @@ function adminCommands(p) {
                 simPlayer(p);
             } break;
             case 3: { //Projectiles tools
-
+                projectilePowers(p);
             } break;
             case 4: { //Kill a player 
                 let playersArray = players.map(pname => pname.name);
@@ -231,7 +230,7 @@ function adminCommands(p) {
                     } else if (response.selection === 1) {
                         let form = new ModalFormData()
                             .title("Kill a player")
-                            .textField("Type below the player you would like to kill.", "Player name")
+                            .textField("Type below the player you would like to kill.", "Player's name")
                             .toggle("Force death", true);
                         form.show(p).then(async result => {
                             let playerName = result.formValues[0];
@@ -298,7 +297,7 @@ function adminCommands(p) {
                     } else if (response.selection === 1) {
                         let form = new ModalFormData()
                             .title("Launch a player")
-                            .textField("Type below the player you would like to launch", "Player name");
+                            .textField("Type below the player you would like to launch", "Player's name");
                         form.show(p).then(async result => {
                             let player = result.formValues[0];
 
@@ -350,9 +349,9 @@ function banUnbanMenu(p) {
     form.button("Ban a player");
     form.button("Unban a player");
     form.show(p).then((response) => {
-        if (response.selection == 0) {
+        if (response.selection === 0) {
             banPlayer(p);
-        } else if (response.selection == 1) {
+        } else if (response.selection === 1) {
             unBanPlayer(p);
         }
     });
@@ -368,20 +367,20 @@ function banPlayer(p) {
     form.button("<-- Back");
     form.button("Type a player manually instead");
     for (const player of playersArray) {
-        if (isBanned(player) == false && !isAdmin(player)) {
+        if (isBanned(player) === false && !isAdmin(player)) {
             form.button(player, "textures/icons/steve_icon.png");
             notBannedPlayers.push(player);
         }
     }
 
     form.show(p).then((response) => {
-        if (response.selection == 0) {
+        if (response.selection === 0) {
             banUnbanMenu(p);
-        } else if (response.selection == 1) {
+        } else if (response.selection === 1) {
             let form = new ModalFormData();
 
             form.title("Ban menu");
-            form.textField("Type below the player you would like to ban.", "Player name");
+            form.textField("Type below the player you would like to ban.", "Player's name");
             form.textField("Enter a reason:", "Reason");
             form.show(p).then(async result => {
                 let player = result.formValues[0];
@@ -441,19 +440,19 @@ function unBanPlayer(p) {
     }
 
     for (const player of bannedPlayers) {
-        if (isBanned(player) == true && !isAdmin(player)) {
+        if (isBanned(player) === true && !isAdmin(player)) {
             form.button(player, "textures/icons/steve_icon.png");
         }
     }
 
     form.show(p).then((response) => {
-        if (response.selection == 0) {
+        if (response.selection === 0) {
             banUnbanMenu(p);
-        } else if (response.selection == 1) {
+        } else if (response.selection === 1) {
             let form = new ModalFormData();
 
             form.title("Unban menu");
-            form.textField("Type below the player you would like to unban.", "Player name");
+            form.textField("Type below the player you would like to unban.", "Player's name");
             form.show(p).then(async result => {
                 let player = result.formValues[0];
                 let reason = getBanReason(player);
@@ -465,7 +464,7 @@ function unBanPlayer(p) {
                 } else if (!isValidUsername(player)) {
                     await runTellraw(p, `§cError, the username you entered is invalid.`);
 
-                } else if (isBanned(player) == true && isValidUsername(player)) {
+                } else if (isBanned(player) === true && isValidUsername(player)) {
                     try {
                         await runCmd(overworld, `scoreboard players reset "${player}-aureason${reason}-auban${bannedBy}" -auban`);
                         await runTellraw(p, `§aThe player §b${player}§a has been unbanned successfully.`);
@@ -483,7 +482,7 @@ function unBanPlayer(p) {
             form.button1("Yes");
             form.button2("No");
             form.show(p).then(async result => {
-                if (result.selection == 1) {
+                if (result.selection === 1) {
                     let reason = getBanReason(selectedPlayer);
                     let bannedBy = getBannedBy(selectedPlayer);
                     try {
@@ -498,7 +497,7 @@ function unBanPlayer(p) {
     });
 }
 
-function projectilesTools(p) {
+function projectilePowers(p) {
     const form = new ActionFormData()
         .title("Projectiles tools")
         .body("Select an option")
@@ -509,28 +508,199 @@ function projectilesTools(p) {
         if (response.selection === 0) {
             adminCommands(p);
         } else if (response.selection === 1) {
+            snowballTools();
+            function snowballTools() {
+                const form = new ActionFormData()
+                    .title("Snowball tools")
+                    .body("Select an option")
+                    .button("<-- Back")
+                    .button("Lightning bolt");
+                form.show(p).then((response) => {
+                    if (response.selection === 0) {
+                        projectilePowers(p);
+                    } else if (response.selection === 1) {
+                        lightningBolt();
+                        function lightningBolt() {
+                            const form = new ActionFormData()
+                                .title("Lightning bolt")
+                                .body("Select an option")
+                                .button("<-- Back")
+                                .button("Enable for a player")
+                                .button("Disable for a player");
+                            form.show(p).then((response) => {
+                                if (response.selection === 0) {
+                                    snowballTools();
+                                } else if (response.selection === 1) {
+                                    let playersArray = players.map(pname => pname.name).filter(pname => !isLightningBoltEnabled(pname)); //Get disabled players
+                                    const form = new ActionFormData()
+                                        .title("Enable for a player")
+                                        .body("Select an online player to enable lightning bolt summoning when throwing a snowball at an entity.")
+                                        .button("<-- Back")
+                                        .button("Type a player manually instead");
+                                    for (const player of playersArray) {
+                                        form.button(player, "textures/icons/steve_icon.png");
+                                    }
 
+                                    form.show(p).then((response) => {
+                                        if (response.selection === 0) {
+                                            lightningBolt();
+                                        } else if (response.selection === 1) {
+                                            let form = new ModalFormData()
+                                                .title("Enable for a player")
+                                                .textField("Type below the player you would like to enable lightning bolt summoning.", "Player's name");
+                                            form.show(p).then(async result => {
+                                                let player = result.formValues[0];
+
+                                                if (isLightningBoltEnabled(player)) {
+                                                    await runTellraw(p, "§cError, the specified player is already enabled.");
+
+                                                } else if (!isValidUsername(player)) {
+                                                    await runTellraw(p, "§Error, the username you entered is invalid.");
+
+                                                } else {
+                                                    try {
+                                                        await runCmd(overworld, `scoreboard players set "-au${player}-au" snowProj 0`);
+                                                        await runTellraw(p, `§aLightning bolt summoning has been enabled for §b${player}§a successfully.`);
+                                                    } catch (e) {
+                                                        await runTellraw(p, "§cError, couldn't enable lightning bolt summoning for the selected player.");
+                                                    }
+                                                }
+                                            });
+                                        } else if (response.selection > 1) {
+                                            let selectedPlayer = playersArray[response.selection - 2]
+                                            let form = new MessageFormData()
+                                                .title("Enable for a player")
+                                                .body(`Are you sure you want to enable lightning bolt summoning when throwing a snowball for §b${selectedPlayer}§r?`)
+                                                .button1("Yes")
+                                                .button2("No");
+                                            form.show(p).then(async result => {
+                                                if (result.selection === 1) {
+                                                    try {
+                                                        await runCmd(overworld, `scoreboard players set "-au${selectedPlayer}-au" snowProj 0`);
+                                                        await runTellraw(p, `§aLightning bolt summoning has been enabled for §b${selectedPlayer}§a successfully.`);
+                                                    } catch (e) {
+                                                        await runTellraw(p, "§cError, couldn't enable lightning bolt summoning for the selected player.");
+                                                    }
+                                                }
+                                            });
+                                        }
+                                    });
+                                } else if (response.selection === 2) {
+
+                                }
+                            });
+                        }
+                    }
+                });
+            }
         } else if (response.selection === 2) {
-
-        }
-    });
-    function snowballTools() {
-        const form = new ActionFormData()
-            .title("Snowball tools")
-            .body("Select an option")
-            .button("<-- Back")
-            .button("Lightning bolt");
-        form.show(p).then((response) => {
-            if (response.selection === 0) {
-                projectilesTools(p);
-            } else if (response.selection === 1) {
+            function arrowTools() {
 
             }
-        });
-    }
-    function arrowTools() {
+        }
+    });
 
-    }
+    const formA = new ActionFormData()
+        .title("Projectile powers")
+        .body("Select the power you would like to use.")
+        .button("<-- Back")
+        .button("Lightning bolt summoning");
+    formA.show(p).then((response) => {
+        if (response.selection === 0) {
+            adminCommands(p);
+        } else if (response.selection === 1) {
+            lightningBolt();
+            function lightningBolt() {
+                const form = new ActionFormData()
+                    .title("Lightning bolt summoning")
+                    .body("Select an option")
+                    .button("<-- Back")
+                    .button("Enable for a player")
+                    .button("Disable for a player");
+                form.show(p).then((response) => {
+                    if (response.selection === 0) {
+                        projectilePowers(p);
+                    } else if (response.selection === 1) {
+                        let playersArray = players.map(pname => pname.name); //Get disabled players
+                        const form = new ActionFormData()
+                            .title("Enable for a player")
+                            .body("Select an online player to enable lightning bolt summoning when shooting a projectile at an entity.\nYou will be able to select the projectiles later.")
+                            .button("<-- Back")
+                            .button("Type a player manually instead");
+                        for (const player of playersArray) {
+                            form.button(player, "textures/icons/steve_icon.png");
+                        }
+
+                        form.show(p).then((response) => {
+                            if (response.selection === 0) {
+                                lightningBolt();
+                            } else if (response.selection === 1) {
+                                let form = new ModalFormData()
+                                    .title("Enable for a player")
+                                    .textField("Type below the player you would like to enable lightning bolt summoning.", "Player's name")
+                                    .toggle("Snowball", )
+                                    .toggle("Arrow", false);
+                                form.show(p).then(async result => {
+                                    let player = result.formValues[0];
+                                    let snowball = result.formValues[1];
+                                    let arrow = result.formValues[2];
+
+                                    if (!isValidUsername(player)) {
+                                        await runTellraw(p, "§Error, the username you entered is invalid.");
+
+                                    } else {
+                                        if (snowball === true) {
+                                            try {
+                                                await runCmd(overworld, `scoreboard players set "-au${player}-au" snowProj 0`);
+                                                await runTellraw(p, `§aLightning bolt summoning with §bsnowball§a has been enabled for §b${player}§a successfully.`);
+                                            } catch (e) {
+                                                await runTellraw(p, "§cError, couldn't enable lightning bolt summoning with §4snowball§c for the selected player, perhaps it's already enabled.");
+                                            }
+                                        } else {
+
+                                        }
+                                        if (arrow === true) {
+                                            try {
+                                                await runCmd(overworld, `scoreboard players set "-au${player}-au" arrowProj 0`);
+                                                await runTellraw(p, `§aLightning bolt summoning with §barrow§a has been enabled for §b${player}§a successfully.`);
+                                            } catch (e) {
+                                                await runTellraw(p, "§cError, couldn't enable lightning bolt summoning with §4arrow§cfor the selected player, perhaps it's already enabled.");
+                                            }
+                                        } else {
+
+                                        }
+                                    }
+                                });
+                            } else if (response.selection > 1) {
+                                let selectedPlayer = playersArray[response.selection - 2]
+                                let form = new ModalFormData()
+                                    .title("Enable for a player")
+                                    .toggle("Snowball", false)
+                                    .toggle("Arrow", false);
+                                form.show(p).then(async (response) => {
+                                    let snowball = response.formValues[0];
+                                    let arrow = response.formValues[1];
+
+                                    if (snowball === true) {
+                                        try {
+                                            await runCmd(overworld, `scoreboard players set "-au${selectedPlayer}-au" snowProj 0`);
+                                            await runTellraw(p, `§aLightning bolt summoning with §bsnowball§a has been enabled for §b${selectedPlayer}§a successfully.`);
+                                        } catch (e) {
+                                            await runTellraw(p, "§cError, couldn't enable lightning bolt summoning with §4snowball§c for the selected player, perhaps it's already enabled.");
+                                        }
+                                    } else if (arrow === true) {
+
+                                    }
+                                });
+                            }
+                        });
+                    } else if (response.selection === 2) {
+
+                    }
+                });
+            }
+        }
+    });
 }
 
 function simPlayer(p) {
@@ -904,9 +1074,9 @@ function runTellraw(player, txt) {
 }
 
 function isValidUsername(username) {
-    if (username.match(/^ | $/) != null || username.match(/[^A-Za-z0-9À-ÿ\u00f1\u00d1 ]+/) != null) {
+    if (username.match(/^ | $/) !== null || username.match(/[^A-Za-z0-9À-ÿ\u00f1\u00d1 ]+/) !== null) {
         return false;
-    } else if (username.match(/^ | $/) == null && username.match(/[^A-Za-z0-9À-ÿ\u00f1\u00d1 ]+/) == null) {
+    } else if (username.match(/^ | $/) === null && username.match(/[^A-Za-z0-9À-ÿ\u00f1\u00d1 ]+/) === null) {
         return true;
     }
 }
@@ -950,3 +1120,28 @@ function getBannedBy(player) {
     }
     return bannedBys[bannedPlayers.indexOf(player)];
 }
+
+function isLightningBoltEnabled(pname) {
+    let snowProj = [];
+    try { snowProj = [...world.scoreboard.getObjective('snowProj').getParticipants().map(participant => participant.displayName)] } catch (e) { } //Get participants for snowProj
+    if (snowProj.includes(`-au${pname}-au`)) return true
+    else return false;
+}
+
+function isPowerEnabled(pname, projectile, power) {
+    let projScoreboard = [];
+    try { projScoreboard = [...world.scoreboard.getObjective('-auProj').getParticipants().map(participant => participant.displayName)]} catch (e) { }
+    let result = projScoreboard.filter(participant => { //-auMisledPaul58976-au+snowon-bolton+arrowoff-boltoff
+        let regex = new RegExp(`(?<=-au${pname}-au.*\+${projectile}on.*-${power})(on)(?=.*\+${projectile}.*\+)`);
+        let filter = participant.match(regex)[0];
+    });
+    //Seguir investigando el match para el -snowon-boltoff
+}
+/* const pname = "MisledPaul58976";
+   const xd = "-auMisledPaul58976-au+snowon-bolton+arrowoff-boltoff";
+   const projectile = "snow";
+   const power = "bolt";
+   const regex = new RegExp(`(?<=-au${pname}-au.*\+${projectile}on.*-${power})on(?=.*\+${projectile}.*\+)`);
+
+   console.log(xd.match(regex)[1]);
+*/
