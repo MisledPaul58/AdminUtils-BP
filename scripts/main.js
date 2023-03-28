@@ -1,4 +1,4 @@
-import { BlockLocation, Location, EntityQueryOptions, world, MinecraftEffectTypes, GameMode } from "@minecraft/server";
+import { world, MinecraftEffectTypes, GameMode, system, Vector } from "@minecraft/server";
 import * as GameTest from "@minecraft/server-gametest";
 import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/server-ui";
 
@@ -8,7 +8,9 @@ let players = [];
 let admins = [];
 let simtest = 0;
 
-world.events.tick.subscribe(async ({ currentTick }) => {
+//Seguir actualizando las cosas (Location ya no existe, han cambiado ProjectileHitEvent, etc)
+system.runInterval(async tick => {
+    let { currentTick } = system;
     players = [...world.getPlayers()];
 
     try { admins = [...world.scoreboard.getObjective('-au').getParticipants().map(admin => admin.displayName)] } catch (e) { }
@@ -41,7 +43,7 @@ world.events.tick.subscribe(async ({ currentTick }) => {
             }
         }
     }
-});
+}, 1);
 
 world.events.playerJoin.subscribe(async event => {
     if (isBanned(event.player.name)) {
@@ -638,7 +640,7 @@ function projectilePowers(p) {
                                 let form = new ModalFormData()
                                     .title("Enable for a player")
                                     .textField("Type below the player you would like to enable lightning bolt summoning.", "Player's name")
-                                    .toggle("Snowball", )
+                                    .toggle("Snowball",)
                                     .toggle("Arrow", false);
                                 form.show(p).then(async result => {
                                     let player = result.formValues[0];
@@ -750,12 +752,11 @@ function simPlayer(p) {
                                 try {
                                     await runCmd(overworld, `testfor ${victimEntity.name}`);
                                     GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
-                                        const spawnLoc = new BlockLocation(1, 2, 1);
-                                        const player = test.spawnSimulatedPlayer(spawnLoc, simName);
+                                        const spawnLoc = new Vector(1, 2, 1);
+                                        const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
                                         player.addEffect(MinecraftEffectTypes.speed, 99999, 4, false);
                                         player.addEffect(MinecraftEffectTypes.jumpBoost, 99999, 1, false);
                                         player.addEffect(MinecraftEffectTypes.strength, 99999, 2, false);
-                                        player.setGameMode(GameMode.creative);
                                         player.addTag("simPlayer");
 
                                         test
@@ -811,12 +812,11 @@ function simPlayer(p) {
                             try {
                                 await runCmd(p, `testfor ${selectedPlayerRaw.name}`);
                                 GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
-                                    const spawnLoc = new BlockLocation(1, 2, 1);
-                                    const player = test.spawnSimulatedPlayer(spawnLoc, simName);
+                                    const spawnLoc = new Vector(1, 2, 1);
+                                    const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
                                     player.addEffect(MinecraftEffectTypes.speed, 99999, 4, false);
                                     player.addEffect(MinecraftEffectTypes.jumpBoost, 99999, 1, false);
                                     player.addEffect(MinecraftEffectTypes.strength, 99999, 2, false);
-                                    player.setGameMode(GameMode.creative);
                                     player.addTag("simPlayer");
 
                                     test
@@ -894,11 +894,10 @@ function simPlayer(p) {
                                 try {
                                     await runCmd(overworld, `testfor ${victimEntity.name}`);
                                     GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
-                                        const spawnLoc = new BlockLocation(1, 2, 1);
-                                        const player = test.spawnSimulatedPlayer(spawnLoc, simName);
+                                        const spawnLoc = new Vector(1, 2, 1);
+                                        const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
                                         player.addEffect(MinecraftEffectTypes.speed, 99999, 4, false);
                                         player.addEffect(MinecraftEffectTypes.jumpBoost, 99999, 1, false);
-                                        player.setGameMode(GameMode.creative);
                                         player.addTag("simPlayer");
 
                                         test
@@ -953,11 +952,10 @@ function simPlayer(p) {
                             try {
                                 await runCmd(p, `testfor ${selectedPlayerRaw.name}`);
                                 GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
-                                    const spawnLoc = new BlockLocation(1, 2, 1);
-                                    const player = test.spawnSimulatedPlayer(spawnLoc, simName);
+                                    const spawnLoc = new Vector(1, 2, 1);
+                                    const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
                                     player.addEffect(MinecraftEffectTypes.speed, 99999, 4, false);
                                     player.addEffect(MinecraftEffectTypes.jumpBoost, 99999, 1, false);
-                                    player.setGameMode(GameMode.creative);
                                     player.addTag("simPlayer");
 
                                     test
@@ -1013,9 +1011,8 @@ function simPlayer(p) {
                         let tpped = false;
 
                         GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
-                            const spawnLoc = new BlockLocation(1, 2, 1);
-                            const player = test.spawnSimulatedPlayer(spawnLoc, simName);
-                            player.setGameMode(GameMode.creative);
+                            const spawnLoc = new Vector(1, 2, 1);
+                            const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
                             player.addTag("simPlayer");
 
                             test
@@ -1023,7 +1020,7 @@ function simPlayer(p) {
                                 .thenExecuteFor(timeInTicks, async () => {
                                     if (lookClosePlayer === true) {
                                         let closestP = [];
-                                        let playerLoc = new Location(player.location.x, player.location.y, player.location.z);
+                                        let playerLoc = new Vector(player.location.x, player.location.y, player.location.z);
                                         const query = {
                                             closest: 1,
                                             maxDistance: 15,
@@ -1130,7 +1127,7 @@ function isLightningBoltEnabled(pname) {
 
 function isPowerEnabled(pname, projectile, power) {
     let projScoreboard = [];
-    try { projScoreboard = [...world.scoreboard.getObjective('-auProj').getParticipants().map(participant => participant.displayName)]} catch (e) { }
+    try { projScoreboard = [...world.scoreboard.getObjective('-auProj').getParticipants().map(participant => participant.displayName)] } catch (e) { }
     let result = projScoreboard.filter(participant => { //-auMisledPaul58976-au+snowon-bolton+arrowoff-boltoff
         let regex = new RegExp(`(?<=-au${pname}-au.*\+${projectile}on.*-${power})(on)(?=.*\+${projectile}.*\+)`);
         let filter = participant.match(regex)[0];
