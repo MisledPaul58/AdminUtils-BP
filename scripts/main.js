@@ -67,40 +67,45 @@ world.events.beforeItemUse.subscribe(data => {
     }
 });
 
-world.events.projectileHit.subscribe(async event => {
+world.events.projectileHit.subscribe(event => {
     const { dimension, projectile, source } = event;
     const HitEntity = event.getEntityHit().entity;
-    if (source.typeId === "minecraft:player") {
-        if (projectile.typeId === "minecraft:snowball") {
-            if (isPowerEnabled(source.nameTag, "snowball", "bolt")) {
+    if (source.typeId === "minecraft:player" && HitEntity.typeId !== "minecraft:tnt") {
+        async function RunProjectilePowers() {
+            const proj = projectile.typeId.replace(/minecraft:/, '');
+            if (isPowerEnabled(source.nameTag, proj, "bolt")) {
                 await runCmd(dimension, `summon lightning_bolt ${HitEntity.location.x} ${HitEntity.location.y} ${HitEntity.location.z}`);
             }
-            if (isPowerEnabled(source.nameTag, "snowball", "freeze")) { //Centrarlos, quitando los decimales y sustituyendolos por ,5, o quitando los decimales y sumando 1 (minecraft les resta 0,5 a los números sin decimales para encajar en el centro del bloque), con Math floor es mejor (listo)
+            if (isPowerEnabled(source.nameTag, proj, "freeze")) { //Centrarlos, quitando los decimales y sustituyendolos por ,5, o quitando los decimales y sumando 1 (minecraft les resta 0,5 a los números sin decimales para encajar en el centro del bloque), con Math floor es mejor (listo)
                 const entityLoc = HitEntity.location;
                 await runCmd(HitEntity, `tp ${Math.floor(entityLoc.x)} ${Math.floor(entityLoc.y)} ${Math.floor(entityLoc.z)}`);
                 await runCmd(dimension, `fill ${entityLoc.x - 1} ${entityLoc.y - 1} ${entityLoc.z - 1} ${entityLoc.x + 1} ${entityLoc.y + 2} ${entityLoc.z + 1} ice [] replace air`);
+                await runCmd(dimension, `playsound random.glass @a ${entityLoc.x} ${entityLoc.y} ${entityLoc.z} 100`);
             }
-            if (isPowerEnabled(source.nameTag, "snowball", "tnt")) {
+            if (isPowerEnabled(source.nameTag, proj, "tnt")) {
                 try {
                     await runCmd(HitEntity, `summon tnt`);
                     const query = {
                         closest: 1,
                         type: "tnt",
+                        excludeTags: ["-autnt"],
                         location: HitEntity.location
                     };
                     const tnt = [...HitEntity.dimension.getEntities(query)][0];
                     const _tntFlag = tntFlag;
                     tnt.addTag(_tntFlag);
-                    tntFlag = tntFlag.replace(/[0-9]+/, tntFlag.match(/[0-9]+/)[0] + 1); //Va sumando 1 cada vez
-                    while (await runCmd(tnt.dimension, `testfor @e[type=tnt, tag=${_tntFlag}]`)) {
-                        await runCmd(HitEntity, `tp @e[type=tnt, tag="${_tntFlag}"] @s`);
+                    tnt.addTag("-autnt");
+                    tntFlag = `-autnt${tntFlag.match(/[0-9]+/)[0] * 1 + 1}`; //Va sumando 1 cada vez
+                    async function asyncTntTp() {
+                        while (await runCmd(tnt.dimension, `testfor @e[type=tnt, tag=${_tntFlag}]`)) {
+                            await runCmd(HitEntity, `tp @e[type=tnt, tag="${_tntFlag}"] @s`);
+                        }
                     }
+                    asyncTntTp();
                 } catch (e) { }
             }
-            await runCmd(overworld, `say aaa`); //Este comando se ejecuta después del wait :p
-        } else if (projectile.typeId === "minecraft:arrow") {
-
         }
+        RunProjectilePowers();
     }
 });
 
@@ -224,16 +229,16 @@ function adminSettings(p) {
 }
 
 function adminCommands(p) {
-    const form = new ActionFormData();
-
-    form.title("Admin commands");
-    form.body("Select a command");
-    form.button("<-- Back");
-    form.button("Ban or unban menu");
-    form.button("Simulated player");
-    form.button("Projectiles powers");
-    form.button("Kill a player");
-    form.button("Launch a player");
+    const form = new ActionFormData()
+        .title("Admin commands")
+        .body("Select a command")
+        .button("<-- Back")
+        .button("Ban or unban menu")
+        .button("Simulated player")
+        .button("Projectiles powers")
+        .button("Freeze a player")
+        .button("Kill a player")
+        .button("Launch a player")
     form.show(p).then((response) => {
         switch (response.selection) {
             case 0: { //Back 
@@ -248,7 +253,10 @@ function adminCommands(p) {
             case 3: { //Projectiles powers
                 projectilePowers(p);
             } break;
-            case 4: { //Kill a player 
+            case 4: { //Freeze a player
+                
+            } break;
+            case 5: { //Kill a player 
                 let playersArray = players.map(pname => pname.name);
                 let locPlayers = players;
                 const form = new ActionFormData()
@@ -316,7 +324,7 @@ function adminCommands(p) {
                     }
                 });
             } break;
-            case 5: { //Launch a player 
+            case 6: { //Launch a player 
                 let playersArray = players.map(pname => pname.name);
                 const form = new ActionFormData()
                     .title("Launch a player")
@@ -423,7 +431,10 @@ function banPlayer(p) {
                 let reason = result.formValues[1];
                 let bannedBy = p.name;
 
-                if (isBanned(player)) {
+                if (reason === "") {
+                    await runTellraw(p, `§cError, you must enter a reason.`);
+
+                } else if (isBanned(player)) {
                     await runTellraw(p, `§cError, the specified player is already banned.`);
 
                 } else if (isAdmin(player)) {
@@ -539,12 +550,15 @@ function projectilePowers(p) {
         .body("Select an option")
         .button("<-- Back")
         .button("Snowball powers")
-        .button("Arrow powers");
+        .button("Arrow powers")
+        .button("Egg powers");
     form.show(p).then((response) => {
         if (response.selection === 0) {
             adminCommands(p);
-        } else if (response.selection === 1) {
+        } else if (response.selection >= 1) {
             const playersArray = players.map(pname => pname.name);
+            const projectiles = ["snowball", "arrow", "egg"];
+            const selectedProj = projectiles[response.selection - 1];
             const form = new ActionFormData()
                 .title("Toggle for a player")
                 .body("Select an online player to enable/disable certain powers when throwing a snowball at an entity.\nYou will be able to select those powers later.")
@@ -566,13 +580,12 @@ function projectilePowers(p) {
                         if (!isValidUsername(player)) {
                             await runTellraw(p, "§Error, the username you entered is invalid.");
                         } else {
-                            const bolt = isPowerEnabled(player, "snowball", "bolt");
-                            const freeze = isPowerEnabled(player, "snowball", "freeze");
-                            const tnt = isPowerEnabled(player, "snowball", "tnt");
-                            await runCmd(overworld, `say ${bolt}`); //Debug
+                            const bolt = isPowerEnabled(player, selectedProj, "bolt");
+                            const freeze = isPowerEnabled(player, selectedProj, "freeze");
+                            const tnt = isPowerEnabled(player, selectedProj, "tnt");
 
                             let form = new ModalFormData()
-                                .title(`${player}'s powers`)
+                                .title(`${player}'s ${selectedProj} powers`)
                                 .toggle("Lightning bolt", bolt)
                                 .toggle("Freeze", freeze)
                                 .toggle("TNT", tnt);
@@ -586,16 +599,15 @@ function projectilePowers(p) {
                                 const _tnt = result.formValues[2];
                                 const tntstate = _tnt === true ? "on" : "off";
 
-                                await runCmd(overworld, `say ${boltstate}`); //Debug
                                 try {
                                     if (_bolt !== bolt) {
-                                        await setPower(player, "snowball", "bolt", boltstate);
+                                        await setPower(player, selectedProj, "bolt", boltstate);
                                     }
                                     if (_freeze !== freeze) {
-                                        await setPower(player, "snowball", "freeze", freezestate);
+                                        await setPower(player, selectedProj, "freeze", freezestate);
                                     }
                                     if (_tnt !== tnt) {
-                                        await setPower(player, "snowball", "tnt", tntstate);
+                                        await setPower(player, selectedProj, "tnt", tntstate);
                                     }
                                     await runTellraw(p, `§aThe powers have been set correctly. Showing current state of all the powers for §b${player}§a:\n§7* §bLightning bolt: ${boltstate === "on" ? "§a" : "§c"}${boltstate}\n§7* §bFreeze: ${freezestate === "on" ? "§a" : "§c"}${freezestate}\n§7* §bTnt: ${tntstate === "on" ? "§a" : "§c"}${tntstate}`);
                                 } catch (e) {
@@ -606,12 +618,12 @@ function projectilePowers(p) {
                     });
                 } else if (response.selection > 1) {
                     const selectedPlayer = playersArray[response.selection - 2];
-                    const bolt = isPowerEnabled(selectedPlayer, "snowball", "bolt");
-                    const freeze = isPowerEnabled(selectedPlayer, "snowball", "freeze");
-                    const tnt = isPowerEnabled(selectedPlayer, "snowball", "tnt");
+                    const bolt = isPowerEnabled(selectedPlayer, selectedProj, "bolt");
+                    const freeze = isPowerEnabled(selectedPlayer, selectedProj, "freeze");
+                    const tnt = isPowerEnabled(selectedPlayer, selectedProj, "tnt");
 
                     let form = new ModalFormData()
-                        .title(`${selectedPlayer}'s powers`)
+                        .title(`${selectedPlayer}'s ${selectedProj} powers`)
                         .toggle("Lightning bolt", bolt)
                         .toggle("Freeze", freeze)
                         .toggle("TNT", tnt);
@@ -627,13 +639,13 @@ function projectilePowers(p) {
 
                         try {
                             if (_bolt !== bolt) {
-                                await setPower(selectedPlayer, "snowball", "bolt", boltstate);
+                                await setPower(selectedPlayer, selectedProj, "bolt", boltstate);
                             }
                             if (_freeze !== freeze) {
-                                await setPower(selectedPlayer, "snowball", "freeze", freezestate);
+                                await setPower(selectedPlayer, selectedProj, "freeze", freezestate);
                             }
                             if (_tnt !== tnt) {
-                                await setPower(selectedPlayer, "snowball", "tnt", tntstate);
+                                await setPower(selectedPlayer, selectedProj, "tnt", tntstate);
                             }
                             await runTellraw(p, `§aThe powers have been set correctly. Showing current state of all the powers for §b${selectedPlayer}§a:\n§7* §bLightning bolt: ${boltstate === "on" ? "§a" : "§c"}${boltstate}\n§7* §bFreeze: ${freezestate === "on" ? "§a" : "§c"}${freezestate}\n§7* §bTnt: ${tntstate === "on" ? "§a" : "§c"}${tntstate}`);
                         } catch (e) {
@@ -1078,18 +1090,14 @@ function isPowerEnabled(pname, projectile, power) {
 */
 async function setPower(pname, projectile, power, state) {
     let projScoreboard = [];
-    await runCmd(overworld, `say ${pname} ${projectile} ${power} ${state}`); //Debug
     try { projScoreboard = [...world.scoreboard.getObjective('-auProj').getParticipants().map(participant => participant.displayName).filter(participant => participant.includes(`-au${pname}-au`))] } catch (e) { }
     const regex = new RegExp(`(?<=-au${pname}-au.*\\+${projectile}[^+]*-${power})(?:on|off)`);
-    await runCmd(overworld, `say ${projScoreboard[0]}`); //Debug
     if (projScoreboard.length !== 0) { //If the array is not empty
-        await runCmd(overworld, `say what`);
         try { await runCmd(overworld, `scoreboard players reset "${projScoreboard[0]}" -auProj`) } catch (e) { }
         const newScoreboard = projScoreboard[0].replace(regex, state);
         await runCmd(overworld, `scoreboard players set "${newScoreboard}" -auProj 0`);
-    } else {
-        await runCmd(overworld, `say xd`); //Debug
-        const scoreboard = `-au${pname}-au+snowball-boltoff-freezeoff-tntoff+arrow-boltoff-freezeoff-tntoff`; //tnt con tag tntHead cada tick
+    } else { //If the array is empty
+        const scoreboard = `-au${pname}-au+snowball-boltoff-freezeoff-tntoff+arrow-boltoff-freezeoff-tntoff+egg-boltoff-freezeoff-tntoff`;
         const newScoreboard = scoreboard.replace(regex, state);
         await runCmd(overworld, `scoreboard players set "${newScoreboard}" -auProj 0`);
     }
