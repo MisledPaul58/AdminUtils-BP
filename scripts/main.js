@@ -9,7 +9,6 @@ let admins = [];
 let simtest = 0;
 let tntFlag = "-autnt0";
 
-//Seguir actualizando las cosas (Location ya no existe, han cambiado ProjectileHitEvent, etc)
 system.runInterval(async tick => {
     let { currentTick } = system;
     players = [...world.getPlayers()];
@@ -40,6 +39,15 @@ system.runInterval(async tick => {
                 await runCmd(overworld, `execute @a ~~~ tellraw @s {"rawtext": [{ "text": "§aThe player §b${player.name}§a has been successfully added as an admin." }]}`);
             } catch (e) {
                 await runCmd(overworld, `execute @a ~~~ tellraw @s {"rawtext": [{ "text": "§cError, couldn't add ${player.name} as an admin, probably it already is." }]}`);
+            }
+        }
+        if (player.hasTag("-aufrozen")) {
+            try {
+                const positions = player.getTags().filter(tag => tag.match(/-au-?[0-9]+[^]* -au-?[0-9]+[^]* -au-?[0-9]+[^]*/) !== null)[0].match(/-au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*)/).slice(1).map(pos => pos * 1); //Gets the positions where the player was frozen and converts it to integer or float
+                player.teleport(new Vector(positions[0], positions[1], positions[2]), player.dimension, player.getRotation().x, player.getRotation().y);
+                //positions[0] is the x, positions[1] the y and positions[2] the z
+            } catch (e) {
+                
             }
         }
     }
@@ -236,7 +244,7 @@ function adminCommands(p) {
         .button("Ban or unban menu")
         .button("Simulated player")
         .button("Projectiles powers")
-        .button("Freeze a player")
+        .button("Freeze or unfreeze a player")
         .button("Kill a player")
         .button("Launch a player")
     form.show(p).then((response) => {
@@ -253,8 +261,68 @@ function adminCommands(p) {
             case 3: { //Projectiles powers
                 projectilePowers(p);
             } break;
-            case 4: { //Freeze a player
-                
+            case 4: { //Freeze or unfreeze a player
+                function freezeUnfreeze() {
+                    const form = new ActionFormData()
+                        .title("Freeze or unfreeze a player")
+                        .body("Select an option")
+                        .button("<-- Back")
+                        .button("Freeze a player")
+                        .button("Unfreeze a player");
+                    form.show(p).then((response) => {
+                        if (response.selection === 0) {
+                            adminCommands(p);
+                        } else if (response.selection === 1) {
+                            const playersArray = players.map(pname => pname.name);
+                            const locPlayers = players;
+                            const form = new ActionFormData()
+                                .title("Freeze a player")
+                                .body("Select an online player to freeze")
+                                .button("<-- Back");
+                            for (const player of playersArray) {
+                                form.button(player, "textures/icons/steve_icon.png");
+                            }
+
+                            form.show(p).then((response) => {
+                                if (response.selection === 0) {
+                                    freezeUnfreeze();
+                                } else if (response.selection >= 1) {
+                                    const selectedPlayer = locPlayers[response.selection - 1];
+                                    const form = new MessageFormData()
+                                        .title("Freeze a player")
+                                        .body(`Are you sure you want to freeze §b${selectedPlayer.name}§r?`)
+                                        .button1("Yes")
+                                        .button2("No");
+                                    form.show(p).then(result => {
+                                        if (result.selection === 1) {
+                                            selectedPlayer.addTag("-aufrozen");
+                                            selectedPlayer.addTag(`-au${selectedPlayer.location.x} -au${selectedPlayer.location.y} -au${selectedPlayer.location.z}`);
+                                        }
+                                    });
+                                }
+                            });
+                        } else if (response.selection === 2) {
+                            const playersArray = players.map(pname => pname.name);
+                            const locPlayers = players;
+                            const form = new ActionFormData()
+                                .title("Unfreeze a player")
+                                .body("Select an online/offline frozen player to unfreeze")
+                                .button("<-- Back");
+                            for (const player of playersArray) {
+                                form.button(player, "textures/icons/steve_icon.png");
+                            }
+
+                            form.show(p).then((response) => {
+                                if (response.selection === 0) {
+
+                                } else if (response.selection >= 1) {
+                                    
+                                }
+                            });
+                        }
+                    });
+                }
+                freezeUnfreeze();
             } break;
             case 5: { //Kill a player 
                 let playersArray = players.map(pname => pname.name);
