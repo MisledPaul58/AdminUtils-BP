@@ -18,6 +18,7 @@ system.runInterval(async tick => {
         try { await runCmd(overworld, 'scoreboard objectives add -au dummy') } catch (e) { }
         try { await runCmd(overworld, 'scoreboard objectives add -auban dummy') } catch (e) { }
         try { await runCmd(overworld, 'scoreboard objectives add -auProj dummy') } catch (e) { }
+        try { await runCmd(overworld, 'scoreboard objectives add -aufrozen dummy') } catch (e) { }
         if (currentTick % 200 === 0) {
             await runCmd(overworld, `execute @a ~~~ tellraw @s {"rawtext":[{"text":"§l§4§kqww§r§l§bThanks for using Admin Utils! §aMade by §6MisledPaul58§4§kqww§r"}]}`);
             try {
@@ -41,14 +42,12 @@ system.runInterval(async tick => {
                 await runCmd(overworld, `execute @a ~~~ tellraw @s {"rawtext": [{ "text": "§cError, couldn't add ${player.name} as an admin, probably it already is." }]}`);
             }
         }
-        if (player.hasTag("-aufrozen")) {
+        if (isFrozen(player.name)) {
             try {
-                const positions = player.getTags().filter(tag => tag.match(/-au-?[0-9]+[^]* -au-?[0-9]+[^]* -au-?[0-9]+[^]*/) !== null)[0].match(/-au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*)/).slice(1).map(pos => pos * 1); //Gets the positions where the player was frozen and converts it to integer or float
+                const positions = world.scoreboard.getObjective('-aufrozen').getParticipants().map(participant => participant.displayName).filter(participant => participant.match(/-auname([^]*) -au-?[0-9]+[^]* -au-?[0-9]+[^]* -au-?[0-9]+[^]*/)[1] === player.name)[0].match(/-au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*)/).slice(1).map(pos => pos * 1); //Gets the positions where the player was frozen and converts it to integer or float
                 player.teleport(new Vector(positions[0], positions[1], positions[2]), player.dimension, player.getRotation().x, player.getRotation().y);
                 //positions[0] is the x, positions[1] the y and positions[2] the z
-            } catch (e) {
-                
-            }
+            } catch (e) { }
         }
     }
 }, 1);
@@ -273,13 +272,66 @@ function adminCommands(p) {
                         if (response.selection === 0) {
                             adminCommands(p);
                         } else if (response.selection === 1) {
-                            const playersArray = players.map(pname => pname.name);
                             const locPlayers = players;
                             const form = new ActionFormData()
                                 .title("Freeze a player")
-                                .body("Select an online player to freeze")
+                                .body("Select an online player to freeze.\nIf you don't see someone here, it means he's already frozen.")
+                                .button("<-- Back")
+                                .button("Type a player manually instead");
+                            for (const player of locPlayers) {
+                                if (!isFrozen(player)) {
+                                    form.button(player.name, "textures/icons/steve_icon.png");
+                                }
+                            }
+
+                            form.show(p).then((response) => {
+                                if (response.selection === 0) {
+                                    freezeUnfreeze();
+                                } else if (response.selection === 1) {
+                                    let form = new ModalFormData()
+                                        .title("Freeze a player")
+                                        .textField("Type below the player you would like to freeze.", "Player's name");
+                                    form.show(p).then(async result => {
+                                        const playerName = result.formValues[0];
+                                        if (!isValidUsername(playerName)) {
+                                            await runTellraw(p, '§cError, the username you entered is invalid.');
+                                        } else if (!isFrozen(playerName)) {
+                                            await runTellraw(p, '§cError, the player is already frozen.');
+                                        } else {
+                                            try {
+                                                await runCmd(p, `scoreboard players set "-auname${} -au${selectedPlayer.location.x} -au${selectedPlayer.location.y} -au${selectedPlayer.location.z}" -aufrozen 0`);
+                                                await runTellraw(p, `§aThe player §b${selectedPlayer.name}§a has been succesfully frozen.`);
+                                            } catch (e) {
+                                                await runTellraw(p, `§cError, the player couldn't be frozen.`);
+                                            }
+                                        }
+                                    });
+                                } else if (response.selection >= 2) {
+                                    const selectedPlayer = locPlayers[response.selection - 2];
+                                    const form = new MessageFormData()
+                                        .title("Freeze a player")
+                                        .body(`Are you sure you want to freeze §b${selectedPlayer.name}§r?`)
+                                        .button1("Yes")
+                                        .button2("No");
+                                    form.show(p).then(async result => {
+                                        if (result.selection === 1) {
+                                            try {
+                                                await runCmd(selectedPlayer.dimension, `scoreboard players set "-auname${selectedPlayer.name} -au${selectedPlayer.location.x} -au${selectedPlayer.location.y} -au${selectedPlayer.location.z}" -aufrozen 0`);
+                                                await runTellraw(p, `§aThe player §b${selectedPlayer.name}§a has been succesfully frozen.`);
+                                            } catch (e) {
+                                                await runTellraw(p, `§cError, the player couldn't be frozen.`);
+                                            }
+                                        }
+                                    });
+                                }
+                            });
+                        } else if (response.selection === 2) {
+                            const frozenPlayers = [...world.scoreboard.getObjective('-aufrozen').getParticipants().map(participant => participant.displayName.match(/-auname([^]*) -au-?[0-9]+[^]* -au-?[0-9]+[^]* -au-?[0-9]+[^]*/)[1])];
+                            const form = new ActionFormData()
+                                .title("Unfreeze a player")
+                                .body("Select an online/offline frozen player to unfreeze")
                                 .button("<-- Back");
-                            for (const player of playersArray) {
+                            for (const player of frozenPlayers) {
                                 form.button(player, "textures/icons/steve_icon.png");
                             }
 
@@ -287,36 +339,23 @@ function adminCommands(p) {
                                 if (response.selection === 0) {
                                     freezeUnfreeze();
                                 } else if (response.selection >= 1) {
-                                    const selectedPlayer = locPlayers[response.selection - 1];
+                                    const selectedPlayer = frozenPlayers[response.selection - 1];
                                     const form = new MessageFormData()
-                                        .title("Freeze a player")
-                                        .body(`Are you sure you want to freeze §b${selectedPlayer.name}§r?`)
+                                        .title("Unfreeze a player")
+                                        .body(`Are you sure you want to unfreeze §b${selectedPlayer}§r?`)
                                         .button1("Yes")
                                         .button2("No");
-                                    form.show(p).then(result => {
+                                    form.show(p).then(async result => {
                                         if (result.selection === 1) {
-                                            selectedPlayer.addTag("-aufrozen");
-                                            selectedPlayer.addTag(`-au${selectedPlayer.location.x} -au${selectedPlayer.location.y} -au${selectedPlayer.location.z}`);
+                                            try {
+                                                const scoreboard = world.scoreboard.getObjective('-aufrozen').getParticipants().map(participant => participant.displayName).filter(participant => participant.match(/-auname([^]*) -au-?[0-9]+[^]* -au-?[0-9]+[^]* -au-?[0-9]+[^]*/)[1] === selectedPlayer)[0];
+                                                await runCmd(p, `scoreboard players reset "${scoreboard}" -aufrozen`);
+                                                await runTellraw(p, `§aThe player §b${selectedPlayer}§a has been succesfully unfrozen.`);
+                                            } catch (e) {
+                                                await runTellraw(p, `§cError, the player couldn't be unfrozen.`);
+                                            }
                                         }
                                     });
-                                }
-                            });
-                        } else if (response.selection === 2) {
-                            const playersArray = players.map(pname => pname.name);
-                            const locPlayers = players;
-                            const form = new ActionFormData()
-                                .title("Unfreeze a player")
-                                .body("Select an online/offline frozen player to unfreeze")
-                                .button("<-- Back");
-                            for (const player of playersArray) {
-                                form.button(player, "textures/icons/steve_icon.png");
-                            }
-
-                            form.show(p).then((response) => {
-                                if (response.selection === 0) {
-
-                                } else if (response.selection >= 1) {
-                                    
                                 }
                             });
                         }
@@ -1092,9 +1131,9 @@ function runTellraw(player, txt) {
 }
 
 function isValidUsername(username) {
-    if (username.match(/^ | $/) !== null || username.match(/[^A-Za-z0-9À-ÿ\u00f1\u00d1 ]+/) !== null) {
+    if (username.match(/^ | $/) !== null || username.match(/[^A-Za-z0-9À-ÿ\u00f1\u00d1 ]+/) !== null || username === "") {
         return false;
-    } else if (username.match(/^ | $/) === null && username.match(/[^A-Za-z0-9À-ÿ\u00f1\u00d1 ]+/) === null) {
+    } else if (username.match(/^ | $/) === null && username.match(/[^A-Za-z0-9À-ÿ\u00f1\u00d1 ]+/) === null && username !== "") {
         return true;
     }
 }
@@ -1160,13 +1199,22 @@ async function setPower(pname, projectile, power, state) {
     let projScoreboard = [];
     try { projScoreboard = [...world.scoreboard.getObjective('-auProj').getParticipants().map(participant => participant.displayName).filter(participant => participant.includes(`-au${pname}-au`))] } catch (e) { }
     const regex = new RegExp(`(?<=-au${pname}-au.*\\+${projectile}[^+]*-${power})(?:on|off)`);
+
     if (projScoreboard.length !== 0) { //If the array is not empty
         try { await runCmd(overworld, `scoreboard players reset "${projScoreboard[0]}" -auProj`) } catch (e) { }
         const newScoreboard = projScoreboard[0].replace(regex, state);
         await runCmd(overworld, `scoreboard players set "${newScoreboard}" -auProj 0`);
+
     } else { //If the array is empty
         const scoreboard = `-au${pname}-au+snowball-boltoff-freezeoff-tntoff+arrow-boltoff-freezeoff-tntoff+egg-boltoff-freezeoff-tntoff`;
         const newScoreboard = scoreboard.replace(regex, state);
         await runCmd(overworld, `scoreboard players set "${newScoreboard}" -auProj 0`);
     }
+}
+
+function isFrozen(player) {
+    try {
+        if (world.scoreboard.getObjective('-aufrozen').getParticipants().map(participant => participant.displayName.match(/-auname([^]*) -au-?[0-9]+[^]* -au-?[0-9]+[^]* -au-?[0-9]+[^]*/)[1]).includes(player)) return true
+        else return false;
+    } catch (e) { return false }
 }
