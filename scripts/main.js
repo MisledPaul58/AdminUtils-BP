@@ -9,7 +9,7 @@ let admins = [];
 let simtest = 0;
 let tntFlag = "-autnt0";
 
-system.runInterval(async tick => {
+system.runInterval(async tick => { //LOS COMANDOS YA NO DAN ERRORES (testfor)
     let { currentTick } = system;
     players = [...world.getPlayers()];
 
@@ -42,12 +42,16 @@ system.runInterval(async tick => {
                 await runCmd(overworld, `execute @a ~~~ tellraw @s {"rawtext": [{ "text": "§cError, couldn't add ${player.name} as an admin, probably it already is." }]}`);
             }
         }
-        if (isFrozen(player.name)) {
+        if (isFrozen(player.name)) { //Hacer que se pueda congelar a jugadores que no estén conectados
             try {
-                const positions = world.scoreboard.getObjective('-aufrozen').getParticipants().map(participant => participant.displayName).filter(participant => participant.match(/-auname([^]*) -au-?[0-9]+[^]* -au-?[0-9]+[^]* -au-?[0-9]+[^]*/)[1] === player.name)[0].match(/-au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*)/).slice(1).map(pos => pos * 1); //Gets the positions where the player was frozen and converts it to integer or float
+                const positions = world.scoreboard.getObjective('-aufrozen').getParticipants().filter(participant => participant.displayName.match(/-auname([^]*) -au-?[0-9]+[^]* -au-?[0-9]+[^]* -au-?[0-9]+[^]*/)[1] === player.name)[0].displayName.match(/-au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*)/).slice(1).map(pos => pos * 1); //Gets the positions where the player was frozen and converts it to integer or float
                 player.teleport(new Vector(positions[0], positions[1], positions[2]), player.dimension, player.getRotation().x, player.getRotation().y);
                 //positions[0] is the x, positions[1] the y and positions[2] the z
-            } catch (e) { }
+            } catch (e) {
+                const scoreboard = world.scoreboard.getObjective('-aufrozen').getParticipants().filter(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1] === player.name)[0].displayName;
+                await runCmd(player.dimension, `scoreboard players reset "${scoreboard}" -aufrozen`);
+                await runCmd(player.dimension, `scoreboard players set "-auname${player.name} -au${player.location.x} -au${player.location.y} -au${player.location.z}" -aufrozen 0`);
+            }
         }
     }
 }, 1);
@@ -272,16 +276,14 @@ function adminCommands(p) {
                         if (response.selection === 0) {
                             adminCommands(p);
                         } else if (response.selection === 1) {
-                            const locPlayers = players;
+                            const locPlayers = players.filter(player => !isFrozen(player.name));
                             const form = new ActionFormData()
                                 .title("Freeze a player")
                                 .body("Select an online player to freeze.\nIf you don't see someone here, it means he's already frozen.")
                                 .button("<-- Back")
                                 .button("Type a player manually instead");
                             for (const player of locPlayers) {
-                                if (!isFrozen(player)) {
-                                    form.button(player.name, "textures/icons/steve_icon.png");
-                                }
+                                form.button(player.name, "textures/icons/steve_icon.png");
                             }
 
                             form.show(p).then((response) => {
@@ -295,12 +297,21 @@ function adminCommands(p) {
                                         const playerName = result.formValues[0];
                                         if (!isValidUsername(playerName)) {
                                             await runTellraw(p, '§cError, the username you entered is invalid.');
-                                        } else if (!isFrozen(playerName)) {
+                                        } else if (isFrozen(playerName)) {
                                             await runTellraw(p, '§cError, the player is already frozen.');
                                         } else {
-                                            try {
-                                                await runCmd(p, `scoreboard players set "-auname${} -au${selectedPlayer.location.x} -au${selectedPlayer.location.y} -au${selectedPlayer.location.z}" -aufrozen 0`);
-                                                await runTellraw(p, `§aThe player §b${selectedPlayer.name}§a has been succesfully frozen.`);
+                                            try { //Poner "-au+" en cada coordenada si el jugador no está conectado
+                                                const query = {
+                                                    name: playerName
+                                                };
+                                                const selectedPlayer = [...world.getPlayers(query)][0];
+                                                if (selectedPlayer !== undefined) {
+                                                    await runCmd(p, `scoreboard players set "-auname${playerName} -au${selectedPlayer.location.x} -au${selectedPlayer.location.y} -au${selectedPlayer.location.z}" -aufrozen 0`);
+                                                    await runTellraw(p, `§aThe player §b${playerName}§a has been successfully frozen.`);
+                                                } else {
+                                                    await runCmd(p, `scoreboard players set "-auname${playerName} -au+ -au+ -au+" -aufrozen 0`);
+                                                    await runTellraw(p, `§aThe player §b${playerName}§a has been successfully frozen.`);
+                                                }
                                             } catch (e) {
                                                 await runTellraw(p, `§cError, the player couldn't be frozen.`);
                                             }
@@ -317,7 +328,7 @@ function adminCommands(p) {
                                         if (result.selection === 1) {
                                             try {
                                                 await runCmd(selectedPlayer.dimension, `scoreboard players set "-auname${selectedPlayer.name} -au${selectedPlayer.location.x} -au${selectedPlayer.location.y} -au${selectedPlayer.location.z}" -aufrozen 0`);
-                                                await runTellraw(p, `§aThe player §b${selectedPlayer.name}§a has been succesfully frozen.`);
+                                                await runTellraw(p, `§aThe player §b${selectedPlayer.name}§a has been successfully frozen.`);
                                             } catch (e) {
                                                 await runTellraw(p, `§cError, the player couldn't be frozen.`);
                                             }
@@ -326,7 +337,7 @@ function adminCommands(p) {
                                 }
                             });
                         } else if (response.selection === 2) {
-                            const frozenPlayers = [...world.scoreboard.getObjective('-aufrozen').getParticipants().map(participant => participant.displayName.match(/-auname([^]*) -au-?[0-9]+[^]* -au-?[0-9]+[^]* -au-?[0-9]+[^]*/)[1])];
+                            const frozenPlayers = [...world.scoreboard.getObjective('-aufrozen').getParticipants().map(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1])];
                             const form = new ActionFormData()
                                 .title("Unfreeze a player")
                                 .body("Select an online/offline frozen player to unfreeze")
@@ -348,9 +359,9 @@ function adminCommands(p) {
                                     form.show(p).then(async result => {
                                         if (result.selection === 1) {
                                             try {
-                                                const scoreboard = world.scoreboard.getObjective('-aufrozen').getParticipants().map(participant => participant.displayName).filter(participant => participant.match(/-auname([^]*) -au-?[0-9]+[^]* -au-?[0-9]+[^]* -au-?[0-9]+[^]*/)[1] === selectedPlayer)[0];
+                                                const scoreboard = world.scoreboard.getObjective('-aufrozen').getParticipants().filter(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1] === selectedPlayer)[0].displayName;
                                                 await runCmd(p, `scoreboard players reset "${scoreboard}" -aufrozen`);
-                                                await runTellraw(p, `§aThe player §b${selectedPlayer}§a has been succesfully unfrozen.`);
+                                                await runTellraw(p, `§aThe player §b${selectedPlayer}§a has been successfully unfrozen.`);
                                             } catch (e) {
                                                 await runTellraw(p, `§cError, the player couldn't be unfrozen.`);
                                             }
@@ -392,14 +403,14 @@ function adminCommands(p) {
                                     };
                                     let playerEntity = [...world.getPlayers(query)][0];
                                     playerEntity.kill();
-                                    await runTellraw(p, `§aThe player §b${playerName}§a has been succesfully killed.`);
+                                    await runTellraw(p, `§aThe player §b${playerName}§a has been successfully killed.`);
                                 } catch (e) {
                                     await runTellraw(p, `§cError, the player couldn't be killed or wasn't found.`);
                                 }
                             } else if (result.formValues[1] === false) {
                                 try {
                                     await runCmd(overworld, `kill ${playerName}`);
-                                    await runTellraw(p, `§aThe player §b${playerName}§a has been succesfully killed.`);
+                                    await runTellraw(p, `§aThe player §b${playerName}§a has been successfully killed.`);
                                 } catch (e) {
                                     await runTellraw(p, `§cError, the player couldn't be killed or wasn't found.`);
                                 }
@@ -415,14 +426,14 @@ function adminCommands(p) {
                             if (result.formValues[0] === true) {
                                 try {
                                     selectedPlayer.kill();
-                                    await runTellraw(p, `§aThe player §b${selectedPlayer.name}§a has been succesfully killed.`);
+                                    await runTellraw(p, `§aThe player §b${selectedPlayer.name}§a has been successfully killed.`);
                                 } catch (e) {
                                     await runTellraw(p, `§cError, the player couldn't be killed or wasn't found.`);
                                 }
                             } else if (result.formValues[0] === false) {
                                 try {
                                     await runCmd(overworld, `kill ${selectedPlayer.name}`);
-                                    await runTellraw(p, `§aThe player §b${selectedPlayer.name}§a has been succesfully killed.`);
+                                    await runTellraw(p, `§aThe player §b${selectedPlayer.name}§a has been successfully killed.`);
                                 } catch (e) {
                                     await runTellraw(p, `§cError, the player couldn't be killed or wasn't found.`);
                                 }
@@ -459,7 +470,7 @@ function adminCommands(p) {
                                     await runCmd(overworld, `execute ${player} ~~~ summon fireworks_rocket`);
                                     await runCmd(overworld, `effect ${player} levitation 3 150 true`);
                                     await runCmd(overworld, `execute ${player} ~~~ particle minecraft:cauldron_explosion_emitter`);
-                                    await runTellraw(p, `§aThe player §b${player}§a has been launched succesfully.`);
+                                    await runTellraw(p, `§aThe player §b${player}§a has been launched successfully.`);
                                 } catch (e) {
                                     await runTellraw(p, `§cError, the player §4${player}§c couldn't be launched.`);
                                 }
@@ -479,7 +490,7 @@ function adminCommands(p) {
                                     await runCmd(overworld, `execute ${selectedPlayer} ~~~ summon fireworks_rocket`);
                                     await runCmd(overworld, `effect ${selectedPlayer} levitation 3 150 true`);
                                     await runCmd(overworld, `execute ${selectedPlayer} ~~~ particle minecraft:cauldron_explosion_emitter`);
-                                    await runTellraw(p, `§aThe player §b${selectedPlayer}§a has been launched succesfully.`);
+                                    await runTellraw(p, `§aThe player §b${selectedPlayer}§a has been launched successfully.`);
                                 } catch (e) {
                                     await runTellraw(p, `§cError, the player §4${selectedPlayer}§c couldn't be launched.`);
                                 }
@@ -810,7 +821,7 @@ function simPlayer(p) {
 
                             if (isValidUsername(victim)) {
                                 try {
-                                    await runCmd(overworld, `testfor ${victimEntity.name}`);
+                                    await runCmd(overworld, `testfor "${victimEntity.name}"`);
                                     GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
                                         const spawnLoc = new Vector(1, 2, 1);
                                         const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
@@ -870,7 +881,7 @@ function simPlayer(p) {
                             let summoned = false;
 
                             try {
-                                await runCmd(p, `testfor ${selectedPlayerRaw.name}`);
+                                await runCmd(p, `testfor "${selectedPlayerRaw.name}"`);
                                 GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
                                     const spawnLoc = new Vector(1, 2, 1);
                                     const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
@@ -952,7 +963,7 @@ function simPlayer(p) {
 
                             if (isValidUsername(victim)) {
                                 try {
-                                    await runCmd(overworld, `testfor ${victimEntity.name}`);
+                                    await runCmd(overworld, `testfor "${victimEntity.name}"`);
                                     GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
                                         const spawnLoc = new Vector(1, 2, 1);
                                         const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
@@ -1010,7 +1021,7 @@ function simPlayer(p) {
                             let summoned = false;
 
                             try {
-                                await runCmd(p, `testfor ${selectedPlayerRaw.name}`);
+                                await runCmd(p, `testfor "${selectedPlayerRaw.name}"`);
                                 GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
                                     const spawnLoc = new Vector(1, 2, 1);
                                     const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
@@ -1131,9 +1142,9 @@ function runTellraw(player, txt) {
 }
 
 function isValidUsername(username) {
-    if (username.match(/^ | $/) !== null || username.match(/[^A-Za-z0-9À-ÿ\u00f1\u00d1 ]+/) !== null || username === "") {
+    if (username.match(/^ | $/) !== null || username.match(/[^A-Za-z0-9À-ÿ\u00f1\u00d1 \(\)]+/) !== null || username === "") {
         return false;
-    } else if (username.match(/^ | $/) === null && username.match(/[^A-Za-z0-9À-ÿ\u00f1\u00d1 ]+/) === null && username !== "") {
+    } else if (username.match(/^ | $/) === null && username.match(/[^A-Za-z0-9À-ÿ\u00f1\u00d1 \(\)]+/) === null && username !== "") {
         return true;
     }
 }
@@ -1181,9 +1192,9 @@ function getBannedBy(player) {
 function isPowerEnabled(pname, projectile, power) {
     let projScoreboard = [];
     try { projScoreboard = [...world.scoreboard.getObjective('-auProj').getParticipants().map(participant => participant.displayName)] } catch (e) { }
-    const regex = new RegExp(`(?<=-au${pname}-au.*\\+${projectile}[^+]*-${power})on`);
+    const regexp = new RegExp(`(?<=-au${pname}-au.*\\+${projectile}[^+]*-${power})on`);
     try {
-        if (projScoreboard.some(participant => participant.match(regex)[0] === "on")) return true
+        if (projScoreboard.some(participant => participant.match(regexp)[0] === "on")) return true
         else return false;
     } catch (e) { return false }
 }
@@ -1191,30 +1202,30 @@ function isPowerEnabled(pname, projectile, power) {
    const xd = "-auMisledPaul58976-au+snowball-bolton+arrow-boltoff";
    const projectile = "snowball";
    const power = "bolt";
-   const regex = new RegExp(`(?<=-au${pname}-au.*\\+${projectile}[^+]*-${power})on`);
+   const regexp = new RegExp(`(?<=-au${pname}-au.*\\+${projectile}[^+]*-${power})on`);
 
-   console.log(xd.match(regex)[0]);
+   console.log(xd.match(regexp)[0]);
 */
 async function setPower(pname, projectile, power, state) {
     let projScoreboard = [];
     try { projScoreboard = [...world.scoreboard.getObjective('-auProj').getParticipants().map(participant => participant.displayName).filter(participant => participant.includes(`-au${pname}-au`))] } catch (e) { }
-    const regex = new RegExp(`(?<=-au${pname}-au.*\\+${projectile}[^+]*-${power})(?:on|off)`);
+    const regexp = new RegExp(`(?<=-au${pname}-au.*\\+${projectile}[^+]*-${power})(?:on|off)`);
 
     if (projScoreboard.length !== 0) { //If the array is not empty
         try { await runCmd(overworld, `scoreboard players reset "${projScoreboard[0]}" -auProj`) } catch (e) { }
-        const newScoreboard = projScoreboard[0].replace(regex, state);
+        const newScoreboard = projScoreboard[0].replace(regexp, state);
         await runCmd(overworld, `scoreboard players set "${newScoreboard}" -auProj 0`);
 
     } else { //If the array is empty
         const scoreboard = `-au${pname}-au+snowball-boltoff-freezeoff-tntoff+arrow-boltoff-freezeoff-tntoff+egg-boltoff-freezeoff-tntoff`;
-        const newScoreboard = scoreboard.replace(regex, state);
+        const newScoreboard = scoreboard.replace(regexp, state);
         await runCmd(overworld, `scoreboard players set "${newScoreboard}" -auProj 0`);
     }
 }
 
 function isFrozen(player) {
     try {
-        if (world.scoreboard.getObjective('-aufrozen').getParticipants().map(participant => participant.displayName.match(/-auname([^]*) -au-?[0-9]+[^]* -au-?[0-9]+[^]* -au-?[0-9]+[^]*/)[1]).includes(player)) return true
+        if (world.scoreboard.getObjective('-aufrozen').getParticipants().map(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1]).includes(player)) return true
         else return false;
     } catch (e) { return false }
 }
