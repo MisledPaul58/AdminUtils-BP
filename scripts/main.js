@@ -60,7 +60,7 @@ world.events.playerJoin.subscribe(async event => {
     const query = {
         name: event.playerName
     };
-    const player = [...world.getPlayers(query)];
+    const player = [...world.getPlayers(query)][0];
     if (isBanned(event.playerName)) {
         let reason = getBanReason(event.playerName);
         let bannedBy = getBannedBy(event.playerName);
@@ -848,10 +848,12 @@ function simPlayer(p) {
                                         .structureName("SimFolder:simtest")
                                         .tag(GameTest.Tags.suiteDefault);
                                     while (!summoned) {
-                                        try {
-                                            await runCmd(p, `testfor @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=9]`);
+                                        const cmd = await runCmd(p, `testfor @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=9]`);
+                                        const count = cmd.successCount;
+
+                                        if (count !== 0) {
                                             offset = offset + 10;
-                                        } catch (e) {
+                                        } else {
                                             await runCmd(p, `execute @s ~${offset} ~ ~ fill ~4 317 ~-4 ~-4 317 ~4 glass`);
                                             await runCmd(p, `execute @s ~${offset} 318 ~ gametest run simtest:sim_test${simtest} false 1`);
                                             await runCmd(p, `summon au:basedetect ~${offset} 318 ~`);
@@ -1116,6 +1118,8 @@ function simPlayer(p) {
                         while (!summoned) {
                             try {
                                 await runCmd(p, `testfor @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=9]`);
+                                const xd = overworld.runCommand(`testfor @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=9]`);
+                                await runCmd(p, `say ${xd}`);
                                 offset = offset + 10;
                             } catch (e) {
                                 await runCmd(p, `execute @s ~${offset} ~ ~ fill ~4 317 ~-4 ~-4 317 ~4 glass`);
