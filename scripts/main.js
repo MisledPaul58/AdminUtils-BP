@@ -21,12 +21,6 @@ system.runInterval(async tick => { //LOS COMANDOS YA NO DAN ERRORES (testfor)
         try { await runCmd(overworld, 'scoreboard objectives add -aufrozen dummy') } catch (e) { }
         if (currentTick % 200 === 0) {
             await runCmd(overworld, `execute @a ~~~ tellraw @s {"rawtext":[{"text":"§l§4§kqww§r§l§bThanks for using Admin Utils! §aMade by §6MisledPaul58§4§kqww§r"}]}`);
-            try {
-                await runCmd(overworld, 'execute @e[type=au:basedetect] ~ ~ ~ fill ~6 316 ~-6 ~-6 319 ~6 air');
-            } catch (e) { }
-            try {
-                await runCmd(overworld, 'kill @e[type=au:basedetect]');
-            } catch (e) { }
             firstPlayer = true;
         }
     }
@@ -442,15 +436,15 @@ function adminCommands(p) {
                     }
                 });
             } break;
-            case 6: { //Launch a player 
-                let playersArray = players.map(pname => pname.name);
+            case 6: { //Launch a player
+                const locPlayers = players;
                 const form = new ActionFormData()
                     .title("Launch a player")
                     .body("Select an online player to launch")
                     .button("<-- Back")
                     .button("Type a player manually instead");
-                for (const player of playersArray) {
-                    form.button(player, "textures/icons/steve_icon.png");
+                for (const player of locPlayers) {
+                    form.button(player.name, "textures/icons/steve_icon.png");
                 }
 
                 form.show(p).then((response) => {
@@ -465,34 +459,63 @@ function adminCommands(p) {
 
                             if (!isValidUsername(player)) {
                                 await runTellraw(p, '§cError, the username you entered is invalid.');
-                            } else if (isValidUsername(player)) {
-                                try {
-                                    await runCmd(overworld, `execute ${player} ~~~ summon fireworks_rocket`);
-                                    await runCmd(overworld, `effect ${player} levitation 3 150 true`);
-                                    await runCmd(overworld, `execute ${player} ~~~ particle minecraft:cauldron_explosion_emitter`);
-                                    await runTellraw(p, `§aThe player §b${player}§a has been launched successfully.`);
-                                } catch (e) {
-                                    await runTellraw(p, `§cError, the player §4${player}§c couldn't be launched.`);
+                            } else {
+                                const { successCount } = await runCmd(p, `testfor "${player}"`);
+                                if (successCount === 0) {
+                                    await runTellraw(p, '§cError, the player you entered is not online.');
+                                } else {
+                                    try {
+                                        const query = {
+                                            name: player
+                                        };
+                                        const playerRaw = [...world.getPlayers(query)];
+                                        await runCmd(playerRaw, `execute @s ~~~ summon fireworks_rocket`);
+                                        for (let i = 0; i < 5; i++) {
+                                            runCmd(playerRaw, `execute @s ~~~ particle minecraft:cauldron_explosion_emitter`);
+                                        }
+                                        async function particles() {
+                                            for (let i = 0; i < 23; i++) {
+                                                const delay = ticks => new Promise(res => system.runTimeout(res, ticks));
+                                                await delay(0.05);
+                                                playerRaw.runCommand(`execute @s ~~~ particle minecraft:explosion_manual`);
+                                            }
+                                        }
+                                        particles();
+                                        await runCmd(playerRaw, `effect @s levitation 3 150 true`);
+                                        await runTellraw(p, `§aThe player §b${player}§a has been launched successfully.`);
+                                    } catch (e) {
+                                        await runTellraw(p, `§cError, the player §4${player}§c couldn't be launched.`);
+                                    }
                                 }
                             }
                         });
                     } else if (response.selection > 1) {
-                        let selectedPlayer = playersArray[response.selection - 2];
+                        const selectedPlayerRaw = locPlayers[response.selection - 2];
 
                         let form = new MessageFormData()
                             .title("Launch a player")
-                            .body(`Are you sure you want to launch §b${selectedPlayer}§r?`)
+                            .body(`Are you sure you want to launch §b${selectedPlayerRaw.name}§r?`)
                             .button1("Yes")
                             .button2("No");
                         form.show(p).then(async result => {
                             if (result.selection === 1) {
                                 try {
-                                    await runCmd(overworld, `execute ${selectedPlayer} ~~~ summon fireworks_rocket`);
-                                    await runCmd(overworld, `effect ${selectedPlayer} levitation 3 150 true`);
-                                    await runCmd(overworld, `execute ${selectedPlayer} ~~~ particle minecraft:cauldron_explosion_emitter`);
-                                    await runTellraw(p, `§aThe player §b${selectedPlayer}§a has been launched successfully.`);
+                                    await runCmd(selectedPlayerRaw, `execute @s ~~~ summon fireworks_rocket`);
+                                    for (let i = 0; i < 5; i++) {
+                                        runCmd(selectedPlayerRaw, `execute @s ~~~ particle minecraft:cauldron_explosion_emitter`);
+                                    }
+                                    async function particles() {
+                                        for (let i = 0; i < 23; i++) {
+                                            const delay = ticks => new Promise(res => system.runTimeout(res, ticks));
+                                            await delay(0.05);
+                                            selectedPlayerRaw.runCommand(`execute @s ~~~ particle minecraft:explosion_manual`);
+                                        }
+                                    }
+                                    particles();
+                                    await runCmd(selectedPlayerRaw, `effect @s levitation 3 150 true`);
+                                    await runTellraw(p, `§aThe player §b${selectedPlayerRaw.name}§a has been launched successfully.`);
                                 } catch (e) {
-                                    await runTellraw(p, `§cError, the player §4${selectedPlayer}§c couldn't be launched.`);
+                                    await runTellraw(p, `§cError, the player §4${selectedPlayerRaw.name}§c couldn't be launched.`);
                                 }
                             }
                         });
@@ -816,19 +839,21 @@ function simPlayer(p) {
 
                             let simName = result.formValues[1];
                             let timeInTicks = result.formValues[2] * 20;
-                            let offset = 0;
-                            let summoned = false;
 
                             if (isValidUsername(victim)) {
-                                try {
-                                    await runCmd(overworld, `testfor "${victimEntity.name}"`);
+                                const { successCount } = await runCmd(p, `testfor "${victim}"`);
+                                if (successCount !== 0) {
                                     GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
                                         const spawnLoc = new Vector(1, 2, 1);
                                         const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
                                         player.addEffect(MinecraftEffectTypes.speed, 99999, 4, false);
                                         player.addEffect(MinecraftEffectTypes.jumpBoost, 99999, 1, false);
                                         player.addEffect(MinecraftEffectTypes.strength, 99999, 2, false);
-                                        player.addTag("simPlayer");
+                                        overworld.runCommand('fill 1234564 0 -1234563 1234568 319 -1234567 air');
+                                        const { successCount } = overworld.runCommand('testfor @e[type=au:basedetect, x=1234567, y=225, z=-1234567, r=20]');
+                                        if (successCount === 0) {
+                                            overworld.runCommand('summon au:basedetect 1234567 225 -1234567');
+                                        }
 
                                         test
                                             .startSequence()
@@ -836,10 +861,10 @@ function simPlayer(p) {
                                                 player.lookAtEntity(victimEntity);
                                                 player.navigateToEntity(victimEntity);
                                                 player.attackEntity(victimEntity);
-                                                try {
-                                                    await runCmd(player, `testfor @a[name=${victimEntity.name}, r=10]`);
-                                                } catch (e) {
-                                                    try { await runCmd(player, `tp @s ${victimEntity.name}`) } catch (e) { }
+
+                                                const { successCount } = await runCmd(player, `testfor @a[name="${victim}", r=10]`);
+                                                if (successCount === 0) {
+                                                    await runCmd(player, `tp @s "${victim}"`);
                                                 }
                                             })
                                     })
@@ -847,23 +872,10 @@ function simPlayer(p) {
                                         .setupTicks(0)
                                         .structureName("SimFolder:simtest")
                                         .tag(GameTest.Tags.suiteDefault);
-                                    while (!summoned) {
-                                        const cmd = await runCmd(p, `testfor @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=9]`);
-                                        const count = cmd.successCount;
-
-                                        if (count !== 0) {
-                                            offset = offset + 10;
-                                        } else {
-                                            await runCmd(p, `execute @s ~${offset} ~ ~ fill ~4 317 ~-4 ~-4 317 ~4 glass`);
-                                            await runCmd(p, `execute @s ~${offset} 318 ~ gametest run simtest:sim_test${simtest} false 1`);
-                                            await runCmd(p, `summon au:basedetect ~${offset} 318 ~`);
-                                            await runCmd(p, `tag @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=1, c=1] add simNotSpawned`);
-                                            summoned = true;
-                                        }
-                                    }
+                                    overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simtest:sim_test${simtest} false 1`);
                                     simtest++;
-                                } catch (e) {
-                                    await runTellraw(p, '§cError, the player you entered is not online.')
+                                } else {
+                                    await runTellraw(p, '§cError, the player you entered is not online.');
                                 }
                             } else {
                                 await runTellraw(p, '§cError, the username you entered is invalid.');
@@ -879,18 +891,20 @@ function simPlayer(p) {
                             let simName = result.formValues[0];
                             let timeInTicks = result.formValues[1] * 20;
                             let selectedPlayerRaw = locPlayers[response.selection - 2];
-                            let offset = 0;
-                            let summoned = false;
 
-                            try {
-                                await runCmd(p, `testfor "${selectedPlayerRaw.name}"`);
+                            const { successCount } = await runCmd(p, `testfor "${selectedPlayerRaw.name}"`);
+                            if (successCount !== 0) {
                                 GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
                                     const spawnLoc = new Vector(1, 2, 1);
                                     const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
                                     player.addEffect(MinecraftEffectTypes.speed, 99999, 4, false);
                                     player.addEffect(MinecraftEffectTypes.jumpBoost, 99999, 1, false);
                                     player.addEffect(MinecraftEffectTypes.strength, 99999, 2, false);
-                                    player.addTag("simPlayer");
+                                    overworld.runCommand('fill 1234564 0 -1234563 1234568 319 -1234567 air');
+                                    const { successCount } = overworld.runCommand('testfor @e[type=au:basedetect, x=1234567, y=225, z=-1234567, r=20]');
+                                    if (successCount === 0) {
+                                        overworld.runCommand('summon au:basedetect 1234567 225 -1234567');
+                                    }
 
                                     test
                                         .startSequence()
@@ -898,10 +912,10 @@ function simPlayer(p) {
                                             player.lookAtEntity(selectedPlayerRaw);
                                             player.navigateToEntity(selectedPlayerRaw);
                                             player.attackEntity(selectedPlayerRaw);
-                                            try {
-                                                await runCmd(player, `testfor @a[name=${selectedPlayerRaw.name}, r=10]`);
-                                            } catch (e) {
-                                                try { await runCmd(player, `tp @s ${selectedPlayerRaw.name}`) } catch (e) { }
+
+                                            const { successCount } = await runCmd(player, `testfor @a[name="${selectedPlayerRaw.name}", r=10]`);
+                                            if (successCount === 0) {
+                                                await runCmd(player, `tp @s "${selectedPlayerRaw.name}"`);
                                             }
                                         })
                                 })
@@ -909,20 +923,9 @@ function simPlayer(p) {
                                     .setupTicks(0)
                                     .structureName("SimFolder:simtest")
                                     .tag(GameTest.Tags.suiteDefault);
-                                while (!summoned) {
-                                    try {
-                                        await runCmd(p, `testfor @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=9]`);
-                                        offset = offset + 10;
-                                    } catch (e) {
-                                        await runCmd(p, `execute @s ~${offset} ~ ~ fill ~4 317 ~-4 ~-4 317 ~4 glass`);
-                                        await runCmd(p, `execute @s ~${offset} 318 ~ gametest run simtest:sim_test${simtest} false 1`);
-                                        await runCmd(p, `summon au:basedetect ~${offset} 318 ~`);
-                                        await runCmd(p, `tag @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=1, c=1] add simNotSpawned`);
-                                        summoned = true;
-                                    }
-                                }
+                                overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simtest:sim_test${simtest} false 1`);
                                 simtest++;
-                            } catch (e) {
+                            } else {
                                 await runTellraw(p, '§cError, the player you selected is now offline.');
                             }
                         });
@@ -960,28 +963,30 @@ function simPlayer(p) {
 
                             let simName = result.formValues[1];
                             let timeInTicks = result.formValues[2] * 20;
-                            let offset = 0;
-                            let summoned = false;
 
                             if (isValidUsername(victim)) {
-                                try {
-                                    await runCmd(overworld, `testfor "${victimEntity.name}"`);
+                                const { successCount } = await runCmd(overworld, `testfor "${victim}"`);
+                                if (successCount !== 0) {
                                     GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
                                         const spawnLoc = new Vector(1, 2, 1);
                                         const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
                                         player.addEffect(MinecraftEffectTypes.speed, 99999, 4, false);
                                         player.addEffect(MinecraftEffectTypes.jumpBoost, 99999, 1, false);
-                                        player.addTag("simPlayer");
+                                        overworld.runCommand('fill 1234564 0 -1234563 1234568 319 -1234567 air');
+                                        const { successCount } = overworld.runCommand('testfor @e[type=au:basedetect, x=1234567, y=225, z=-1234567, r=20]');
+                                        if (successCount === 0) {
+                                            overworld.runCommand('summon au:basedetect 1234567 225 -1234567');
+                                        }
 
                                         test
                                             .startSequence()
                                             .thenExecuteFor(timeInTicks, async () => {
                                                 player.lookAtEntity(victimEntity);
                                                 player.navigateToEntity(victimEntity);
-                                                try {
-                                                    await runCmd(player, `testfor @a[name=${victimEntity.name}, r=10]`);
-                                                } catch (e) {
-                                                    try { await runCmd(player, `tp @s ${victimEntity.name}`) } catch (e) { }
+
+                                                const { successCount } = await runCmd(player, `testfor @a[name="${victim}", r=10]`);
+                                                if (successCount === 0) {
+                                                    await runCmd(player, `tp @s "${victim}"`);
                                                 }
                                             })
                                     })
@@ -989,21 +994,10 @@ function simPlayer(p) {
                                         .setupTicks(0)
                                         .structureName("SimFolder:simtest")
                                         .tag(GameTest.Tags.suiteDefault);
-                                    while (!summoned) {
-                                        try {
-                                            await runCmd(p, `testfor @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=9]`);
-                                            offset = offset + 10;
-                                        } catch (e) {
-                                            await runCmd(p, `execute @s ~${offset} ~ ~ fill ~4 317 ~-4 ~-4 317 ~4 glass`);
-                                            await runCmd(p, `execute @s ~${offset} 318 ~ gametest run simtest:sim_test${simtest} false 1`);
-                                            await runCmd(p, `summon au:basedetect ~${offset} 318 ~`);
-                                            await runCmd(p, `tag @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=1, c=1] add simNotSpawned`);
-                                            summoned = true;
-                                        }
-                                    }
+                                    overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simtest:sim_test${simtest} false 1`);
                                     simtest++;
-                                } catch (e) {
-                                    await runTellraw(p, '§cError, the player you entered is not online.')
+                                } else {
+                                    await runTellraw(p, '§cError, the player you entered is not online.');
                                 }
                             } else {
                                 await runTellraw(p, '§cError, the username you entered is invalid.');
@@ -1019,27 +1013,29 @@ function simPlayer(p) {
                             let simName = result.formValues[0];
                             let timeInTicks = result.formValues[1] * 20;
                             let selectedPlayerRaw = locPlayers[response.selection - 2];
-                            let offset = 0;
-                            let summoned = false;
 
-                            try {
-                                await runCmd(p, `testfor "${selectedPlayerRaw.name}"`);
+                            const { successCount } = await runCmd(p, `testfor "${selectedPlayerRaw.name}"`);
+                            if (successCount !== 0) {
                                 GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
                                     const spawnLoc = new Vector(1, 2, 1);
                                     const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
                                     player.addEffect(MinecraftEffectTypes.speed, 99999, 4, false);
                                     player.addEffect(MinecraftEffectTypes.jumpBoost, 99999, 1, false);
-                                    player.addTag("simPlayer");
+                                    overworld.runCommand('fill 1234564 0 -1234563 1234568 319 -1234567 air');
+                                    const { successCount } = overworld.runCommand('testfor @e[type=au:basedetect, x=1234567, y=225, z=-1234567, r=20]');
+                                    if (successCount === 0) {
+                                        overworld.runCommand('summon au:basedetect 1234567 225 -1234567');
+                                    }
 
                                     test
                                         .startSequence()
                                         .thenExecuteFor(timeInTicks, async () => {
                                             player.lookAtEntity(selectedPlayerRaw);
                                             player.navigateToEntity(selectedPlayerRaw);
-                                            try {
-                                                await runCmd(player, `testfor @a[name=${selectedPlayerRaw.name}, r=10]`);
-                                            } catch (e) {
-                                                try { await runCmd(player, `tp @s ${selectedPlayerRaw.name}`) } catch (e) { }
+
+                                            const { successCount } = await runCmd(player, `testfor @a[name="${selectedPlayerRaw.name}", r=10]`);
+                                            if (successCount === 0) {
+                                                await runCmd(player, `tp @s "${selectedPlayerRaw.name}"`);
                                             }
                                         })
                                 })
@@ -1047,20 +1043,9 @@ function simPlayer(p) {
                                     .setupTicks(0)
                                     .structureName("SimFolder:simtest")
                                     .tag(GameTest.Tags.suiteDefault);
-                                while (!summoned) {
-                                    try {
-                                        await runCmd(p, `testfor @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=9]`);
-                                        offset = offset + 10;
-                                    } catch (e) {
-                                        await runCmd(p, `execute @s ~${offset} ~ ~ fill ~4 317 ~-4 ~-4 317 ~4 glass`);
-                                        await runCmd(p, `execute @s ~${offset} 318 ~ gametest run simtest:sim_test${simtest} false 1`);
-                                        await runCmd(p, `summon au:basedetect ~${offset} 318 ~`);
-                                        await runCmd(p, `tag @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=1, c=1] add simNotSpawned`);
-                                        summoned = true;
-                                    }
-                                }
+                                overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simtest:sim_test${simtest} false 1`);
                                 simtest++;
-                            } catch (e) {
+                            } else {
                                 await runTellraw(p, '§cError, the player you selected is now offline.');
                             }
                         });
@@ -1079,14 +1064,16 @@ function simPlayer(p) {
                         let simName = result.formValues[0];
                         let timeInTicks = result.formValues[1] * 20;
                         let lookClosePlayer = result.formValues[2];
-                        let offset = 0;
-                        let summoned = false;
                         let tpped = false;
 
                         GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
                             const spawnLoc = new Vector(1, 2, 1);
                             const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
-                            player.addTag("simPlayer");
+                            overworld.runCommand('fill 1234564 0 -1234563 1234568 319 -1234567 air');
+                            const { successCount } = overworld.runCommand('testfor @e[type=au:basedetect, x=1234567, y=225, z=-1234567, r=20]');
+                            if (successCount === 0) {
+                                overworld.runCommand('summon au:basedetect 1234567 225 -1234567');
+                            }
 
                             test
                                 .startSequence()
@@ -1100,12 +1087,12 @@ function simPlayer(p) {
                                             excludeNames: [player.name],
                                             location: playerLoc
                                         };
-                                        try { closestP = [...overworld.getPlayers(query)][0] } catch (e) { }
+                                        try { closestP = [...player.dimension.getPlayers(query)][0] } catch (e) { }
                                         try { player.lookAtEntity(closestP) } catch (e) { }
                                     }
                                     if (!tpped) {
                                         try {
-                                            await runCmd(player, `tp ${p.name}`);
+                                            await runCmd(player, `tp "${p.name}"`);
                                             tpped = true;
                                         } catch (e) { }
                                     }
@@ -1115,20 +1102,7 @@ function simPlayer(p) {
                             .setupTicks(0)
                             .structureName("SimFolder:simtest")
                             .tag(GameTest.Tags.suiteDefault);
-                        while (!summoned) {
-                            try {
-                                await runCmd(p, `testfor @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=9]`);
-                                const xd = overworld.runCommand(`testfor @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=9]`);
-                                await runCmd(p, `say ${xd}`);
-                                offset = offset + 10;
-                            } catch (e) {
-                                await runCmd(p, `execute @s ~${offset} ~ ~ fill ~4 317 ~-4 ~-4 317 ~4 glass`);
-                                await runCmd(p, `execute @s ~${offset} 318 ~ gametest run simtest:sim_test${simtest} false 1`);
-                                await runCmd(p, `summon au:basedetect ~${offset} 318 ~`);
-                                await runCmd(p, `tag @e[type=au:basedetect, x=~${offset}, y=318, z=~, r=1, c=1] add simNotSpawned`);
-                                summoned = true;
-                            }
-                        }
+                        overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simtest:sim_test${simtest} false 1`);
                         simtest++;
                     }
                 });
@@ -1196,11 +1170,13 @@ function getBannedBy(player) {
 function isPowerEnabled(pname, projectile, power) {
     let projScoreboard = [];
     try { projScoreboard = [...world.scoreboard.getObjective('-auProj').getParticipants().map(participant => participant.displayName)] } catch (e) { }
-    const regexp = new RegExp(`(?<=-au${pname}-au.*\\+${projectile}[^+]*-${power})on`);
-    try {
-        if (projScoreboard.some(participant => participant.match(regexp)[0] === "on")) return true
-        else return false;
-    } catch (e) { return false }
+    const regexp = new RegExp(`(?<=-au${convertToRegExpFriendly(pname)}-au.*\\+${projectile}[^+]*-${power})on`);
+    if (projScoreboard.some(participant => {
+        try {
+            if (participant.match(regexp)[0] === "on") return true;
+        } catch (e) { }
+    })) return true
+    else return false;
 }
 /* const pname = "MisledPaul58976";
    const xd = "-auMisledPaul58976-au+snowball-bolton+arrow-boltoff";
@@ -1213,7 +1189,7 @@ function isPowerEnabled(pname, projectile, power) {
 async function setPower(pname, projectile, power, state) {
     let projScoreboard = [];
     try { projScoreboard = [...world.scoreboard.getObjective('-auProj').getParticipants().map(participant => participant.displayName).filter(participant => participant.includes(`-au${pname}-au`))] } catch (e) { }
-    const regexp = new RegExp(`(?<=-au${pname}-au.*\\+${projectile}[^+]*-${power})(?:on|off)`);
+    const regexp = new RegExp(`(?<=-au${convertToRegExpFriendly(pname)}-au.*\\+${projectile}[^+]*-${power})(?:on|off)`); //"+" is escaped two times because of the ``
 
     if (projScoreboard.length !== 0) { //If the array is not empty
         try { await runCmd(overworld, `scoreboard players reset "${projScoreboard[0]}" -auProj`) } catch (e) { }
@@ -1232,4 +1208,8 @@ function isFrozen(player) {
         if (world.scoreboard.getObjective('-aufrozen').getParticipants().map(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1]).includes(player)) return true
         else return false;
     } catch (e) { return false }
+}
+
+function convertToRegExpFriendly(str) {
+    return str.replace(/[|\\{}()[\]^$+*?.]/g, '\\$&');
 }
