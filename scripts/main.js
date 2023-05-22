@@ -24,7 +24,6 @@ system.runInterval(async tick => { //LOS COMANDOS YA NO DAN ERRORES (testfor)
             firstPlayer = true;
         }
     }
-    try { await runCmd(overworld, 'execute @e[tag=simSpawned] ~~~ fill ~6 316 ~-6 ~-6 319 ~6 air') } catch (e) { }
 
     for (const player of players) {
         if (player.hasTag("admin")) {
@@ -59,9 +58,6 @@ world.events.playerJoin.subscribe(async event => {
         let reason = getBanReason(event.playerName);
         let bannedBy = getBannedBy(event.playerName);
         await runCmd(overworld, `kick "${event.playerName}" "\n§l§6------------------------------------------------------\n§l§4§k|||||§r§l§cYou have been banned by §4${bannedBy}§c.§4§k|||||§r\n§l§4Reason: §c${reason}\n§r§l§6------------------------------------------------------§r"`);
-    } else if (player.hasTag("simPlayer")) {
-        await runCmd(player, 'tag @e[tag=simNotSpawned, c=1] add simSpawned');
-        await runCmd(player, 'tag @e[tag=simNotSpawned, c=1] remove simNotSpawned');
     }
 });
 
@@ -102,7 +98,11 @@ world.events.projectileHit.subscribe(event => {
                     tnt.addTag("-autnt");
                     tntFlag = `-autnt${tntFlag.match(/[0-9]+/)[0] * 1 + 1}`; //Va sumando 1 cada vez
                     async function asyncTntTp() {
-                        while (await runCmd(tnt.dimension, `testfor @e[type=tnt, tag=${_tntFlag}]`)) {
+                        while (testfor => {
+                            const { successCount } = tnt.dimension.runCommand(`testfor @e[type=tnt, tag=${_tntFlag}]`);
+                            if (successCount !== 0) return true
+                            else return false;
+                        }) {
                             await runCmd(HitEntity, `tp @e[type=tnt, tag="${_tntFlag}"] @s`);
                         }
                     }
