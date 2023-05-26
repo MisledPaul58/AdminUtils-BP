@@ -2,7 +2,7 @@ import { world, MinecraftEffectTypes, GameMode, system, Vector } from "@minecraf
 import * as GameTest from "@minecraft/server-gametest";
 import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/server-ui";
 
-const overworld = world.getDimension("overworld");
+const overworld = world.getDimension("overworld"); //Hacer una cárcel con tiempo y un vanish
 let firstPlayer = false;
 let players = [];
 let admins = [];
@@ -64,6 +64,13 @@ world.events.playerJoin.subscribe(async event => {
 world.events.beforeItemUse.subscribe(data => {
     let player = data.source;
     if (data.item.typeId === "minecraft:stick" && isAdmin(player.name)) {
+        /*const query = {
+            maxDistance: 10
+        };
+        const entities = player.getEntitiesFromViewDirection(query);
+        player.runCommand(`say ${entities.map(entity => entity.typeId)}`);
+        player.applyKnockback(player.getViewDirection().x, player.getViewDirection().z, 1, 1);
+        */
         adminUtilsGui(player);
     }
 });
