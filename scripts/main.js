@@ -1,6 +1,7 @@
 import { world, MinecraftEffectTypes, GameMode, system, Vector } from "@minecraft/server";
 import * as GameTest from "@minecraft/server-gametest";
 import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/server-ui";
+import moment from "./moment/src/moment.js";
 
 const overworld = world.getDimension("overworld"); //Hacer una cárcel con tiempo y un vanish
 let firstPlayer = false;
@@ -49,7 +50,7 @@ system.runInterval(async tick => { //LOS COMANDOS YA NO DAN ERRORES (testfor)
     }
 }, 1);
 
-world.events.playerJoin.subscribe(async event => {
+world.afterEvents.playerJoin.subscribe(async event => {
     const query = {
         name: event.playerName
     };
@@ -61,9 +62,9 @@ world.events.playerJoin.subscribe(async event => {
     }
 });
 
-world.events.beforeItemUse.subscribe(data => {
-    let player = data.source;
-    if (data.item.typeId === "minecraft:stick" && isAdmin(player.name)) {
+world.beforeEvents.itemUse.subscribe(data => {
+    const player = data.source;
+    if (data.itemStack.typeId === "minecraft:stick" && isAdmin(player.name)) {
         /*const query = {
             maxDistance: 10
         };
@@ -71,11 +72,19 @@ world.events.beforeItemUse.subscribe(data => {
         player.runCommand(`say ${entities.map(entity => entity.typeId)}`);
         player.applyKnockback(player.getViewDirection().x, player.getViewDirection().z, 1, 1);
         */
-        adminUtilsGui(player);
+        system.run(() => {
+            adminUtilsGui(player);
+            var a = moment([2023, 2, 29]);
+            var b = moment([2023, 0, 28]);
+            runCmd(player, `say ${a.diff(b, 'months')}`);
+            runCmd(player, `say ${moment(moment().toISOString())}`);
+            runCmd(player, `say ${moment().toISOString()}`);
+            runCmd(player, `say ${moment().milliseconds()}`);
+        });
     }
 });
 
-world.events.projectileHit.subscribe(event => {
+world.afterEvents.projectileHit.subscribe(event => {
     const { dimension, projectile, source } = event;
     const HitEntity = event.getEntityHit().entity;
     if (source.typeId === "minecraft:player" && HitEntity.typeId !== "minecraft:tnt") {
@@ -117,17 +126,18 @@ world.events.projectileHit.subscribe(event => {
                 } catch (e) { }
             }
         }
-        RunProjectilePowers();
+        system.run(() => {
+            RunProjectilePowers();
+        });
     }
 });
 
 function adminUtilsGui(p) {
-    const form = new ActionFormData();
-
-    form.title("AdminUtils GUI");
-    form.body("Select an option");
-    form.button("Admin settings");
-    form.button("Admin commands");
+    const form = new ActionFormData()
+        .title("AdminUtils GUI")
+        .body("Select an option")
+        .button("Admin settings")
+        .button("Admin commands");
     form.show(p).then((response) => {
         switch (response.selection) {
             case 0: {
@@ -475,7 +485,8 @@ function adminCommands(p) {
                                         const query = {
                                             name: player
                                         };
-                                        const playerRaw = [...world.getPlayers(query)];
+                                        const playerRaw = [...world.getPlayers(query)][0];
+                                        playerRaw.runCommand('playsound player_launch @a ~ ~ ~ 100');
                                         await runCmd(playerRaw, `execute @s ~~~ summon fireworks_rocket`);
                                         for (let i = 0; i < 5; i++) {
                                             runCmd(playerRaw, `execute @s ~~~ particle minecraft:cauldron_explosion_emitter`);
@@ -507,6 +518,7 @@ function adminCommands(p) {
                         form.show(p).then(async result => {
                             if (result.selection === 1) {
                                 try {
+                                    selectedPlayerRaw.runCommand('playsound player_launch @a ~ ~ ~ 100');
                                     await runCmd(selectedPlayerRaw, `execute @s ~~~ summon fireworks_rocket`);
                                     for (let i = 0; i < 5; i++) {
                                         runCmd(selectedPlayerRaw, `execute @s ~~~ particle minecraft:cauldron_explosion_emitter`);
@@ -569,15 +581,42 @@ function banPlayer(p) {
         if (response.selection === 0) {
             banUnbanMenu(p);
         } else if (response.selection === 1) {
-            let form = new ModalFormData();
-
-            form.title("Ban menu");
-            form.textField("Type below the player you would like to ban.", "Player's name");
-            form.textField("Enter a reason:", "Reason");
+            let form = new ModalFormData()
+                .title("Ban menu")
+                .textField("Type below the player you would like to ban.", "Player's name")
+                .textField("Enter a reason:", "Reason")
+                .toggle("Permanent ban", false)
+                .slider("Years", 0, 10, 1, 0)
+                .slider("Months", 0, 11, 1, 0)
+                .slider("Weeks", 0, 3, 1, 0)
+                .slider("Days", 0, 6, 1, 0)
+                .slider("Hours", 0, 23, 1, 0)
+                .slider("Minutes", 0, 59, 1, 0)
+                .slider("Seconds", 0, 59, 1, 0);
             form.show(p).then(async result => {
-                let player = result.formValues[0];
-                let reason = result.formValues[1];
-                let bannedBy = p.name;
+                if (result.canceled) return;
+                const player = result.formValues[0];
+                const reason = result.formValues[1];
+                const bannedBy = p.name;
+
+                const banYears = result.formValues[2];
+                const banMonths = result.formValues[3];
+                const banWeeks = result.formValues[4]; //Only to calculate the respective days and add them to banDays
+                const banDays = result.formValues[5]; //Specified days without taking the weeks into account, include this in the kick cmd
+                const banTotalDays = result.formValues[5] + banWeeks * 7;
+                const banHours = result.formValues[6];
+                const banMinutes = result.formValues[7];
+                const banSeconds = result.formValues[8];
+
+                const unBanDate = new Date();
+                unBanDate.setFullYear(unBanDate.getFullYear() + banYears); //Adds years
+                unBanDate.setMonth(unBanDate.getMonth() + banMonths); //Adds months
+                unBanDate.setDate(unBanDate.getDate() + banTotalDays); //Adds days
+                unBanDate.setHours(unBanDate.getHours() + banHours); //Adds hours
+                unBanDate.setMinutes(unBanDate.getMinutes() + banMinutes); //Adds minutes
+                unBanDate.setSeconds(unBanDate.getSeconds() + banSeconds); //Adds seconds
+
+                const unBanMilliseconds = unBanDate.getTime();
 
                 if (reason === "") {
                     await runTellraw(p, `§cError, you must enter a reason.`);
@@ -593,8 +632,15 @@ function banPlayer(p) {
 
                 } else {
                     try {
-                        await runCmd(overworld, `scoreboard players set "${player}-aureason${reason}-auban${bannedBy}" -auban 0`);
-                        try { await runCmd(overworld, `kick "${player}" "\n§l§6------------------------------------------------------\n§l§4§k|||||§r§l§cYou have been banned by §4${bannedBy}§c.§4§k|||||§r\n§l§4Reason: §c${reason}\n§r§l§6------------------------------------------------------§r"`) } catch (e) { }
+                        await runCmd(overworld, `scoreboard players set "${player}-aureason${reason}-auban${bannedBy}-autime${unBanMilliseconds}" -auban 0`);
+                        try {
+                            await runCmd(overworld, `kick "${player}" "\n
+                            §l§6------------------------------------------------------\n
+                            §l§4§k|||||§r§l§cYou have been banned by §4${bannedBy}§c.§4§k|||||§r\n
+                            §l§4Reason: §c${reason}\n
+                            §l§4Time: §c${banYears} ${banYears == 1 ? "year" : "years"} ${banMonths} ${banMonths == 1 ? "month" : "months"} ${banWeeks} ${banWeeks == 1 ? "week" : "weeks"} ${banDays} ${banDays == 1 ? "day" : "days"} ${banHours} ${banHours == 1 ? "hour" : "hours"} ${banMinutes} ${banMinutes == 1 ? "minute" : "minutes"} ${banSeconds} ${banSeconds == 1 ? "second" : "seconds"}\n
+                            §r§l§6------------------------------------------------------§r"`)
+                        } catch (e) { }
                         await runTellraw(p, `§aThe player §b${player}§a has been banned successfully with reason: §c${reason}§a.`);
                     } catch (e) {
                         await runTellraw(p, `§cError, couldn't ban the player.`);
