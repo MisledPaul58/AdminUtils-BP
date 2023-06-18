@@ -55,10 +55,29 @@ world.afterEvents.playerJoin.subscribe(async event => {
         name: event.playerName
     };
     const player = [...world.getPlayers(query)][0];
-    if (isBanned(event.playerName)) {
-        let reason = getBanReason(event.playerName);
-        let bannedBy = getBannedBy(event.playerName);
-        await runCmd(overworld, `kick "${event.playerName}" "\n§l§6------------------------------------------------------\n§l§4§k|||||§r§l§cYou have been banned by §4${bannedBy}§c.§4§k|||||§r\n§l§4Reason: §c${reason}\n§r§l§6------------------------------------------------------§r"`);
+    if (isBanned(event.playerName)) { //Make a function to check if the banTime is over
+        if () {
+
+        } else {
+            const reason = getBanReason(event.playerName);
+            const bannedBy = getBannedBy(event.playerName);
+
+            const unBanDate = moment(getUnBanISO(event.playerName), moment.ISO_8601);
+            const currentDate = moment();
+            const remainingTime = moment.duration(unBanDate.diff(currentDate));
+
+            const remainingYears = remainingTime.years();
+            const remainingMonths = remainingTime.months();
+            const remainingWeeks = remainingTime.weeks();
+            remainingTime.subtract(remainingWeeks * 7, 'days');
+            const remainingDays = remainingTime.days();
+            const remainingHours = remainingTime.hours();
+            const remainingMinutes = remainingTime.minutes();
+            const remainingSeconds = remainingTime.seconds();
+            system.run(() => {
+                overworld.runCommand(`kick "${event.playerName}" "\n§l§6----------------------------\n§l§4§k|||||§r§l§cYou were banned by §4${bannedBy}§c§4§k|||||§r\n§l§4Reason: §c${reason}\n§l§4Remaining time: §c${remainingYears} ${remainingYears == 1 ? "year" : "years"} ${remainingMonths} ${remainingMonths == 1 ? "month" : "months"} ${remainingWeeks} ${remainingWeeks == 1 ? "week" : "weeks"} ${remainingDays} ${remainingDays == 1 ? "day" : "days"} ${remainingHours} ${remainingHours == 1 ? "hour" : "hours"} ${remainingMinutes} ${remainingMinutes == 1 ? "minute" : "minutes"} ${remainingSeconds} ${remainingSeconds == 1 ? "second" : "seconds"}\n§r§l§6----------------------------§r"`);
+            });
+        }
     }
 });
 
@@ -74,9 +93,10 @@ world.beforeEvents.itemUse.subscribe(data => {
         */
         system.run(() => {
             adminUtilsGui(player);
-            var a = moment([2023, 2, 29]);
+            var a = moment([2023, 3, 29]);
             var b = moment([2023, 0, 28]);
-            runCmd(player, `say ${a.diff(b, 'months')}`);
+            runCmd(player, `say ${moment.duration(a.diff(b)).months()}`);
+            runCmd(player, `say ${moment.duration(a.diff(b)).days()}`);
             runCmd(player, `say ${moment(moment().toISOString())}`);
             runCmd(player, `say ${moment().toISOString()}`);
             runCmd(player, `say ${moment().milliseconds()}`);
@@ -93,7 +113,7 @@ world.afterEvents.projectileHit.subscribe(event => {
             if (isPowerEnabled(source.nameTag, proj, "bolt")) {
                 await runCmd(dimension, `summon lightning_bolt ${HitEntity.location.x} ${HitEntity.location.y} ${HitEntity.location.z}`);
             }
-            if (isPowerEnabled(source.nameTag, proj, "freeze")) { //Centrarlos, quitando los decimales y sustituyendolos por ,5, o quitando los decimales y sumando 1 (minecraft les resta 0,5 a los números sin decimales para encajar en el centro del bloque), con Math floor es mejor (listo)
+            if (isPowerEnabled(source.nameTag, proj, "freeze")) { //Centrarlos, quitando los decimales y sustituyendolos por ".5", o quitando los decimales y sumando 1 (minecraft resta 0.5 a los números sin decimales para encajar en el centro del bloque), con Math floor es mejor (listo)
                 const entityLoc = HitEntity.location;
                 await runCmd(HitEntity, `tp ${Math.floor(entityLoc.x)} ${Math.floor(entityLoc.y)} ${Math.floor(entityLoc.z)}`);
                 await runCmd(dimension, `fill ${entityLoc.x - 1} ${entityLoc.y - 1} ${entityLoc.z - 1} ${entityLoc.x + 1} ${entityLoc.y + 2} ${entityLoc.z + 1} ice [] replace air`);
@@ -152,7 +172,7 @@ function adminUtilsGui(p) {
     });
 }
 
-function adminSettings(p) {
+function adminSettings(p) { //Maybe make it so that if you're an admin you can't simply remove another admin
     const form = new ActionFormData();
 
     form.title("Admin settings");
@@ -176,7 +196,7 @@ function adminSettings(p) {
                     let admin = result.formValues[0];
                     if (admin == "" || !admin) {
                         await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§cError, please specify the player's name you would like to set as an admin.§r" }]}`);
-                    } else if (isValidUsername(admin) === false) {
+                    } else if (!isValidUsername(admin)) {
                         await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§cError, that doesn't look like a valid username.§r" }]}`);
                     } else {
                         let form = new MessageFormData();
@@ -185,7 +205,7 @@ function adminSettings(p) {
                         form.button1("Yes");
                         form.button2("No");
                         form.show(p).then(async (response) => {
-                            if (response.selection === 1) {
+                            if (response.selection === 0) {
                                 admins.forEach(async (value) => {
                                     try { await runCmd(overworld, `scoreboard players reset ${value} -au`) } catch (e) { }
                                 }); //Quizás intentar añadir alguna forma para poder asignar a varios admins a la vez 
@@ -240,7 +260,7 @@ function adminSettings(p) {
                 });
             } break;
             case 4: { //Show admins 
-                let adminsArray = world.scoreboard.getObjective('-au').getParticipants().map(admin => admin.displayName.match(/(?<=-au)[^]+(?=-au)/)[0]);
+                const adminsArray = world.scoreboard.getObjective('-au').getParticipants().map(admin => admin.displayName.match(/(?<=-au)[^]+(?=-au)/)[0]);
                 let form = new ModalFormData();
                 form.title("Admin settings");
                 form.dropdown("Admins list", adminsArray);
@@ -336,7 +356,7 @@ function adminCommands(p) {
                                         .button1("Yes")
                                         .button2("No");
                                     form.show(p).then(async result => {
-                                        if (result.selection === 1) {
+                                        if (result.selection === 0) {
                                             try {
                                                 await runCmd(selectedPlayer.dimension, `scoreboard players set "-auname${selectedPlayer.name} -au${selectedPlayer.location.x} -au${selectedPlayer.location.y} -au${selectedPlayer.location.z}" -aufrozen 0`);
                                                 await runTellraw(p, `§aThe player §b${selectedPlayer.name}§a has been successfully frozen.`);
@@ -368,7 +388,7 @@ function adminCommands(p) {
                                         .button1("Yes")
                                         .button2("No");
                                     form.show(p).then(async result => {
-                                        if (result.selection === 1) {
+                                        if (result.selection === 0) {
                                             try {
                                                 const scoreboard = world.scoreboard.getObjective('-aufrozen').getParticipants().filter(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1] === selectedPlayer)[0].displayName;
                                                 await runCmd(p, `scoreboard players reset "${scoreboard}" -aufrozen`);
@@ -516,7 +536,7 @@ function adminCommands(p) {
                             .button1("Yes")
                             .button2("No");
                         form.show(p).then(async result => {
-                            if (result.selection === 1) {
+                            if (result.selection === 0) {
                                 try {
                                     selectedPlayerRaw.runCommand('playsound player_launch @a ~ ~ ~ 100');
                                     await runCmd(selectedPlayerRaw, `execute @s ~~~ summon fireworks_rocket`);
@@ -571,7 +591,7 @@ function banPlayer(p) {
     form.button("<-- Back");
     form.button("Type a player manually instead");
     for (const player of playersArray) {
-        if (isBanned(player) === false && !isAdmin(player)) {
+        if (!isBanned(player) && !isAdmin(player)) {
             form.button(player, "textures/icons/steve_icon.png");
             notBannedPlayers.push(player);
         }
@@ -583,40 +603,48 @@ function banPlayer(p) {
         } else if (response.selection === 1) {
             let form = new ModalFormData()
                 .title("Ban menu")
-                .textField("Type below the player you would like to ban.", "Player's name")
-                .textField("Enter a reason:", "Reason")
-                .toggle("Permanent ban", false)
-                .slider("Years", 0, 10, 1, 0)
-                .slider("Months", 0, 11, 1, 0)
-                .slider("Weeks", 0, 3, 1, 0)
-                .slider("Days", 0, 6, 1, 0)
-                .slider("Hours", 0, 23, 1, 0)
-                .slider("Minutes", 0, 59, 1, 0)
-                .slider("Seconds", 0, 59, 1, 0);
+                .textField("Type below the player you would like to ban.", "Player's name") //0
+                .textField("Enter a reason:", "Reason") //1
+                .toggle("Permanent ban", false) //2
+                .slider("Years", 0, 10, 1, 0) //3
+                .slider("Months", 0, 11, 1, 0) //4
+                .slider("Weeks", 0, 3, 1, 0) //5
+                .slider("Days", 0, 6, 1, 0) //6
+                .slider("Hours", 0, 23, 1, 0) //7
+                .slider("Minutes", 0, 59, 1, 0) //8
+                .slider("Seconds", 0, 59, 1, 0); //9
             form.show(p).then(async result => {
                 if (result.canceled) return;
                 const player = result.formValues[0];
                 const reason = result.formValues[1];
                 const bannedBy = p.name;
+                //Handle permanent ban as well
+                const banYears = result.formValues[3];
+                const banMonths = result.formValues[4];
+                const banWeeks = result.formValues[5]; //Only to calculate the respective days and add them to banDays
+                const banDays = result.formValues[6]; //Specified days without taking the weeks into account, include this in the kick cmd
+                const banTotalDays = banDays + banWeeks * 7;
+                const banHours = result.formValues[7];
+                const banMinutes = result.formValues[8];
+                const banSeconds = result.formValues[9];
 
-                const banYears = result.formValues[2];
-                const banMonths = result.formValues[3];
-                const banWeeks = result.formValues[4]; //Only to calculate the respective days and add them to banDays
-                const banDays = result.formValues[5]; //Specified days without taking the weeks into account, include this in the kick cmd
-                const banTotalDays = result.formValues[5] + banWeeks * 7;
-                const banHours = result.formValues[6];
-                const banMinutes = result.formValues[7];
-                const banSeconds = result.formValues[8];
-
-                const unBanDate = new Date();
+                /*const unBanDate = new Date();
                 unBanDate.setFullYear(unBanDate.getFullYear() + banYears); //Adds years
                 unBanDate.setMonth(unBanDate.getMonth() + banMonths); //Adds months
                 unBanDate.setDate(unBanDate.getDate() + banTotalDays); //Adds days
                 unBanDate.setHours(unBanDate.getHours() + banHours); //Adds hours
                 unBanDate.setMinutes(unBanDate.getMinutes() + banMinutes); //Adds minutes
                 unBanDate.setSeconds(unBanDate.getSeconds() + banSeconds); //Adds seconds
+                */
+                const unBanDate = moment();
+                unBanDate.add(banYears, 'years');
+                unBanDate.add(banMonths, 'months');
+                unBanDate.add(banTotalDays, 'days');
+                unBanDate.add(banHours, 'hours');
+                unBanDate.add(banMinutes, 'minutes');
+                unBanDate.add(banSeconds, 'seconds');
 
-                const unBanMilliseconds = unBanDate.getTime();
+                const unBanISO = unBanDate.toISOString(); //Date when you will get unbanned
 
                 if (reason === "") {
                     await runTellraw(p, `§cError, you must enter a reason.`);
@@ -632,14 +660,9 @@ function banPlayer(p) {
 
                 } else {
                     try {
-                        await runCmd(overworld, `scoreboard players set "${player}-aureason${reason}-auban${bannedBy}-autime${unBanMilliseconds}" -auban 0`);
+                        await runCmd(overworld, `scoreboard players set "${player}-aureason${reason}-auban${bannedBy}-autime${unBanISO}" -auban 0`);
                         try {
-                            await runCmd(overworld, `kick "${player}" "\n
-                            §l§6------------------------------------------------------\n
-                            §l§4§k|||||§r§l§cYou have been banned by §4${bannedBy}§c.§4§k|||||§r\n
-                            §l§4Reason: §c${reason}\n
-                            §l§4Time: §c${banYears} ${banYears == 1 ? "year" : "years"} ${banMonths} ${banMonths == 1 ? "month" : "months"} ${banWeeks} ${banWeeks == 1 ? "week" : "weeks"} ${banDays} ${banDays == 1 ? "day" : "days"} ${banHours} ${banHours == 1 ? "hour" : "hours"} ${banMinutes} ${banMinutes == 1 ? "minute" : "minutes"} ${banSeconds} ${banSeconds == 1 ? "second" : "seconds"}\n
-                            §r§l§6------------------------------------------------------§r"`)
+                            await runCmd(overworld, `kick "${player}" "\n§l§6----------------------------\n§l§4§k|||||§r§l§cYou have been banned by §4${bannedBy}§c.§4§k|||||§r\n§l§4Reason: §c${reason}\n§l§4Time: §c${banYears} ${banYears == 1 ? "year" : "years"} ${banMonths} ${banMonths == 1 ? "month" : "months"} ${banWeeks} ${banWeeks == 1 ? "week" : "weeks"} ${banDays} ${banDays == 1 ? "day" : "days"} ${banHours} ${banHours == 1 ? "hour" : "hours"} ${banMinutes} ${banMinutes == 1 ? "minute" : "minutes"} ${banSeconds} ${banSeconds == 1 ? "second" : "seconds"}\n§r§l§6----------------------------§r"`);
                         } catch (e) { }
                         await runTellraw(p, `§aThe player §b${player}§a has been banned successfully with reason: §c${reason}§a.`);
                     } catch (e) {
@@ -654,8 +677,8 @@ function banPlayer(p) {
             form.title("Ban menu");
             form.textField("Enter a reason:", "Reason");
             form.show(p).then(async result => {
-                let reason = result.formValues[0];
-                let bannedBy = p.name;
+                const reason = result.formValues[0];
+                const bannedBy = p.name;
                 try {
                     await runCmd(overworld, `scoreboard players set "${selectedPlayer}-aureason${reason}-auban${bannedBy}" -auban 0`);
                     try { await runCmd(overworld, `kick "${selectedPlayer}" "\n§l§6------------------------------------------------------\n§l§4§k|||||§r§l§cYou have been banned by §4${bannedBy}§c.§4§k|||||§r\n§l§4Reason: §c${reason}\n§r§l§6------------------------------------------------------§r"`) } catch (e) { }
@@ -669,19 +692,15 @@ function banPlayer(p) {
 }
 
 function unBanPlayer(p) {
-    let bannedPlayers = [];
-
     const form = new ActionFormData();
     form.title("Unban menu");
     form.body("Select a player to unban");
     form.button("<-- Back");
     form.button("Type a player manually instead");
-    for (const bannedPlayer of world.scoreboard.getObjective('-auban').getParticipants().map(participant => participant.displayName)) {
-        bannedPlayers.push(bannedPlayer.match(/[^-]+/)[0]);
-    }
 
+    const bannedPlayers = world.scoreboard.getObjective('auban').getParticipants().map(participant => participant.displayName.match(/[^]+(?=-aureason)/)[0]);
     for (const player of bannedPlayers) {
-        if (isBanned(player) === true && !isAdmin(player)) {
+        if (!isAdmin(player)) {
             form.button(player, "textures/icons/steve_icon.png");
         }
     }
@@ -695,9 +714,10 @@ function unBanPlayer(p) {
             form.title("Unban menu");
             form.textField("Type below the player you would like to unban.", "Player's name");
             form.show(p).then(async result => {
-                let player = result.formValues[0];
-                let reason = getBanReason(player);
-                let bannedBy = getBannedBy(player);
+                const player = result.formValues[0];
+                const reason = getBanReason(player);
+                const bannedBy = getBannedBy(player);
+                const banISO = getUnBanISO(player);
 
                 if (!isBanned(player)) {
                     await runTellraw(p, `§cError, the specified player is not banned.`);
@@ -705,9 +725,9 @@ function unBanPlayer(p) {
                 } else if (!isValidUsername(player)) {
                     await runTellraw(p, `§cError, the username you entered is invalid.`);
 
-                } else if (isBanned(player) === true && isValidUsername(player)) {
+                } else if (isBanned(player) && isValidUsername(player)) {
                     try {
-                        await runCmd(overworld, `scoreboard players reset "${player}-aureason${reason}-auban${bannedBy}" -auban`);
+                        await runCmd(overworld, `scoreboard players reset "${player}-aureason${reason}-auban${bannedBy}-autime${banISO}" -auban`);
                         await runTellraw(p, `§aThe player §b${player}§a has been unbanned successfully.`);
                     } catch (e) {
                         await runTellraw(p, `§cError, couldn't unban the player.`);
@@ -723,11 +743,12 @@ function unBanPlayer(p) {
             form.button1("Yes");
             form.button2("No");
             form.show(p).then(async result => {
-                if (result.selection === 1) {
-                    let reason = getBanReason(selectedPlayer);
-                    let bannedBy = getBannedBy(selectedPlayer);
+                if (result.selection === 0) {
+                    const reason = getBanReason(selectedPlayer);
+                    const bannedBy = getBannedBy(selectedPlayer);
+                    const banISO = getUnBanISO(selectedPlayer);
                     try {
-                        await runCmd(overworld, `scoreboard players reset "${selectedPlayer}-aureason${reason}-auban${bannedBy}" -auban`);
+                        await runCmd(overworld, `scoreboard players reset "${selectedPlayer}-aureason${reason}-auban${bannedBy}-autime${banISO}" -auban`);
                         await runTellraw(p, `§aThe player §b${selectedPlayer}§a has been unbanned successfully.`);
                     } catch (e) {
                         await runTellraw(p, `§cError, couldn't unban the player.`);
@@ -1194,6 +1215,11 @@ function isBanned(player) {
     else return false;
 }
 
+function isBanTimeOver(player) {
+    const banISO = getUnBanISO(player);
+
+}
+
 function getBanReason(player) {
     let bannedPlayers = [];
     for (const bannedRawPlayer of world.scoreboard.getObjective('-auban').getParticipants()) {
@@ -1215,9 +1241,16 @@ function getBannedBy(player) {
 
     let bannedBys = [];
     for (const bannedRawPlayer of world.scoreboard.getObjective('-auban').getParticipants()) {
-        bannedBys.push(bannedRawPlayer.displayName.match(/(?<=-auban)[^]+/)[0]);
+        bannedBys.push(bannedRawPlayer.displayName.match(/(?<=-auban)[^]+(?=-autime)/)[0]);
     }
     return bannedBys[bannedPlayers.indexOf(player)];
+}
+
+function getUnBanISO(player) {
+    const bannedPlayers = world.scoreboard.getObjective('-auban').getParticipants();
+    const matchISO = new RegExp(`(?<=${convertToRegExpFriendly(player)}-aureason.*-autime)[^]+`);
+    const scoreboard = bannedPlayers.filter(participant => participant.displayName.match(matchISO) !== null)[0].displayName;
+    return scoreboard.match(matchISO)[0];
 }
 
 function isPowerEnabled(pname, projectile, power) {
