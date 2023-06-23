@@ -10,7 +10,11 @@ let admins = [];
 let simtest = 0;
 let tntFlag = "-autnt0";
 
-system.runInterval(async tick => { //LOS COMANDOS YA NO DAN ERRORES (testfor)
+system.events.beforeWatchdogTerminate.subscribe(watchdog => {
+    watchdog.cancel = true;
+});
+
+system.runInterval(async tick => {
     let { currentTick } = system;
     players = [...world.getPlayers()];
 
@@ -48,21 +52,39 @@ system.runInterval(async tick => { //LOS COMANDOS YA NO DAN ERRORES (testfor)
             }
         }
     }
+
+    for (const bannedPlayer of getBannedPlayers().filter(player => !isPermaBanned(player))) {
+        if (isBanTimeOver(bannedPlayer)) {
+            const reason = getBanReason(bannedPlayer);
+            const bannedBy = getBannedBy(bannedPlayer);
+            const banISO = getUnBanISO(bannedPlayer);
+            await runCmd(overworld, `scoreboard players reset "${bannedPlayer}-aureason${reason}-auban${bannedBy}-autime${banISO}" -auban`);
+        }
+    }
 }, 1);
 
 world.afterEvents.playerJoin.subscribe(async event => {
-    const query = {
-        name: event.playerName
-    };
-    const player = [...world.getPlayers(query)][0];
-    if (isBanned(event.playerName)) { //Make a function to check if the banTime is over
-        if () {
+    const { playerName } = event;
+    if (isBanned(playerName)) {
+        const reason = getBanReason(playerName);
+        const bannedBy = getBannedBy(playerName);
+        if (isPermaBanned(playerName)) {
+            testfor();
+            async function testfor() {
+                const delay = ticks => new Promise(res => system.runTimeout(res, ticks));
 
+                while (function () { //Waits until the banned player actually joins
+                    const { successCount } = overworld.runCommand(`testfor "${playerName}"`);
+                    if (successCount === 1) return false
+                    else return true;
+                }()) {
+                    await delay(1);
+                }
+
+                overworld.runCommand(`kick "${playerName}" "\n§l§6----------------------------\n§l§4§k|||||§r§l§cYou were permanently banned by §4${bannedBy}§4§k|||||§r\n§l§o§4Reason: §c${reason}\n§r§l§6----------------------------§r"`);
+            }
         } else {
-            const reason = getBanReason(event.playerName);
-            const bannedBy = getBannedBy(event.playerName);
-
-            const unBanDate = moment(getUnBanISO(event.playerName), moment.ISO_8601);
+            const unBanDate = moment(getUnBanISO(playerName), moment.ISO_8601);
             const currentDate = moment();
             const remainingTime = moment.duration(unBanDate.diff(currentDate));
 
@@ -74,9 +96,42 @@ world.afterEvents.playerJoin.subscribe(async event => {
             const remainingHours = remainingTime.hours();
             const remainingMinutes = remainingTime.minutes();
             const remainingSeconds = remainingTime.seconds();
+            /*
+            while (testfor => { //Waits until the banned player actually joins
+                let successCount;
+                try {
+                    successCount = overworld.runCommand(`testfor "${playerName}"`).successCount;
+                } catch (e) { }
+                if (successCount === 1) return false
+                else return true;
+            }) { }
             system.run(() => {
-                overworld.runCommand(`kick "${event.playerName}" "\n§l§6----------------------------\n§l§4§k|||||§r§l§cYou were banned by §4${bannedBy}§c§4§k|||||§r\n§l§4Reason: §c${reason}\n§l§4Remaining time: §c${remainingYears} ${remainingYears == 1 ? "year" : "years"} ${remainingMonths} ${remainingMonths == 1 ? "month" : "months"} ${remainingWeeks} ${remainingWeeks == 1 ? "week" : "weeks"} ${remainingDays} ${remainingDays == 1 ? "day" : "days"} ${remainingHours} ${remainingHours == 1 ? "hour" : "hours"} ${remainingMinutes} ${remainingMinutes == 1 ? "minute" : "minutes"} ${remainingSeconds} ${remainingSeconds == 1 ? "second" : "seconds"}\n§r§l§6----------------------------§r"`);
+                overworld.runCommand(`kick "${playerName}" "\n§l§6----------------------------\n§l§4§k|||||§r§l§cYou were banned by §4${bannedBy}§4§k|||||§r\n§l§4Reason: §c${reason}\n§l§4Remaining time: §c${remainingYears} ${remainingYears == 1 ? "year" : "years"} ${remainingMonths} ${remainingMonths == 1 ? "month" : "months"} ${remainingWeeks} ${remainingWeeks == 1 ? "week" : "weeks"} ${remainingDays} ${remainingDays == 1 ? "day" : "days"} ${remainingHours} ${remainingHours == 1 ? "hour" : "hours"} ${remainingMinutes} ${remainingMinutes == 1 ? "minute" : "minutes"} ${remainingSeconds} ${remainingSeconds == 1 ? "second" : "seconds"}\n§r§l§6----------------------------§r"`);
             });
+            */
+            testfor();
+            async function testfor() {
+                const delay = ticks => new Promise(res => system.runTimeout(res, ticks));
+
+                while (function () { //Waits until the banned player actually joins
+                    const { successCount } = overworld.runCommand(`testfor "${playerName}"`);
+                    if (successCount === 1) return false
+                    else return true;
+                }()) {
+                    await delay(10);
+                }
+
+                await delay(4);
+                const years = remainingYears === 0 ? "" : remainingYears === 1 ? `${remainingYears} year ` : `${remainingYears} years `;
+                const months = remainingMonths === 0 ? "" : remainingMonths === 1 ? `${remainingMonths} month ` : `${remainingMonths} months `;
+                const weeks = remainingWeeks === 0 ? "" : remainingWeeks === 1 ? `${remainingWeeks} week ` : `${remainingWeeks} weeks `;
+                const days = remainingDays === 0 ? "" : remainingDays === 1 ? `${remainingDays} day ` : `${remainingDays} days `;
+                const hours = remainingHours === 0 ? "" : remainingHours === 1 ? `${remainingHours} hour ` : `${remainingHours} hours `;
+                const minutes = remainingMinutes === 0 ? "" : remainingMinutes === 1 ? `${remainingMinutes} minute ` : `${remainingMinutes} minutes `;
+                const seconds = remainingSeconds === 0 ? "" : remainingSeconds === 1 ? `${remainingSeconds} second` : `${remainingSeconds} seconds`;
+
+                overworld.runCommand(`kick "${playerName}" "\n§l§6----------------------------\n§l§4§k|||||§r§l§cYou were temporarily banned by §4${bannedBy}§4§k|||||§r\n§l§o§4Reason: §c${reason}\n§4Remaining time: §c${years}${months}${weeks}${days}${hours}${minutes}${seconds}\n§r§l§6----------------------------§r"`);
+            }
         }
     }
 });
@@ -93,13 +148,6 @@ world.beforeEvents.itemUse.subscribe(data => {
         */
         system.run(() => {
             adminUtilsGui(player);
-            var a = moment([2023, 3, 29]);
-            var b = moment([2023, 0, 28]);
-            runCmd(player, `say ${moment.duration(a.diff(b)).months()}`);
-            runCmd(player, `say ${moment.duration(a.diff(b)).days()}`);
-            runCmd(player, `say ${moment(moment().toISOString())}`);
-            runCmd(player, `say ${moment().toISOString()}`);
-            runCmd(player, `say ${moment().milliseconds()}`);
         });
     }
 });
@@ -108,6 +156,7 @@ world.afterEvents.projectileHit.subscribe(event => {
     const { dimension, projectile, source } = event;
     const HitEntity = event.getEntityHit().entity;
     if (source.typeId === "minecraft:player" && HitEntity.typeId !== "minecraft:tnt") {
+        RunProjectilePowers();
         async function RunProjectilePowers() {
             const proj = projectile.typeId.replace(/minecraft:/, '');
             if (isPowerEnabled(source.nameTag, proj, "bolt")) {
@@ -133,22 +182,19 @@ world.afterEvents.projectileHit.subscribe(event => {
                     tnt.addTag(_tntFlag);
                     tnt.addTag("-autnt");
                     tntFlag = `-autnt${tntFlag.match(/[0-9]+/)[0] * 1 + 1}`; //Va sumando 1 cada vez
+                    asyncTntTp();
                     async function asyncTntTp() {
-                        while (testfor => {
+                        while (function () {
                             const { successCount } = tnt.dimension.runCommand(`testfor @e[type=tnt, tag=${_tntFlag}]`);
-                            if (successCount !== 0) return true
-                            else return false;
-                        }) {
+                            if (successCount === 0) return false
+                            else return true;
+                        }()) {
                             await runCmd(HitEntity, `tp @e[type=tnt, tag="${_tntFlag}"] @s`);
                         }
                     }
-                    asyncTntTp();
                 } catch (e) { }
             }
         }
-        system.run(() => {
-            RunProjectilePowers();
-        });
     }
 });
 
@@ -202,10 +248,10 @@ function adminSettings(p) { //Maybe make it so that if you're an admin you can't
                         let form = new MessageFormData();
                         form.title("Admin settings");
                         form.body(`Are you sure you want to set §b${admin}§r as an admin? §4This will remove all the previous admins.`);
-                        form.button1("Yes");
-                        form.button2("No");
+                        form.button1("No");
+                        form.button2("Yes");
                         form.show(p).then(async (response) => {
-                            if (response.selection === 0) {
+                            if (response.selection === 1) {
                                 admins.forEach(async (value) => {
                                     try { await runCmd(overworld, `scoreboard players reset ${value} -au`) } catch (e) { }
                                 }); //Quizás intentar añadir alguna forma para poder asignar a varios admins a la vez 
@@ -353,10 +399,10 @@ function adminCommands(p) {
                                     const form = new MessageFormData()
                                         .title("Freeze a player")
                                         .body(`Are you sure you want to freeze §b${selectedPlayer.name}§r?`)
-                                        .button1("Yes")
-                                        .button2("No");
+                                        .button1("No")
+                                        .button2("Yes");
                                     form.show(p).then(async result => {
-                                        if (result.selection === 0) {
+                                        if (result.selection === 1) {
                                             try {
                                                 await runCmd(selectedPlayer.dimension, `scoreboard players set "-auname${selectedPlayer.name} -au${selectedPlayer.location.x} -au${selectedPlayer.location.y} -au${selectedPlayer.location.z}" -aufrozen 0`);
                                                 await runTellraw(p, `§aThe player §b${selectedPlayer.name}§a has been successfully frozen.`);
@@ -385,10 +431,10 @@ function adminCommands(p) {
                                     const form = new MessageFormData()
                                         .title("Unfreeze a player")
                                         .body(`Are you sure you want to unfreeze §b${selectedPlayer}§r?`)
-                                        .button1("Yes")
-                                        .button2("No");
+                                        .button1("No")
+                                        .button2("Yes");
                                     form.show(p).then(async result => {
-                                        if (result.selection === 0) {
+                                        if (result.selection === 1) {
                                             try {
                                                 const scoreboard = world.scoreboard.getObjective('-aufrozen').getParticipants().filter(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1] === selectedPlayer)[0].displayName;
                                                 await runCmd(p, `scoreboard players reset "${scoreboard}" -aufrozen`);
@@ -511,6 +557,7 @@ function adminCommands(p) {
                                         for (let i = 0; i < 5; i++) {
                                             runCmd(playerRaw, `execute @s ~~~ particle minecraft:cauldron_explosion_emitter`);
                                         }
+                                        particles();
                                         async function particles() {
                                             for (let i = 0; i < 23; i++) {
                                                 const delay = ticks => new Promise(res => system.runTimeout(res, ticks));
@@ -518,7 +565,6 @@ function adminCommands(p) {
                                                 playerRaw.runCommand(`execute @s ~~~ particle minecraft:explosion_manual`);
                                             }
                                         }
-                                        particles();
                                         await runCmd(playerRaw, `effect @s levitation 3 150 true`);
                                         await runTellraw(p, `§aThe player §b${player}§a has been launched successfully.`);
                                     } catch (e) {
@@ -533,16 +579,17 @@ function adminCommands(p) {
                         let form = new MessageFormData()
                             .title("Launch a player")
                             .body(`Are you sure you want to launch §b${selectedPlayerRaw.name}§r?`)
-                            .button1("Yes")
-                            .button2("No");
+                            .button1("No")
+                            .button2("Yes");
                         form.show(p).then(async result => {
-                            if (result.selection === 0) {
+                            if (result.selection === 1) {
                                 try {
                                     selectedPlayerRaw.runCommand('playsound player_launch @a ~ ~ ~ 100');
                                     await runCmd(selectedPlayerRaw, `execute @s ~~~ summon fireworks_rocket`);
                                     for (let i = 0; i < 5; i++) {
                                         runCmd(selectedPlayerRaw, `execute @s ~~~ particle minecraft:cauldron_explosion_emitter`);
                                     }
+                                    particles();
                                     async function particles() {
                                         for (let i = 0; i < 23; i++) {
                                             const delay = ticks => new Promise(res => system.runTimeout(res, ticks));
@@ -550,7 +597,6 @@ function adminCommands(p) {
                                             selectedPlayerRaw.runCommand(`execute @s ~~~ particle minecraft:explosion_manual`);
                                         }
                                     }
-                                    particles();
                                     await runCmd(selectedPlayerRaw, `effect @s levitation 3 150 true`);
                                     await runTellraw(p, `§aThe player §b${selectedPlayerRaw.name}§a has been launched successfully.`);
                                 } catch (e) {
@@ -617,74 +663,167 @@ function banPlayer(p) {
                 if (result.canceled) return;
                 const player = result.formValues[0];
                 const reason = result.formValues[1];
+                const isPermaBanned = result.formValues[2];
                 const bannedBy = p.name;
-                //Handle permanent ban as well
-                const banYears = result.formValues[3];
-                const banMonths = result.formValues[4];
-                const banWeeks = result.formValues[5]; //Only to calculate the respective days and add them to banDays
-                const banDays = result.formValues[6]; //Specified days without taking the weeks into account, include this in the kick cmd
-                const banTotalDays = banDays + banWeeks * 7;
-                const banHours = result.formValues[7];
-                const banMinutes = result.formValues[8];
-                const banSeconds = result.formValues[9];
+                if (isPermaBanned === true) {
+                    if (reason === "") {
+                        await runTellraw(p, `§cError, you must enter a reason.`);
 
-                /*const unBanDate = new Date();
-                unBanDate.setFullYear(unBanDate.getFullYear() + banYears); //Adds years
-                unBanDate.setMonth(unBanDate.getMonth() + banMonths); //Adds months
-                unBanDate.setDate(unBanDate.getDate() + banTotalDays); //Adds days
-                unBanDate.setHours(unBanDate.getHours() + banHours); //Adds hours
-                unBanDate.setMinutes(unBanDate.getMinutes() + banMinutes); //Adds minutes
-                unBanDate.setSeconds(unBanDate.getSeconds() + banSeconds); //Adds seconds
-                */
-                const unBanDate = moment();
-                unBanDate.add(banYears, 'years');
-                unBanDate.add(banMonths, 'months');
-                unBanDate.add(banTotalDays, 'days');
-                unBanDate.add(banHours, 'hours');
-                unBanDate.add(banMinutes, 'minutes');
-                unBanDate.add(banSeconds, 'seconds');
+                    } else if (isBanned(player)) {
+                        await runTellraw(p, `§cError, the specified player is already banned.`);
 
-                const unBanISO = unBanDate.toISOString(); //Date when you will get unbanned
+                    } else if (isAdmin(player)) {
+                        await runTellraw(p, `§cError, the specified player is an admin, cannot ban.`);
 
-                if (reason === "") {
-                    await runTellraw(p, `§cError, you must enter a reason.`);
+                    } else if (!isValidUsername(player)) {
+                        await runTellraw(p, `§cError, the username you entered is invalid.`);
 
-                } else if (isBanned(player)) {
-                    await runTellraw(p, `§cError, the specified player is already banned.`);
-
-                } else if (isAdmin(player)) {
-                    await runTellraw(p, `§cError, the specified player is an admin, cannot ban.`);
-
-                } else if (!isValidUsername(player)) {
-                    await runTellraw(p, `§cError, the username you entered is invalid.`);
-
-                } else {
-                    try {
-                        await runCmd(overworld, `scoreboard players set "${player}-aureason${reason}-auban${bannedBy}-autime${unBanISO}" -auban 0`);
+                    } else {
                         try {
-                            await runCmd(overworld, `kick "${player}" "\n§l§6----------------------------\n§l§4§k|||||§r§l§cYou have been banned by §4${bannedBy}§c.§4§k|||||§r\n§l§4Reason: §c${reason}\n§l§4Time: §c${banYears} ${banYears == 1 ? "year" : "years"} ${banMonths} ${banMonths == 1 ? "month" : "months"} ${banWeeks} ${banWeeks == 1 ? "week" : "weeks"} ${banDays} ${banDays == 1 ? "day" : "days"} ${banHours} ${banHours == 1 ? "hour" : "hours"} ${banMinutes} ${banMinutes == 1 ? "minute" : "minutes"} ${banSeconds} ${banSeconds == 1 ? "second" : "seconds"}\n§r§l§6----------------------------§r"`);
-                        } catch (e) { }
-                        await runTellraw(p, `§aThe player §b${player}§a has been banned successfully with reason: §c${reason}§a.`);
-                    } catch (e) {
-                        await runTellraw(p, `§cError, couldn't ban the player.`);
+                            await runCmd(overworld, `scoreboard players set "${player}-aureason${reason}-auban${bannedBy}-autime-aupermabanned-au" -auban 0`);
+                            try {
+                                await runCmd(overworld, `kick "${player}" "\n§l§6----------------------------\n§l§4§k|||||§r§l§cYou have been permanently banned by §4${bannedBy}§4§k|||||§r\n§l§o§4Reason: §c${reason}\n§r§l§6----------------------------§r"`);
+                            } catch (e) { }
+                            await runTellraw(p, `§aThe player §b${player}§a has been banned successfully with reason: §c${reason}\n§2Time: §3Permanently`);
+                        } catch (e) {
+                            await runTellraw(p, `§cError, couldn't ban the player.`);
+                        }
+                    }
+                } else {
+                    const banYears = result.formValues[3];
+                    const banMonths = result.formValues[4];
+                    const banWeeks = result.formValues[5]; //Only to calculate the respective days and add them to banDays
+                    const banDays = result.formValues[6]; //Specified days without taking the weeks into account, include this in the kick cmd
+                    const banTotalDays = banDays + banWeeks * 7;
+                    const banHours = result.formValues[7];
+                    const banMinutes = result.formValues[8];
+                    const banSeconds = result.formValues[9];
+
+                    const unBanDate = moment();
+                    unBanDate.add(banYears, 'years');
+                    unBanDate.add(banMonths, 'months');
+                    unBanDate.add(banTotalDays, 'days');
+                    unBanDate.add(banHours, 'hours');
+                    unBanDate.add(banMinutes, 'minutes');
+                    unBanDate.add(banSeconds, 'seconds');
+
+                    const unBanISO = unBanDate.toISOString(); //Date when you will get unbanned
+
+                    if (reason === "") {
+                        await runTellraw(p, `§cError, you must enter a reason.`);
+
+                    } else if (isBanned(player)) {
+                        await runTellraw(p, `§cError, the specified player is already banned.`);
+
+                    } else if (isAdmin(player)) {
+                        await runTellraw(p, `§cError, the specified player is an admin, cannot ban.`);
+
+                    } else if (!isValidUsername(player)) {
+                        await runTellraw(p, `§cError, the username you entered is invalid.`);
+
+                    } else {
+                        try {
+                            await runCmd(overworld, `scoreboard players set "${player}-aureason${reason}-auban${bannedBy}-autime${unBanISO}" -auban 0`);
+                            const years = banYears === 0 ? "" : banYears === 1 ? `${banYears} year ` : `${banYears} years `;
+                            const months = banMonths === 0 ? "" : banMonths === 1 ? `${banMonths} month ` : `${banMonths} months `;
+                            const weeks = banWeeks === 0 ? "" : banWeeks === 1 ? `${banWeeks} week ` : `${banWeeks} weeks `;
+                            const days = banDays === 0 ? "" : banDays === 1 ? `${banDays} day ` : `${banDays} days `;
+                            const hours = banHours === 0 ? "" : banHours === 1 ? `${banHours} hour ` : `${banHours} hours `;
+                            const minutes = banMinutes === 0 ? "" : banMinutes === 1 ? `${banMinutes} minute ` : `${banMinutes} minutes `;
+                            const seconds = banSeconds === 0 ? "" : banSeconds === 1 ? `${banSeconds} second` : `${banSeconds} seconds`;
+                            try {
+                                await runCmd(overworld, `kick "${player}" "\n§l§6----------------------------\n§l§4§k|||||§r§l§cYou have been temporarily banned by §4${bannedBy}§4§k|||||§r\n§l§o§4Reason: §c${reason}\n§4Time: §c${years}${months}${weeks}${days}${hours}${minutes}${seconds}\n§r§l§6----------------------------§r"`);
+                            } catch (e) { }
+                            await runTellraw(p, `§aThe player §b${player}§a has been banned successfully with reason: §c${reason}\n§2Time: §3${years}${months}${weeks}${days}${hours}${minutes}${seconds}`);
+                        } catch (e) {
+                            await runTellraw(p, `§cError, couldn't ban the player.`);
+                        }
                     }
                 }
             });
         } else if (response.selection > 1) {
-            let selectedPlayer = notBannedPlayers[response.selection - 2];
+            const selectedPlayer = notBannedPlayers[response.selection - 2];
 
-            let form = new ModalFormData();
-            form.title("Ban menu");
-            form.textField("Enter a reason:", "Reason");
+            let form = new ModalFormData()
+                .title("Ban menu")
+                .textField("Enter a reason:", "Reason") //0
+                .toggle("Permanent ban", false) //1
+                .slider("Years", 0, 10, 1, 0) //2
+                .slider("Months", 0, 11, 1, 0) //3
+                .slider("Weeks", 0, 3, 1, 0) //4
+                .slider("Days", 0, 6, 1, 0) //5
+                .slider("Hours", 0, 23, 1, 0) //6
+                .slider("Minutes", 0, 59, 1, 0) //7
+                .slider("Seconds", 0, 59, 1, 0); //8
             form.show(p).then(async result => {
+                if (result.canceled) return;
                 const reason = result.formValues[0];
+                const isPermaBanned = result.formValues[1];
                 const bannedBy = p.name;
-                try {
-                    await runCmd(overworld, `scoreboard players set "${selectedPlayer}-aureason${reason}-auban${bannedBy}" -auban 0`);
-                    try { await runCmd(overworld, `kick "${selectedPlayer}" "\n§l§6------------------------------------------------------\n§l§4§k|||||§r§l§cYou have been banned by §4${bannedBy}§c.§4§k|||||§r\n§l§4Reason: §c${reason}\n§r§l§6------------------------------------------------------§r"`) } catch (e) { }
-                    await runTellraw(p, `§aThe player §b${selectedPlayer}§a has been banned successfully with reason: §c${reason}§a.`);
-                } catch (e) {
-                    await runTellraw(p, `§cError, couldn't ban the player.`);
+                if (isPermaBanned === true) {
+                    if (reason === "") {
+                        await runTellraw(p, `§cError, you must enter a reason.`);
+                    } else {
+                        try {
+                            await runCmd(overworld, `scoreboard players set "${selectedPlayer}-aureason${reason}-auban${bannedBy}-autime-aupermabanned-au" -auban 0`);
+                            try {
+                                await runCmd(overworld, `kick "${selectedPlayer}" "\n§l§6----------------------------\n§l§4§k|||||§r§l§cYou have been permanently banned by §4${bannedBy}§4§k|||||§r\n§l§o§4Reason: §c${reason}\n§r§l§6----------------------------§r"`);
+                            } catch (e) { }
+                            await runTellraw(p, `§aThe player §b${selectedPlayer}§a has been banned successfully with reason: §c${reason}\n§2Time: §3Permanently`);
+                        } catch (e) {
+                            await runTellraw(p, `§cError, couldn't ban the player.`);
+                        }
+                    }
+                } else {
+                    const banYears = result.formValues[2];
+                    const banMonths = result.formValues[3];
+                    const banWeeks = result.formValues[4]; //Only to calculate the respective days and add them to banDays
+                    const banDays = result.formValues[5]; //Specified days without taking the weeks into account, include this in the kick cmd
+                    const banTotalDays = banDays + banWeeks * 7;
+                    const banHours = result.formValues[6];
+                    const banMinutes = result.formValues[7];
+                    const banSeconds = result.formValues[8];
+
+                    const unBanDate = moment();
+                    unBanDate.add(banYears, 'years');
+                    unBanDate.add(banMonths, 'months');
+                    unBanDate.add(banTotalDays, 'days');
+                    unBanDate.add(banHours, 'hours');
+                    unBanDate.add(banMinutes, 'minutes');
+                    unBanDate.add(banSeconds, 'seconds');
+
+                    const unBanISO = unBanDate.toISOString(); //Date when you will get unbanned
+
+                    if (reason === "") {
+                        await runTellraw(p, `§cError, you must enter a reason.`);
+
+                    } else if (isBanned(player)) {
+                        await runTellraw(p, `§cError, the specified player is already banned.`);
+
+                    } else if (isAdmin(player)) {
+                        await runTellraw(p, `§cError, the specified player is an admin, cannot ban.`);
+
+                    } else if (!isValidUsername(player)) {
+                        await runTellraw(p, `§cError, the username you entered is invalid.`);
+
+                    } else {
+                        try {
+                            await runCmd(overworld, `scoreboard players set "${selectedPlayer}-aureason${reason}-auban${bannedBy}-autime${unBanISO}" -auban 0`);
+                            const years = banYears === 0 ? "" : banYears === 1 ? `${banYears} year ` : `${banYears} years `;
+                            const months = banMonths === 0 ? "" : banMonths === 1 ? `${banMonths} month ` : `${banMonths} months `;
+                            const weeks = banWeeks === 0 ? "" : banWeeks === 1 ? `${banWeeks} week ` : `${banWeeks} weeks `;
+                            const days = banDays === 0 ? "" : banDays === 1 ? `${banDays} day ` : `${banDays} days `;
+                            const hours = banHours === 0 ? "" : banHours === 1 ? `${banHours} hour ` : `${banHours} hours `;
+                            const minutes = banMinutes === 0 ? "" : banMinutes === 1 ? `${banMinutes} minute ` : `${banMinutes} minutes `;
+                            const seconds = banSeconds === 0 ? "" : banSeconds === 1 ? `${banSeconds} second` : `${banSeconds} seconds`;
+                            try {
+                                await runCmd(overworld, `kick "${selectedPlayer}" "\n§l§6----------------------------\n§l§4§k|||||§r§l§cYou have been temporarily banned by §4${bannedBy}§4§k|||||§r\n§l§o§4Reason: §c${reason}\n§4Time: §c${years}${months}${weeks}${days}${hours}${minutes}${seconds}\n§r§l§6----------------------------§r"`);
+                            } catch (e) { }
+                            await runTellraw(p, `§aThe player §b${selectedPlayer}§a has been banned successfully with reason: §c${reason}\n§2Time: §3${years}${months}${weeks}${days}${hours}${minutes}${seconds}`);
+                        } catch (e) {
+                            await runTellraw(p, `§cError, couldn't ban the player.`);
+                        }
+                    }
                 }
             });
         }
@@ -698,7 +837,7 @@ function unBanPlayer(p) {
     form.button("<-- Back");
     form.button("Type a player manually instead");
 
-    const bannedPlayers = world.scoreboard.getObjective('auban').getParticipants().map(participant => participant.displayName.match(/[^]+(?=-aureason)/)[0]);
+    const bannedPlayers = getBannedPlayers();
     for (const player of bannedPlayers) {
         if (!isAdmin(player)) {
             form.button(player, "textures/icons/steve_icon.png");
@@ -730,7 +869,7 @@ function unBanPlayer(p) {
                         await runCmd(overworld, `scoreboard players reset "${player}-aureason${reason}-auban${bannedBy}-autime${banISO}" -auban`);
                         await runTellraw(p, `§aThe player §b${player}§a has been unbanned successfully.`);
                     } catch (e) {
-                        await runTellraw(p, `§cError, couldn't unban the player.`);
+                        await runTellraw(p, `§cError, couldn't unban the player, perhaps the ban time is now over.`);
                     }
                 }
             });
@@ -740,10 +879,10 @@ function unBanPlayer(p) {
             let form = new MessageFormData();
             form.title("Unban menu");
             form.body(`Are you sure you want to unban §b${selectedPlayer}§r?`);
-            form.button1("Yes");
-            form.button2("No");
+            form.button1("No");
+            form.button2("Yes");
             form.show(p).then(async result => {
-                if (result.selection === 0) {
+                if (result.selection === 1) {
                     const reason = getBanReason(selectedPlayer);
                     const bannedBy = getBannedBy(selectedPlayer);
                     const banISO = getUnBanISO(selectedPlayer);
@@ -751,7 +890,7 @@ function unBanPlayer(p) {
                         await runCmd(overworld, `scoreboard players reset "${selectedPlayer}-aureason${reason}-auban${bannedBy}-autime${banISO}" -auban`);
                         await runTellraw(p, `§aThe player §b${selectedPlayer}§a has been unbanned successfully.`);
                     } catch (e) {
-                        await runTellraw(p, `§cError, couldn't unban the player.`);
+                        await runTellraw(p, `§cError, couldn't unban the player, perhaps the ban time is now over.`);
                     }
                 }
             });
@@ -877,12 +1016,16 @@ function simPlayer(p) {
     const form = new ActionFormData()
         .title("Create a simulated player")
         .body("What would you like the simulated player to do?")
+        .button("<-- Back")
         .button("Attack and follow a player")
         .button("Follow a player")
         .button("Idle")
     form.show(p).then((response) => {
         switch (response.selection) {
-            case 0: { //Attack and follow a player 
+            case 0: { //Back
+                adminCommands(p);
+            } break;
+            case 1: { //Attack and follow a player 
                 let playersArray = players.map(pname => pname.name);
                 let locPlayers = players;
                 const form = new ActionFormData()
@@ -1006,7 +1149,7 @@ function simPlayer(p) {
                     }
                 });
             } break;
-            case 1: { //Follow a player 
+            case 2: { //Follow a player 
                 let playersArray = players.map(pname => pname.name);
                 let locPlayers = players;
                 const form = new ActionFormData()
@@ -1126,7 +1269,7 @@ function simPlayer(p) {
                     }
                 });
             } break;
-            case 2: { //Idle 
+            case 3: { //Idle 
                 let form = new ModalFormData()
                     .title("Idle")
                     .textField("Type below the name of the simulated player", "Simulated player's name")
@@ -1207,17 +1350,33 @@ function isAdmin(username) {
 }
 
 function isBanned(player) {
-    let bannedPlayers = [];
-    for (const bannedRawPlayer of world.scoreboard.getObjective('-auban').getParticipants()) {
-        bannedPlayers.push(bannedRawPlayer.displayName.match(/[^]+(?=-aureason)/)[0]);
-    }
+    const bannedPlayers = getBannedPlayers();
     if (bannedPlayers.includes(player)) return true
     else return false;
 }
 
-function isBanTimeOver(player) {
-    const banISO = getUnBanISO(player);
+function isPermaBanned(player) {
+    if (getUnBanISO(player) === "-aupermabanned-au") return true
+    else return false;
+}
 
+function isBanTimeOver(player) {
+    try {
+        const unBanDate = moment(getUnBanISO(player), moment.ISO_8601);
+        const currentDate = moment();
+        const remainingTime = moment.duration(unBanDate.diff(currentDate));
+        const milliseconds = remainingTime.asMilliseconds();
+        if (milliseconds <= 0) return true
+        else return false;
+    } catch (e) { return; }
+}
+
+function getBannedPlayers() {
+    try {
+        return world.scoreboard.getObjective('-auban').getParticipants().map(participant => participant.displayName.match(/[^]+(?=-aureason)/)[0]);
+    } catch (e) {
+        return;
+    }
 }
 
 function getBanReason(player) {
