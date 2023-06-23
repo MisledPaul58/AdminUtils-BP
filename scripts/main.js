@@ -1,4 +1,4 @@
-import { world, MinecraftEffectTypes, GameMode, system, Vector } from "@minecraft/server";
+import { world, MinecraftEffectTypes, GameMode, system, Vector, EffectTypes, TicksPerSecond } from "@minecraft/server";
 import * as GameTest from "@minecraft/server-gametest";
 import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/server-ui";
 import moment from "./moment/src/moment.js";
@@ -43,7 +43,7 @@ system.runInterval(async tick => {
         if (isFrozen(player.name)) { //Hacer que se pueda congelar a jugadores que no estén conectados
             try {
                 const positions = world.scoreboard.getObjective('-aufrozen').getParticipants().filter(participant => participant.displayName.match(/-auname([^]*) -au-?[0-9]+[^]* -au-?[0-9]+[^]* -au-?[0-9]+[^]*/)[1] === player.name)[0].displayName.match(/-au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*)/).slice(1).map(pos => pos * 1); //Gets the positions where the player was frozen and converts it to integer or float
-                player.teleport(new Vector(positions[0], positions[1], positions[2]), player.dimension, player.getRotation().x, player.getRotation().y);
+                try { player.teleport(new Vector(positions[0], positions[1], positions[2]), { dimension: player.dimension }) } catch (e) { }
                 //positions[0] is the x, positions[1] the y and positions[2] the z
             } catch (e) {
                 const scoreboard = world.scoreboard.getObjective('-aufrozen').getParticipants().filter(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1] === player.name)[0].displayName;
@@ -1063,9 +1063,9 @@ function simPlayer(p) {
                                     GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
                                         const spawnLoc = new Vector(1, 2, 1);
                                         const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
-                                        player.addEffect(MinecraftEffectTypes.speed, 99999, 4, false);
-                                        player.addEffect(MinecraftEffectTypes.jumpBoost, 99999, 1, false);
-                                        player.addEffect(MinecraftEffectTypes.strength, 99999, 2, false);
+                                        player.addEffect(MinecraftEffectTypes.speed, 99999 * TicksPerSecond, { amplifier: 4, showParticles: false });
+                                        player.addEffect(MinecraftEffectTypes.jumpBoost, 99999 * TicksPerSecond, { amplifier: 1, showParticles: false });
+                                        player.addEffect(MinecraftEffectTypes.strength, 99999 * TicksPerSecond, { amplifier: 2, showParticles: false });
                                         overworld.runCommand('fill 1234564 0 -1234563 1234568 319 -1234567 air');
                                         const { successCount } = overworld.runCommand('testfor @e[type=au:basedetect, x=1234567, y=225, z=-1234567, r=20]');
                                         if (successCount === 0) {
@@ -1114,9 +1114,9 @@ function simPlayer(p) {
                                 GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
                                     const spawnLoc = new Vector(1, 2, 1);
                                     const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
-                                    player.addEffect(MinecraftEffectTypes.speed, 99999, 4, false);
-                                    player.addEffect(MinecraftEffectTypes.jumpBoost, 99999, 1, false);
-                                    player.addEffect(MinecraftEffectTypes.strength, 99999, 2, false);
+                                    player.addEffect(MinecraftEffectTypes.speed, 99999 * TicksPerSecond, { amplifier: 4, showParticles: false });
+                                    player.addEffect(MinecraftEffectTypes.jumpBoost, 99999 * TicksPerSecond, { amplifier: 1, showParticles: false });
+                                    player.addEffect(MinecraftEffectTypes.strength, 99999 * TicksPerSecond, { amplifier: 2, showParticles: false });
                                     overworld.runCommand('fill 1234564 0 -1234563 1234568 319 -1234567 air');
                                     const { successCount } = overworld.runCommand('testfor @e[type=au:basedetect, x=1234567, y=225, z=-1234567, r=20]');
                                     if (successCount === 0) {
@@ -1187,8 +1187,8 @@ function simPlayer(p) {
                                     GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
                                         const spawnLoc = new Vector(1, 2, 1);
                                         const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
-                                        player.addEffect(MinecraftEffectTypes.speed, 99999, 4, false);
-                                        player.addEffect(MinecraftEffectTypes.jumpBoost, 99999, 1, false);
+                                        player.addEffect(MinecraftEffectTypes.speed, 99999 * TicksPerSecond, { amplifier: 4, showParticles: false });
+                                        player.addEffect(MinecraftEffectTypes.jumpBoost, 99999 * TicksPerSecond, { amplifier: 1, showParticles: false });
                                         overworld.runCommand('fill 1234564 0 -1234563 1234568 319 -1234567 air');
                                         const { successCount } = overworld.runCommand('testfor @e[type=au:basedetect, x=1234567, y=225, z=-1234567, r=20]');
                                         if (successCount === 0) {
@@ -1236,8 +1236,8 @@ function simPlayer(p) {
                                 GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
                                     const spawnLoc = new Vector(1, 2, 1);
                                     const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
-                                    player.addEffect(MinecraftEffectTypes.speed, 99999, 4, false);
-                                    player.addEffect(MinecraftEffectTypes.jumpBoost, 99999, 1, false);
+                                    player.addEffect(MinecraftEffectTypes.speed, 99999 * TicksPerSecond, { amplifier: 4, showParticles: false });
+                                    player.addEffect(MinecraftEffectTypes.jumpBoost, 99999 * TicksPerSecond, { amplifier: 1, showParticles: false });
                                     overworld.runCommand('fill 1234564 0 -1234563 1234568 319 -1234567 air');
                                     const { successCount } = overworld.runCommand('testfor @e[type=au:basedetect, x=1234567, y=225, z=-1234567, r=20]');
                                     if (successCount === 0) {
