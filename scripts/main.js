@@ -223,7 +223,7 @@ function adminSettings(p) { //Maybe make it so that if you're an admin you can't
 
     form.title("Admin settings");
     form.body("Select an option");
-    form.button("<-- Back");
+    form.button("<-- Back", "textures/icons/back.png");
     form.button("Set an admin");
     form.button("Add an admin");
     form.button("Remove an admin");
@@ -320,7 +320,7 @@ function adminCommands(p) {
     const form = new ActionFormData()
         .title("Admin commands")
         .body("Select a command")
-        .button("<-- Back")
+        .button("<-- Back", "textures/icons/back.png")
         .button("Ban or unban menu")
         .button("Simulated player")
         .button("Projectiles powers")
@@ -346,7 +346,7 @@ function adminCommands(p) {
                     const form = new ActionFormData()
                         .title("Freeze or unfreeze a player")
                         .body("Select an option")
-                        .button("<-- Back")
+                        .button("<-- Back", "textures/icons/back.png")
                         .button("Freeze a player")
                         .button("Unfreeze a player");
                     form.show(p).then((response) => {
@@ -357,7 +357,7 @@ function adminCommands(p) {
                             const form = new ActionFormData()
                                 .title("Freeze a player")
                                 .body("Select an online player to freeze.\nIf you don't see someone here, it means he's already frozen.")
-                                .button("<-- Back")
+                                .button("<-- Back", "textures/icons/back.png")
                                 .button("Type a player manually instead");
                             for (const player of locPlayers) {
                                 form.button(player.name, "textures/icons/steve_icon.png");
@@ -418,7 +418,7 @@ function adminCommands(p) {
                             const form = new ActionFormData()
                                 .title("Unfreeze a player")
                                 .body("Select an online/offline frozen player to unfreeze")
-                                .button("<-- Back");
+                                .button("<-- Back", "textures/icons/back.png");
                             for (const player of frozenPlayers) {
                                 form.button(player, "textures/icons/steve_icon.png");
                             }
@@ -457,7 +457,7 @@ function adminCommands(p) {
                 const form = new ActionFormData()
                     .title("Kill a player")
                     .body("Select an online player to kill")
-                    .button("<-- Back")
+                    .button("<-- Back", "textures/icons/back.png")
                     .button("Type a player manually instead");
                 for (const player of playersArray) {
                     form.button(player, "textures/icons/steve_icon.png");
@@ -524,7 +524,7 @@ function adminCommands(p) {
                 const form = new ActionFormData()
                     .title("Launch a player")
                     .body("Select an online player to launch")
-                    .button("<-- Back")
+                    .button("<-- Back", "textures/icons/back.png")
                     .button("Type a player manually instead");
                 for (const player of locPlayers) {
                     form.button(player.name, "textures/icons/steve_icon.png");
@@ -612,16 +612,18 @@ function adminCommands(p) {
 }
 
 function banUnbanMenu(p) {
-    const form = new ActionFormData();
-
-    form.title("Ban/unban menu");
-    form.body("Select an option");
-    form.button("Ban a player");
-    form.button("Unban a player");
+    const form = new ActionFormData()
+        .title("Ban/unban menu")
+        .body("Select an option")
+        .button("<-- Back", "textures/icons/back.png")
+        .button("Ban a player")
+        .button("Unban a player");
     form.show(p).then((response) => {
         if (response.selection === 0) {
-            banPlayer(p);
+            adminCommands(p);
         } else if (response.selection === 1) {
+            banPlayer(p);
+        } else if (response.selection === 2) {
             unBanPlayer(p);
         }
     });
@@ -634,7 +636,7 @@ function banPlayer(p) {
     const form = new ActionFormData();
     form.title("Ban menu");
     form.body("Select an online player to ban (you cannot ban an admin)");
-    form.button("<-- Back");
+    form.button("<-- Back", "textures/icons/back.png");
     form.button("Type a player manually instead");
     for (const player of playersArray) {
         if (!isBanned(player) && !isAdmin(player)) {
@@ -834,7 +836,7 @@ function unBanPlayer(p) {
     const form = new ActionFormData();
     form.title("Unban menu");
     form.body("Select a player to unban");
-    form.button("<-- Back");
+    form.button("<-- Back", "textures/icons/back.png");
     form.button("Type a player manually instead");
 
     const bannedPlayers = getBannedPlayers();
@@ -902,7 +904,7 @@ function projectilePowers(p) {
     const form = new ActionFormData()
         .title("Projectiles powers")
         .body("Select an option")
-        .button("<-- Back")
+        .button("<-- Back", "textures/icons/back.png")
         .button("Snowball powers")
         .button("Arrow powers")
         .button("Egg powers");
@@ -916,7 +918,7 @@ function projectilePowers(p) {
             const form = new ActionFormData()
                 .title("Toggle for a player")
                 .body("Select an online player to enable/disable certain powers when throwing a snowball at an entity.\nYou will be able to select those powers later.")
-                .button("<-- Back")
+                .button("<-- Back", "textures/icons/back.png")
                 .button("Type a player manually instead");
             for (const player of playersArray) {
                 form.button(player, "textures/icons/steve_icon.png");
@@ -1016,7 +1018,7 @@ function simPlayer(p) {
     const form = new ActionFormData()
         .title("Create a simulated player")
         .body("What would you like the simulated player to do?")
-        .button("<-- Back")
+        .button("<-- Back", "textures/icons/back.png")
         .button("Attack and follow a player")
         .button("Follow a player")
         .button("Idle")
@@ -1031,7 +1033,7 @@ function simPlayer(p) {
                 const form = new ActionFormData()
                     .title("Attack and follow a player")
                     .body("Select an online player to attack and follow")
-                    .button("<-- Back")
+                    .button("<-- Back", "textures/icons/back.png")
                     .button("Type a player manually instead");
                 for (const player of playersArray) {
                     form.button(player, "textures/icons/steve_icon.png");
@@ -1155,7 +1157,7 @@ function simPlayer(p) {
                 const form = new ActionFormData()
                     .title("Follow a player")
                     .body("Select an online player to follow")
-                    .button("<-- Back")
+                    .button("<-- Back", "textures/icons/back.png")
                     .button("Type a player manually instead");
                 for (const player of playersArray) {
                     form.button(player, "textures/icons/steve_icon.png");
