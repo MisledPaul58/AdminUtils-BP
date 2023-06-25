@@ -1,4 +1,4 @@
-import { world, MinecraftEffectTypes, GameMode, system, Vector, EffectTypes, TicksPerSecond } from "@minecraft/server";
+import { world, MinecraftEffectTypes, GameMode, system, Vector, TicksPerSecond } from "@minecraft/server";
 import * as GameTest from "@minecraft/server-gametest";
 import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/server-ui";
 import moment from "./moment/src/moment.js";
@@ -320,13 +320,14 @@ function adminCommands(p) {
     const form = new ActionFormData()
         .title("Admin commands")
         .body("Select a command")
-        .button("<-- Back", "textures/icons/back.png")
-        .button("Ban or unban menu")
-        .button("Simulated player")
-        .button("Projectiles powers")
-        .button("Freeze or unfreeze a player")
-        .button("Kill a player")
-        .button("Launch a player")
+        .button("<-- Back", "textures/icons/back.png") //0
+        .button("Ban or unban menu") //1
+        .button("Jail menu") //2
+        .button("Simulated player") //3
+        .button("Projectiles powers") //4
+        .button("Freeze or unfreeze a player", "textures/icons/freeze.png") //5
+        .button("Kill a player") //6
+        .button("Launch a player") //7
     form.show(p).then((response) => {
         switch (response.selection) {
             case 0: { //Back 
@@ -335,20 +336,23 @@ function adminCommands(p) {
             case 1: { //Ban or unban menu 
                 banUnbanMenu(p);
             } break;
-            case 2: { //Make a sim player menu 
+            case 2: { //Jail menu
+                jailMenu(p);
+            } break;
+            case 3: { //Make a sim player menu 
                 simPlayer(p);
             } break;
-            case 3: { //Projectiles powers
+            case 4: { //Projectiles powers
                 projectilePowers(p);
             } break;
-            case 4: { //Freeze or unfreeze a player
+            case 5: { //Freeze or unfreeze a player
                 function freezeUnfreeze() {
                     const form = new ActionFormData()
                         .title("Freeze or unfreeze a player")
                         .body("Select an option")
                         .button("<-- Back", "textures/icons/back.png")
-                        .button("Freeze a player")
-                        .button("Unfreeze a player");
+                        .button("Freeze a player", "textures/icons/freeze.png")
+                        .button("Unfreeze a player", "textures/icons/unfreeze.png");
                     form.show(p).then((response) => {
                         if (response.selection === 0) {
                             adminCommands(p);
@@ -358,7 +362,7 @@ function adminCommands(p) {
                                 .title("Freeze a player")
                                 .body("Select an online player to freeze.\nIf you don't see someone here, it means he's already frozen.")
                                 .button("<-- Back", "textures/icons/back.png")
-                                .button("Type a player manually instead");
+                                .button("Type an offline/online player manually instead", "textures/icons/pencil.png");
                             for (const player of locPlayers) {
                                 form.button(player.name, "textures/icons/steve_icon.png");
                             }
@@ -369,7 +373,7 @@ function adminCommands(p) {
                                 } else if (response.selection === 1) {
                                     let form = new ModalFormData()
                                         .title("Freeze a player")
-                                        .textField("Type below the player you would like to freeze.", "Player's name");
+                                        .textField("Type below the player you would like to freeze. In case the player is offline, it will get frozen as soon as it joins the world.", "Player's name");
                                     form.show(p).then(async result => {
                                         const playerName = result.formValues[0];
                                         if (!isValidUsername(playerName)) {
@@ -451,14 +455,14 @@ function adminCommands(p) {
                 }
                 freezeUnfreeze();
             } break;
-            case 5: { //Kill a player 
+            case 6: { //Kill a player 
                 let playersArray = players.map(pname => pname.name);
                 let locPlayers = players;
                 const form = new ActionFormData()
                     .title("Kill a player")
                     .body("Select an online player to kill")
                     .button("<-- Back", "textures/icons/back.png")
-                    .button("Type a player manually instead");
+                    .button("Type an online player instead", "textures/icons/pencil.png");
                 for (const player of playersArray) {
                     form.button(player, "textures/icons/steve_icon.png");
                 }
@@ -519,13 +523,13 @@ function adminCommands(p) {
                     }
                 });
             } break;
-            case 6: { //Launch a player
+            case 7: { //Launch a player
                 const locPlayers = players;
                 const form = new ActionFormData()
                     .title("Launch a player")
                     .body("Select an online player to launch")
                     .button("<-- Back", "textures/icons/back.png")
-                    .button("Type a player manually instead");
+                    .button("Type an online player instead", "textures/icons/pencil.png");
                 for (const player of locPlayers) {
                     form.button(player.name, "textures/icons/steve_icon.png");
                 }
@@ -637,7 +641,7 @@ function banPlayer(p) {
     form.title("Ban menu");
     form.body("Select an online player to ban (you cannot ban an admin)");
     form.button("<-- Back", "textures/icons/back.png");
-    form.button("Type a player manually instead");
+    form.button("Type an offline/online player instead", "textures/icons/pencil.png");
     for (const player of playersArray) {
         if (!isBanned(player) && !isAdmin(player)) {
             form.button(player, "textures/icons/steve_icon.png");
@@ -686,7 +690,7 @@ function banPlayer(p) {
                             try {
                                 await runCmd(overworld, `kick "${player}" "\n§l§6----------------------------\n§l§4§k|||||§r§l§cYou have been permanently banned by §4${bannedBy}§4§k|||||§r\n§l§o§4Reason: §c${reason}\n§r§l§6----------------------------§r"`);
                             } catch (e) { }
-                            await runTellraw(p, `§aThe player §b${player}§a has been banned successfully with reason: §c${reason}\n§2Time: §3Permanently`);
+                            await runTellraw(p, `§aThe player §b${player}§a has been banned successfully with reason: §c${reason}\n§7* §2Time: §3Permanently`);
                         } catch (e) {
                             await runTellraw(p, `§cError, couldn't ban the player.`);
                         }
@@ -714,6 +718,9 @@ function banPlayer(p) {
                     if (reason === "") {
                         await runTellraw(p, `§cError, you must enter a reason.`);
 
+                    } else if (result.formValues.slice(3).every(value => value === 0)) { //If all time values are 0
+                        await runTellraw(p, `§cError, you must must specify a ban time.`);
+
                     } else if (isBanned(player)) {
                         await runTellraw(p, `§cError, the specified player is already banned.`);
 
@@ -736,7 +743,7 @@ function banPlayer(p) {
                             try {
                                 await runCmd(overworld, `kick "${player}" "\n§l§6----------------------------\n§l§4§k|||||§r§l§cYou have been temporarily banned by §4${bannedBy}§4§k|||||§r\n§l§o§4Reason: §c${reason}\n§4Time: §c${years}${months}${weeks}${days}${hours}${minutes}${seconds}\n§r§l§6----------------------------§r"`);
                             } catch (e) { }
-                            await runTellraw(p, `§aThe player §b${player}§a has been banned successfully with reason: §c${reason}\n§2Time: §3${years}${months}${weeks}${days}${hours}${minutes}${seconds}`);
+                            await runTellraw(p, `§aThe player §b${player}§a has been banned successfully with reason: §c${reason}\n§7* §2Time: §3${years}${months}${weeks}${days}${hours}${minutes}${seconds}`);
                         } catch (e) {
                             await runTellraw(p, `§cError, couldn't ban the player.`);
                         }
@@ -771,7 +778,7 @@ function banPlayer(p) {
                             try {
                                 await runCmd(overworld, `kick "${selectedPlayer}" "\n§l§6----------------------------\n§l§4§k|||||§r§l§cYou have been permanently banned by §4${bannedBy}§4§k|||||§r\n§l§o§4Reason: §c${reason}\n§r§l§6----------------------------§r"`);
                             } catch (e) { }
-                            await runTellraw(p, `§aThe player §b${selectedPlayer}§a has been banned successfully with reason: §c${reason}\n§2Time: §3Permanently`);
+                            await runTellraw(p, `§aThe player §b${selectedPlayer}§a has been banned successfully with reason: §c${reason}\n§7* §2Time: §3Permanently`);
                         } catch (e) {
                             await runTellraw(p, `§cError, couldn't ban the player.`);
                         }
@@ -799,6 +806,9 @@ function banPlayer(p) {
                     if (reason === "") {
                         await runTellraw(p, `§cError, you must enter a reason.`);
 
+                    } else if (result.formValues.slice(2).every(value => value === 0)) { //If all time values are 0
+                        await runTellraw(p, `§cError, you must must specify a ban time.`);
+
                     } else if (isBanned(player)) {
                         await runTellraw(p, `§cError, the specified player is already banned.`);
 
@@ -821,7 +831,7 @@ function banPlayer(p) {
                             try {
                                 await runCmd(overworld, `kick "${selectedPlayer}" "\n§l§6----------------------------\n§l§4§k|||||§r§l§cYou have been temporarily banned by §4${bannedBy}§4§k|||||§r\n§l§o§4Reason: §c${reason}\n§4Time: §c${years}${months}${weeks}${days}${hours}${minutes}${seconds}\n§r§l§6----------------------------§r"`);
                             } catch (e) { }
-                            await runTellraw(p, `§aThe player §b${selectedPlayer}§a has been banned successfully with reason: §c${reason}\n§2Time: §3${years}${months}${weeks}${days}${hours}${minutes}${seconds}`);
+                            await runTellraw(p, `§aThe player §b${selectedPlayer}§a has been banned successfully with reason: §c${reason}\n§7* §2Time: §3${years}${months}${weeks}${days}${hours}${minutes}${seconds}`);
                         } catch (e) {
                             await runTellraw(p, `§cError, couldn't ban the player.`);
                         }
@@ -835,9 +845,9 @@ function banPlayer(p) {
 function unBanPlayer(p) {
     const form = new ActionFormData();
     form.title("Unban menu");
-    form.body("Select a player to unban");
+    form.body("Select an offline/online banned player to unban");
     form.button("<-- Back", "textures/icons/back.png");
-    form.button("Type a player manually instead");
+    form.button("Type an offline/online player instead", "textures/icons/pencil.png");
 
     const bannedPlayers = getBannedPlayers();
     for (const player of bannedPlayers) {
@@ -876,7 +886,7 @@ function unBanPlayer(p) {
                 }
             });
         } else if (response.selection > 1) {
-            let selectedPlayer = bannedPlayers[response.selection - 2];
+            const selectedPlayer = bannedPlayers[response.selection - 2];
 
             let form = new MessageFormData();
             form.title("Unban menu");
@@ -900,6 +910,12 @@ function unBanPlayer(p) {
     });
 }
 
+function jailMenu(p) {
+    const form = new ActionFormData()
+        .title("Jail menu")
+        .body("Select an option")
+}
+
 function projectilePowers(p) {
     const form = new ActionFormData()
         .title("Projectiles powers")
@@ -919,7 +935,7 @@ function projectilePowers(p) {
                 .title("Toggle for a player")
                 .body("Select an online player to enable/disable certain powers when throwing a snowball at an entity.\nYou will be able to select those powers later.")
                 .button("<-- Back", "textures/icons/back.png")
-                .button("Type a player manually instead");
+                .button("Type an offline/online player instead", "textures/icons/pencil.png");
             for (const player of playersArray) {
                 form.button(player, "textures/icons/steve_icon.png");
             }
@@ -1034,7 +1050,7 @@ function simPlayer(p) {
                     .title("Attack and follow a player")
                     .body("Select an online player to attack and follow")
                     .button("<-- Back", "textures/icons/back.png")
-                    .button("Type a player manually instead");
+                    .button("Type an online player instead", "textures/icons/pencil.png");
                 for (const player of playersArray) {
                     form.button(player, "textures/icons/steve_icon.png");
                 }
@@ -1158,7 +1174,7 @@ function simPlayer(p) {
                     .title("Follow a player")
                     .body("Select an online player to follow")
                     .button("<-- Back", "textures/icons/back.png")
-                    .button("Type a player manually instead");
+                    .button("Type an online player instead", "textures/icons/pencil.png");
                 for (const player of playersArray) {
                     form.button(player, "textures/icons/steve_icon.png");
                 }
