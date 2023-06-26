@@ -21,9 +21,10 @@ system.runInterval(async tick => {
     try { admins = [...world.scoreboard.getObjective('-au').getParticipants().map(admin => admin.displayName)] } catch (e) { }
     if (players.length === 1 && firstPlayer === false) {
         try { await runCmd(overworld, 'scoreboard objectives add -au dummy') } catch (e) { }
-        try { await runCmd(overworld, 'scoreboard objectives add -auban dummy') } catch (e) { }
+        try { await runCmd(overworld, 'scoreboard objectives add -auBan dummy') } catch (e) { }
         try { await runCmd(overworld, 'scoreboard objectives add -auProj dummy') } catch (e) { }
-        try { await runCmd(overworld, 'scoreboard objectives add -aufrozen dummy') } catch (e) { }
+        try { await runCmd(overworld, 'scoreboard objectives add -auFrozen dummy') } catch (e) { }
+        try { await runCmd(overworld, 'scoreboard objectives add -auJailed dummy') } catch (e) { }
         if (currentTick % 200 === 0) {
             await runCmd(overworld, `execute @a ~~~ tellraw @s {"rawtext":[{"text":"§l§4§kqww§r§l§bThanks for using Admin Utils! §aMade by §6MisledPaul58§4§kqww§r"}]}`);
             firstPlayer = true;
@@ -42,13 +43,13 @@ system.runInterval(async tick => {
         }
         if (isFrozen(player.name)) { //Hacer que se pueda congelar a jugadores que no estén conectados
             try {
-                const positions = world.scoreboard.getObjective('-aufrozen').getParticipants().filter(participant => participant.displayName.match(/-auname([^]*) -au-?[0-9]+[^]* -au-?[0-9]+[^]* -au-?[0-9]+[^]*/)[1] === player.name)[0].displayName.match(/-au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*)/).slice(1).map(pos => pos * 1); //Gets the positions where the player was frozen and converts it to integer or float
+                const positions = world.scoreboard.getObjective('-auFrozen').getParticipants().filter(participant => participant.displayName.match(/-auname([^]*) -au-?[0-9]+[^]* -au-?[0-9]+[^]* -au-?[0-9]+[^]*/)[1] === player.name)[0].displayName.match(/-au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*)/).slice(1).map(pos => pos * 1); //Gets the positions where the player was frozen and converts it to integer or float
                 try { player.teleport(new Vector(positions[0], positions[1], positions[2]), { dimension: player.dimension }) } catch (e) { }
                 //positions[0] is the x, positions[1] the y and positions[2] the z
             } catch (e) {
-                const scoreboard = world.scoreboard.getObjective('-aufrozen').getParticipants().filter(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1] === player.name)[0].displayName;
-                await runCmd(player.dimension, `scoreboard players reset "${scoreboard}" -aufrozen`);
-                await runCmd(player.dimension, `scoreboard players set "-auname${player.name} -au${player.location.x} -au${player.location.y} -au${player.location.z}" -aufrozen 0`);
+                const scoreboard = world.scoreboard.getObjective('-auFrozen').getParticipants().filter(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1] === player.name)[0].displayName;
+                await runCmd(player.dimension, `scoreboard players reset "${scoreboard}" -auFrozen`);
+                await runCmd(player.dimension, `scoreboard players set "-auname${player.name} -au${player.location.x} -au${player.location.y} -au${player.location.z}" -auFrozen 0`);
             }
         }
     }
@@ -58,7 +59,7 @@ system.runInterval(async tick => {
             const reason = getBanReason(bannedPlayer);
             const bannedBy = getBannedBy(bannedPlayer);
             const banISO = getUnBanISO(bannedPlayer);
-            await runCmd(overworld, `scoreboard players reset "${bannedPlayer}-aureason${reason}-auban${bannedBy}-autime${banISO}" -auban`);
+            await runCmd(overworld, `scoreboard players reset "${bannedPlayer}-aureason${reason}-auban${bannedBy}-autime${banISO}" -auBan`);
         }
     }
 }, 1);
@@ -346,6 +347,7 @@ function adminCommands(p) {
                 projectilePowers(p);
             } break;
             case 5: { //Freeze or unfreeze a player
+                freezeUnfreeze();
                 function freezeUnfreeze() {
                     const form = new ActionFormData()
                         .title("Freeze or unfreeze a player")
@@ -387,10 +389,10 @@ function adminCommands(p) {
                                                 };
                                                 const selectedPlayer = [...world.getPlayers(query)][0];
                                                 if (selectedPlayer !== undefined) {
-                                                    await runCmd(p, `scoreboard players set "-auname${playerName} -au${selectedPlayer.location.x} -au${selectedPlayer.location.y} -au${selectedPlayer.location.z}" -aufrozen 0`);
+                                                    await runCmd(p, `scoreboard players set "-auname${playerName} -au${selectedPlayer.location.x} -au${selectedPlayer.location.y} -au${selectedPlayer.location.z}" -auFrozen 0`);
                                                     await runTellraw(p, `§aThe player §b${playerName}§a has been successfully frozen.`);
                                                 } else {
-                                                    await runCmd(p, `scoreboard players set "-auname${playerName} -au+ -au+ -au+" -aufrozen 0`);
+                                                    await runCmd(p, `scoreboard players set "-auname${playerName} -au+ -au+ -au+" -auFrozen 0`);
                                                     await runTellraw(p, `§aThe player §b${playerName}§a has been successfully frozen.`);
                                                 }
                                             } catch (e) {
@@ -408,7 +410,7 @@ function adminCommands(p) {
                                     form.show(p).then(async result => {
                                         if (result.selection === 1) {
                                             try {
-                                                await runCmd(selectedPlayer.dimension, `scoreboard players set "-auname${selectedPlayer.name} -au${selectedPlayer.location.x} -au${selectedPlayer.location.y} -au${selectedPlayer.location.z}" -aufrozen 0`);
+                                                await runCmd(selectedPlayer.dimension, `scoreboard players set "-auname${selectedPlayer.name} -au${selectedPlayer.location.x} -au${selectedPlayer.location.y} -au${selectedPlayer.location.z}" -auFrozen 0`);
                                                 await runTellraw(p, `§aThe player §b${selectedPlayer.name}§a has been successfully frozen.`);
                                             } catch (e) {
                                                 await runTellraw(p, `§cError, the player couldn't be frozen.`);
@@ -418,7 +420,7 @@ function adminCommands(p) {
                                 }
                             });
                         } else if (response.selection === 2) {
-                            const frozenPlayers = [...world.scoreboard.getObjective('-aufrozen').getParticipants().map(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1])];
+                            const frozenPlayers = [...world.scoreboard.getObjective('-auFrozen').getParticipants().map(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1])];
                             const form = new ActionFormData()
                                 .title("Unfreeze a player")
                                 .body("Select an online/offline frozen player to unfreeze")
@@ -440,8 +442,8 @@ function adminCommands(p) {
                                     form.show(p).then(async result => {
                                         if (result.selection === 1) {
                                             try {
-                                                const scoreboard = world.scoreboard.getObjective('-aufrozen').getParticipants().filter(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1] === selectedPlayer)[0].displayName;
-                                                await runCmd(p, `scoreboard players reset "${scoreboard}" -aufrozen`);
+                                                const scoreboard = world.scoreboard.getObjective('-auFrozen').getParticipants().filter(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1] === selectedPlayer)[0].displayName;
+                                                await runCmd(p, `scoreboard players reset "${scoreboard}" -auFrozen`);
                                                 await runTellraw(p, `§aThe player §b${selectedPlayer}§a has been successfully unfrozen.`);
                                             } catch (e) {
                                                 await runTellraw(p, `§cError, the player couldn't be unfrozen.`);
@@ -453,11 +455,10 @@ function adminCommands(p) {
                         }
                     });
                 }
-                freezeUnfreeze();
             } break;
             case 6: { //Kill a player 
-                let playersArray = players.map(pname => pname.name);
-                let locPlayers = players;
+                const playersArray = players.map(pname => pname.name);
+                const locPlayers = players;
                 const form = new ActionFormData()
                     .title("Kill a player")
                     .body("Select an online player to kill")
@@ -634,7 +635,7 @@ function banUnbanMenu(p) {
 }
 
 function banPlayer(p) {
-    let playersArray = players.map(pname => pname.name);
+    const playersArray = players.map(pname => pname.name);
     let notBannedPlayers = [];
 
     const form = new ActionFormData();
@@ -672,7 +673,7 @@ function banPlayer(p) {
                 const isPermaBanned = result.formValues[2];
                 const bannedBy = p.name;
                 if (isPermaBanned === true) {
-                    if (reason === "") {
+                    if (reason.trim() === "") {
                         await runTellraw(p, `§cError, you must enter a reason.`);
 
                     } else if (isBanned(player)) {
@@ -686,7 +687,7 @@ function banPlayer(p) {
 
                     } else {
                         try {
-                            await runCmd(overworld, `scoreboard players set "${player}-aureason${reason}-auban${bannedBy}-autime-aupermabanned-au" -auban 0`);
+                            await runCmd(overworld, `scoreboard players set "${player}-aureason${reason}-auban${bannedBy}-autime-aupermabanned-au" -auBan 0`);
                             try {
                                 await runCmd(overworld, `kick "${player}" "\n§l§6----------------------------\n§l§4§k|||||§r§l§cYou have been permanently banned by §4${bannedBy}§4§k|||||§r\n§l§o§4Reason: §c${reason}\n§r§l§6----------------------------§r"`);
                             } catch (e) { }
@@ -715,7 +716,7 @@ function banPlayer(p) {
 
                     const unBanISO = unBanDate.toISOString(); //Date when you will get unbanned
 
-                    if (reason === "") {
+                    if (reason.trim() === "") {
                         await runTellraw(p, `§cError, you must enter a reason.`);
 
                     } else if (result.formValues.slice(3).every(value => value === 0)) { //If all time values are 0
@@ -732,7 +733,7 @@ function banPlayer(p) {
 
                     } else {
                         try {
-                            await runCmd(overworld, `scoreboard players set "${player}-aureason${reason}-auban${bannedBy}-autime${unBanISO}" -auban 0`);
+                            await runCmd(overworld, `scoreboard players set "${player}-aureason${reason}-auban${bannedBy}-autime${unBanISO}" -auBan 0`);
                             const years = banYears === 0 ? "" : banYears === 1 ? `${banYears} year ` : `${banYears} years `;
                             const months = banMonths === 0 ? "" : banMonths === 1 ? `${banMonths} month ` : `${banMonths} months `;
                             const weeks = banWeeks === 0 ? "" : banWeeks === 1 ? `${banWeeks} week ` : `${banWeeks} weeks `;
@@ -770,11 +771,11 @@ function banPlayer(p) {
                 const isPermaBanned = result.formValues[1];
                 const bannedBy = p.name;
                 if (isPermaBanned === true) {
-                    if (reason === "") {
+                    if (reason.trim() === "") {
                         await runTellraw(p, `§cError, you must enter a reason.`);
                     } else {
                         try {
-                            await runCmd(overworld, `scoreboard players set "${selectedPlayer}-aureason${reason}-auban${bannedBy}-autime-aupermabanned-au" -auban 0`);
+                            await runCmd(overworld, `scoreboard players set "${selectedPlayer}-aureason${reason}-auban${bannedBy}-autime-aupermabanned-au" -auBan 0`);
                             try {
                                 await runCmd(overworld, `kick "${selectedPlayer}" "\n§l§6----------------------------\n§l§4§k|||||§r§l§cYou have been permanently banned by §4${bannedBy}§4§k|||||§r\n§l§o§4Reason: §c${reason}\n§r§l§6----------------------------§r"`);
                             } catch (e) { }
@@ -803,24 +804,24 @@ function banPlayer(p) {
 
                     const unBanISO = unBanDate.toISOString(); //Date when you will get unbanned
 
-                    if (reason === "") {
+                    if (reason.trim() === "") {
                         await runTellraw(p, `§cError, you must enter a reason.`);
 
                     } else if (result.formValues.slice(2).every(value => value === 0)) { //If all time values are 0
                         await runTellraw(p, `§cError, you must must specify a ban time.`);
 
-                    } else if (isBanned(player)) {
+                    } else if (isBanned(selectedPlayer)) {
                         await runTellraw(p, `§cError, the specified player is already banned.`);
 
-                    } else if (isAdmin(player)) {
+                    } else if (isAdmin(selectedPlayer)) {
                         await runTellraw(p, `§cError, the specified player is an admin, cannot ban.`);
 
-                    } else if (!isValidUsername(player)) {
+                    } else if (!isValidUsername(selectedPlayer)) {
                         await runTellraw(p, `§cError, the username you entered is invalid.`);
 
                     } else {
                         try {
-                            await runCmd(overworld, `scoreboard players set "${selectedPlayer}-aureason${reason}-auban${bannedBy}-autime${unBanISO}" -auban 0`);
+                            await runCmd(overworld, `scoreboard players set "${selectedPlayer}-aureason${reason}-auban${bannedBy}-autime${unBanISO}" -auBan 0`);
                             const years = banYears === 0 ? "" : banYears === 1 ? `${banYears} year ` : `${banYears} years `;
                             const months = banMonths === 0 ? "" : banMonths === 1 ? `${banMonths} month ` : `${banMonths} months `;
                             const weeks = banWeeks === 0 ? "" : banWeeks === 1 ? `${banWeeks} week ` : `${banWeeks} weeks `;
@@ -878,7 +879,7 @@ function unBanPlayer(p) {
 
                 } else if (isBanned(player) && isValidUsername(player)) {
                     try {
-                        await runCmd(overworld, `scoreboard players reset "${player}-aureason${reason}-auban${bannedBy}-autime${banISO}" -auban`);
+                        await runCmd(overworld, `scoreboard players reset "${player}-aureason${reason}-auban${bannedBy}-autime${banISO}" -auBan`);
                         await runTellraw(p, `§aThe player §b${player}§a has been unbanned successfully.`);
                     } catch (e) {
                         await runTellraw(p, `§cError, couldn't unban the player, perhaps the ban time is now over.`);
@@ -899,7 +900,7 @@ function unBanPlayer(p) {
                     const bannedBy = getBannedBy(selectedPlayer);
                     const banISO = getUnBanISO(selectedPlayer);
                     try {
-                        await runCmd(overworld, `scoreboard players reset "${selectedPlayer}-aureason${reason}-auban${bannedBy}-autime${banISO}" -auban`);
+                        await runCmd(overworld, `scoreboard players reset "${selectedPlayer}-aureason${reason}-auban${bannedBy}-autime${banISO}" -auBan`);
                         await runTellraw(p, `§aThe player §b${selectedPlayer}§a has been unbanned successfully.`);
                     } catch (e) {
                         await runTellraw(p, `§cError, couldn't unban the player, perhaps the ban time is now over.`);
@@ -914,6 +915,35 @@ function jailMenu(p) {
     const form = new ActionFormData()
         .title("Jail menu")
         .body("Select an option")
+        .button("<-- Back", "textures/icons/back.png")
+        .button("Jail a player")
+        .button("Unjail a player");
+    form.show(p).then((response) => {
+        if (response.selection === 0) {
+            adminCommands(p);
+        } else if (response.selection === 1) {
+            jailPlayer(p);
+        } else if (response.selection === 2) {
+            unJailPlayer(p);
+        }
+    });
+}
+
+function jailPlayer(p) {
+    let playersArray = players.map(pname => pname.name);
+    let locPlayers = players;
+    
+    const form = new ActionFormData()
+        .title("Jail menu")
+        .body("Select an online player to jail")
+        .button("<-- Back", "textures/icons/back.png")
+        .button("Type an offline/online player instead", "textures/icons/pencil.png");
+    
+}
+
+function unJailPlayer(p) {
+    const form = new ActionFormData()
+        .title("Unjail menu")
 }
 
 function projectilePowers(p) {
@@ -1391,7 +1421,7 @@ function isBanTimeOver(player) {
 
 function getBannedPlayers() {
     try {
-        return world.scoreboard.getObjective('-auban').getParticipants().map(participant => participant.displayName.match(/[^]+(?=-aureason)/)[0]);
+        return world.scoreboard.getObjective('-auBan').getParticipants().map(participant => participant.displayName.match(/[^]+(?=-aureason)/)[0]);
     } catch (e) {
         return;
     }
@@ -1399,12 +1429,12 @@ function getBannedPlayers() {
 
 function getBanReason(player) {
     let bannedPlayers = [];
-    for (const bannedRawPlayer of world.scoreboard.getObjective('-auban').getParticipants()) {
+    for (const bannedRawPlayer of world.scoreboard.getObjective('-auBan').getParticipants()) {
         bannedPlayers.push(bannedRawPlayer.displayName.match(/[^]+(?=-aureason)/)[0]);
     }
 
     let banReasons = [];
-    for (const bannedRawPlayer of world.scoreboard.getObjective('-auban').getParticipants()) {
+    for (const bannedRawPlayer of world.scoreboard.getObjective('-auBan').getParticipants()) {
         banReasons.push(bannedRawPlayer.displayName.match(/(?<=-aureason)[^]+(?=-auban)/)[0]);
     }
     return banReasons[bannedPlayers.indexOf(player)];
@@ -1412,22 +1442,26 @@ function getBanReason(player) {
 
 function getBannedBy(player) {
     let bannedPlayers = [];
-    for (const bannedRawPlayer of world.scoreboard.getObjective('-auban').getParticipants()) {
+    for (const bannedRawPlayer of world.scoreboard.getObjective('-auBan').getParticipants()) {
         bannedPlayers.push(bannedRawPlayer.displayName.match(/[^]+(?=-aureason)/)[0]);
     }
 
     let bannedBys = [];
-    for (const bannedRawPlayer of world.scoreboard.getObjective('-auban').getParticipants()) {
+    for (const bannedRawPlayer of world.scoreboard.getObjective('-auBan').getParticipants()) {
         bannedBys.push(bannedRawPlayer.displayName.match(/(?<=-auban)[^]+(?=-autime)/)[0]);
     }
     return bannedBys[bannedPlayers.indexOf(player)];
 }
 
 function getUnBanISO(player) {
-    const bannedPlayers = world.scoreboard.getObjective('-auban').getParticipants();
+    const bannedPlayers = world.scoreboard.getObjective('-auBan').getParticipants();
     const matchISO = new RegExp(`(?<=${convertToRegExpFriendly(player)}-aureason.*-autime)[^]+`);
     const scoreboard = bannedPlayers.filter(participant => participant.displayName.match(matchISO) !== null)[0].displayName;
     return scoreboard.match(matchISO)[0];
+}
+
+function isJailed(player) {
+    //MisledPaul58976
 }
 
 function isPowerEnabled(pname, projectile, power) {
@@ -1468,7 +1502,7 @@ async function setPower(pname, projectile, power, state) {
 
 function isFrozen(player) {
     try {
-        if (world.scoreboard.getObjective('-aufrozen').getParticipants().map(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1]).includes(player)) return true
+        if (world.scoreboard.getObjective('-auFrozen').getParticipants().map(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1]).includes(player)) return true
         else return false;
     } catch (e) { return false }
 }
