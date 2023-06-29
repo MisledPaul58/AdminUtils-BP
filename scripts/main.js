@@ -25,6 +25,8 @@ system.runInterval(async tick => {
         try { await runCmd(overworld, 'scoreboard objectives add -auProj dummy') } catch (e) { }
         try { await runCmd(overworld, 'scoreboard objectives add -auFrozen dummy') } catch (e) { }
         try { await runCmd(overworld, 'scoreboard objectives add -auJailed dummy') } catch (e) { }
+        try { await runCmd(overworld, 'scoreboard objectives add -auJailLoc dummy') } catch (e) { }
+        try { await runCmd(overworld, 'scoreboard objectives add -auJailExitLoc dummy') } catch (e) { }
         if (currentTick % 200 === 0) {
             await runCmd(overworld, `execute @a ~~~ tellraw @s {"rawtext":[{"text":"§l§4§kqww§r§l§bThanks for using Admin Utils! §aMade by §6MisledPaul58§4§kqww§r"}]}`);
             firstPlayer = true;
@@ -149,6 +151,16 @@ world.beforeEvents.itemUse.subscribe(data => {
         */
         system.run(() => {
             adminUtilsGui(player);
+            world.getPlayers({ name: player.nameTag })[0].onScreenDisplay.setActionBar('Remaining time: 1 year 2 months 3 weeks 5 days 10 hours 46 minutes 13 seconds\nReason: hacker\nJailed by: MisledPaul');
+            const lockMode = "none";
+            for (let slot = 0; slot < player.getComponent("minecraft:inventory").inventorySize; slot++) {
+                try { player.getComponent("minecraft:inventory").container.getSlot(slot).lockMode = lockMode; } catch (e) { }
+            }
+            const slots = ["head", "chest", "legs", "feet", "offhand"];
+            for (const slot of slots) {
+                try { player.getComponent("minecraft:equipment_inventory").getEquipmentSlot(slot).lockMode = lockMode } catch (e) { }
+            }
+            world.sendMessage(`${world.scoreboard.getObjective('-auJailLoc').getParticipants()[0]?.displayName}`);
         });
     }
 });
@@ -915,16 +927,34 @@ function jailMenu(p) {
     const form = new ActionFormData()
         .title("Jail menu")
         .body("Select an option")
-        .button("<-- Back", "textures/icons/back.png")
-        .button("Jail a player")
-        .button("Unjail a player");
+        .button("<-- Back", "textures/icons/back.png") //0
+        .button("Learn how to use") //1
+        .button("Jail a player") //2
+        .button("Unjail a player") //3
+        .button("Jail location config") //4
+        .button("Jail exit location config"); //5
     form.show(p).then((response) => {
-        if (response.selection === 0) {
-            adminCommands(p);
-        } else if (response.selection === 1) {
-            jailPlayer(p);
-        } else if (response.selection === 2) {
-            unJailPlayer(p);
+        switch (response.selection) {
+            case 0:
+                adminCommands(p);
+                break;
+            case 1:
+
+                break;
+            case 2:
+                jailPlayer(p);
+                break;
+            case 3:
+                unJailPlayer(p);
+                break;
+            case 4:
+                jailLocConfig(p);
+                break;
+            case 5:
+                jailExitLocConfig(p);
+                break;
+            default:
+                break;
         }
     });
 }
@@ -932,18 +962,122 @@ function jailMenu(p) {
 function jailPlayer(p) {
     let playersArray = players.map(pname => pname.name);
     let locPlayers = players;
-    
+
     const form = new ActionFormData()
         .title("Jail menu")
         .body("Select an online player to jail")
         .button("<-- Back", "textures/icons/back.png")
         .button("Type an offline/online player instead", "textures/icons/pencil.png");
-    
+    for (const player of playersArray) {
+        if (!isJailed(player)) {
+            form.button(player, "textures/icons/steve_icon.png");
+        }
+    }
+
+    form.show(p).then((response) => {
+        if (response.selection === 0) {
+            jailMenu(p);
+        } else if (response.selection === 1) {
+            let form = new ModalFormData()
+                .title("Jail menu")
+                .textField("Type below the player you would like to jail.", "Player's name") //0
+                .textField("Enter a reason:", "Reason") //1
+                .toggle("Permanent jail", false) //2
+                .slider("Years", 0, 10, 1, 0) //3
+                .slider("Months", 0, 11, 1, 0) //4
+                .slider("Weeks", 0, 3, 1, 0) //5
+                .slider("Days", 0, 6, 1, 0) //6
+                .slider("Hours", 0, 23, 1, 0) //7
+                .slider("Minutes", 0, 59, 1, 0) //8
+                .slider("Seconds", 0, 59, 1, 0); //9
+            form.show(p).then(async result => {
+                if (result.canceled) return;
+                const player = result.formValues[0];
+                const reason = result.formValues[1];
+                const isPermaJailed = result.formValues[2];
+                const jailedBy = p.name;
+
+                if (isPermaJailed === true) {
+
+                } else {
+                    const jailYears = result.formValues[3];
+                    const jailMonths = result.formValues[4];
+                    const jailWeeks = result.formValues[5]; //Only to calculate the respective days and add them to jailDays
+                    const jailDays = result.formValues[6]; //Specified days without taking the weeks into account, include this in the kick cmd
+                    const jailTotalDays = jailDays + jailWeeks * 7;
+                    const jailHours = result.formValues[7];
+                    const jailMinutes = result.formValues[8];
+                    const jailSeconds = result.formValues[9];
+
+                    const releaseDate = moment();
+                    releaseDate.add(jailYears, 'years');
+                    releaseDate.add(jailMonths, 'months');
+                    releaseDate.add(jailTotalDays, 'days');
+                    releaseDate.add(jailHours, 'hours');
+                    releaseDate.add(jailMinutes, 'minutes');
+                    releaseDate.add(jailSeconds, 'seconds');
+
+                    const releaseISO = releaseDate.toISOString(); //Date when you will get released
+
+                    if (reason.trim() === "") {
+                        await runTellraw(p, `§cError, you must enter a reason.`);
+
+                    } else if (result.formValues.slice(3).every(value => value === 0)) {
+                        await runTellraw(p, `§cError, you must must specify a jail time.`);
+
+                    } else if (isJailed(player)) {
+                        await runTellraw(p, `§cError, the specified player is already in jail.`);
+
+                    } else if (isAdmin(player)) {
+                        await runTellraw(p, `§cError, the specified player is an admin, cannot jail.`);
+
+                    } else if (!isValidUsername(player)) {
+                        await runTellraw(p, `§cError, the username you entered is invalid.`);
+
+                    } else if (!isJailLocSet()) {
+                        await runTellraw(p, `§cError, the location of the jail hasn't been set yet.`);
+
+                    } else if (!isJailExitLocSet()) {
+                        await runTellraw(p, `§cError, the exit location of the jail hasn't been set yet.`);
+
+                    } else {
+                        try {
+                            await runCmd(overworld, `scoreboard players set "${player}-aureason${reason}-aujailedby${jailedBy}-autime${releaseISO}" -auJailed 0`);
+                            const years = jailYears === 0 ? "" : jailYears === 1 ? `${jailYears} year ` : `${jailYears} years `;
+                            const months = jailMonths === 0 ? "" : jailMonths === 1 ? `${jailMonths} month ` : `${jailMonths} months `;
+                            const weeks = jailWeeks === 0 ? "" : jailWeeks === 1 ? `${jailWeeks} week ` : `${jailWeeks} weeks `;
+                            const days = jailDays === 0 ? "" : jailDays === 1 ? `${jailDays} day ` : `${jailDays} days `;
+                            const hours = jailHours === 0 ? "" : jailHours === 1 ? `${jailHours} hour ` : `${jailHours} hours `;
+                            const minutes = jailMinutes === 0 ? "" : jailMinutes === 1 ? `${jailMijailnutes} minute ` : `${jailMinutes} minutes `;
+                            const seconds = jailSeconds === 0 ? "" : jailSeconds === 1 ? `${jailSeconds} second` : `${jailSeconds} seconds`;
+                            try {
+                                
+                            } catch (e) {
+                                
+                            }
+                        } catch (e) {
+                            await runTellraw(p, `§cError, couldn't jail the player.`);
+                        }
+                    }
+                }
+            });
+        } else if (response.selection >= 2) {
+
+        }
+    });
 }
 
 function unJailPlayer(p) {
     const form = new ActionFormData()
         .title("Unjail menu")
+}
+
+function jailLocConfig(p) {
+
+}
+
+function jailExitLocConfig(p) {
+
 }
 
 function projectilePowers(p) {
@@ -1421,7 +1555,7 @@ function isBanTimeOver(player) {
 
 function getBannedPlayers() {
     try {
-        return world.scoreboard.getObjective('-auBan').getParticipants().map(participant => participant.displayName.match(/[^]+(?=-aureason)/)[0]);
+        return world.scoreboard.getObjective('-auBan').getParticipants().map(participant => participant.displayName.match(/^[^]+(?=-aureason)/)[0]);
     } catch (e) {
         return;
     }
@@ -1430,7 +1564,7 @@ function getBannedPlayers() {
 function getBanReason(player) {
     let bannedPlayers = [];
     for (const bannedRawPlayer of world.scoreboard.getObjective('-auBan').getParticipants()) {
-        bannedPlayers.push(bannedRawPlayer.displayName.match(/[^]+(?=-aureason)/)[0]);
+        bannedPlayers.push(bannedRawPlayer.displayName.match(/^[^]+(?=-aureason)/)[0]);
     }
 
     let banReasons = [];
@@ -1443,25 +1577,89 @@ function getBanReason(player) {
 function getBannedBy(player) {
     let bannedPlayers = [];
     for (const bannedRawPlayer of world.scoreboard.getObjective('-auBan').getParticipants()) {
-        bannedPlayers.push(bannedRawPlayer.displayName.match(/[^]+(?=-aureason)/)[0]);
+        bannedPlayers.push(bannedRawPlayer.displayName.match(/^[^]+(?=-aureason)/)[0]);
     }
 
     let bannedBys = [];
     for (const bannedRawPlayer of world.scoreboard.getObjective('-auBan').getParticipants()) {
-        bannedBys.push(bannedRawPlayer.displayName.match(/(?<=-auban)[^]+(?=-autime)/)[0]);
+        bannedBys.push(bannedRawPlayer.displayName.match(/.*-auban([^]+)-autime/)[1]);
     }
     return bannedBys[bannedPlayers.indexOf(player)];
 }
 
 function getUnBanISO(player) {
-    const bannedPlayers = world.scoreboard.getObjective('-auBan').getParticipants();
-    const matchISO = new RegExp(`(?<=${convertToRegExpFriendly(player)}-aureason.*-autime)[^]+`);
-    const scoreboard = bannedPlayers.filter(participant => participant.displayName.match(matchISO) !== null)[0].displayName;
+    const bannedParticipants = world.scoreboard.getObjective('-auBan').getParticipants();
+    const matchISO = new RegExp(`(?<=^${convertToRegExpFriendly(player)}-aureason.+-autime)(?!.*-auban)[^]+`); //Also works: `^${convertToRegExpFriendly(player)}-aureason.+-aujailedby.+-autime([^]+)`
+    const scoreboard = bannedParticipants.filter(participant => matchISO.test(participant.displayName))[0].displayName;
     return scoreboard.match(matchISO)[0];
 }
 
 function isJailed(player) {
-    //MisledPaul58976
+    //MisledPaul58976-aureason.....-aujailedby......-autime.....
+    const jailedPlayers = world.scoreboard.getObjective('-auJailed').getParticipants();
+    const regexp = new RegExp(`^${convertToRegExpFriendly(player)}(?=-aureason)`); //Revisar lo de ^ para que sea la primera palabra en las demás funciones
+    if (jailedPlayers.some(player => regexp.test(player.displayName))) return true
+    else return false;
+}
+
+function isJailLocSet() {
+    const scoreboard = world.scoreboard.getObjective('-auJailLoc').getParticipants()[0]?.displayName;
+    if (scoreboard) return true
+    else return false;
+}
+
+function isJailExitLocSet() {
+    const scoreboard = world.scoreboard.getObjective('-auJailExitLoc').getParticipants()[0]?.displayName;
+    if (scoreboard) return true
+    else return false;
+}
+
+function isPermaJailed(player) {
+
+}
+
+function getJailedPlayers() {
+    try {
+        return world.scoreboard.getObjective('-auJailed').getParticipants().map(participant => participant.displayName.match(/[^]+(?=-aureason)/)[0]);
+    } catch (e) {
+        return;
+    }
+}
+
+function getJailReason(player) {
+
+}
+
+function getJailedBy(player) {
+
+}
+
+function getReleaseISO(player) {
+    const jailedParticipants = world.scoreboard.getObjective('-auJailed').getParticipants();
+    const matchISO = new RegExp(`(?<=^${convertToRegExpFriendly(player)}-aureason.+-aujailedby.+-autime)(?!.*-aujailedby)[^]+`);
+    const scoreboard = jailedParticipants.filter(participant => matchISO.test(participant.displayName))[0].displayName;
+    return scoreboard.match(matchISO)[0];
+}
+
+function getJailLoc() {
+    //-au-46.123164 -au64 -au79.01385315
+    const positions = world.scoreboard.getObjective('-auJailLoc').getParticipants()[0]?.displayName.match(/-au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*)/).slice(1).map(pos => parseFloat(pos));
+    if (!positions) {
+        world.sendMessage('pos fail');
+        return;
+    } else {
+        return { x: positions[0], y: positions[1], z: positions[2] };
+    }
+}
+
+function getJailExitLoc() {
+    const positions = world.scoreboard.getObjective('-auJailExitLoc').getParticipants()[0]?.displayName.match(/-au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*)/).slice(1).map(pos => parseFloat(pos));
+    if (!positions) {
+        world.sendMessage('pos fail');
+        return;
+    } else {
+        return { x: positions[0], y: positions[1], z: positions[2] };
+    }
 }
 
 function isPowerEnabled(pname, projectile, power) {
