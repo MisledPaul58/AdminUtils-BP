@@ -43,6 +43,7 @@ system.runInterval(async tick => {
                 await runCmd(overworld, `execute @a ~~~ tellraw @s {"rawtext": [{ "text": "§cError, couldn't add ${player.name} as an admin, probably it already is." }]}`);
             }
         }
+
         if (isFrozen(player.name)) { //Hacer que se pueda congelar a jugadores que no estén conectados
             try {
                 const positions = world.scoreboard.getObjective('-auFrozen').getParticipants().filter(participant => participant.displayName.match(/-auname([^]*) -au-?[0-9]+[^]* -au-?[0-9]+[^]* -au-?[0-9]+[^]*/)[1] === player.name)[0].displayName.match(/-au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*)/).slice(1).map(pos => pos * 1); //Gets the positions where the player was frozen and converts it to integer or float
@@ -62,6 +63,50 @@ system.runInterval(async tick => {
             const bannedBy = getBannedBy(bannedPlayer);
             const banISO = getUnBanISO(bannedPlayer);
             await runCmd(overworld, `scoreboard players reset "${bannedPlayer}-aureason${reason}-auban${bannedBy}-autime${banISO}" -auBan`);
+        }
+    }
+
+    for (const jailedPlayer of getJailedPlayers()) {
+        const reason = getJailReason(jailedPlayer);
+        const jailedBy = getJailedBy(jailedPlayer);
+        const jailedPlayerRaw = world.getPlayers({ name: jailedPlayer })[0];
+
+        if (isJailTimeOver(jailedPlayer)) {
+            const releaseISO = getReleaseISO(jailedPlayer);
+            await runCmd(overworld, `scoreboard players reset "${jailedPlayer}-aureason${reason}-auban${jailedBy}-autime${releaseISO}" -auJailed`);
+            jailedPlayerRaw.teleport(getJailExitLoc()[0], getJailExitLoc()[1]);
+            await runCmd(jailedPlayerRaw, 'gamemode survival');
+        } else {
+            jailedPlayerRaw.runCommand('gamemode adventure');
+            jailedPlayerRaw.addEffect(MinecraftEffectTypes.resistance, 2 * TicksPerSecond, { amplifier: 255, showParticles: false });
+            jailedPlayerRaw.addEffect(MinecraftEffectTypes.weakness, 2 * TicksPerSecond, { amplifier: 255, showParticles: false });
+
+            if (isPermaJailed(jailedPlayer)) {
+
+            } else {
+                const releaseDate = moment(getReleaseISO(jailedPlayer), moment.ISO_8601);
+                const currentDate = moment();
+                const remainingTime = moment.duration(releaseDate.diff(currentDate));
+
+                const remainingYears = remainingTime.years();
+                const remainingMonths = remainingTime.months();
+                const remainingWeeks = remainingTime.weeks();
+                remainingTime.subtract(remainingWeeks * 7, 'days');
+                const remainingDays = remainingTime.days();
+                const remainingHours = remainingTime.hours();
+                const remainingMinutes = remainingTime.minutes();
+                const remainingSeconds = remainingTime.seconds();
+
+                const years = remainingYears === 0 ? "" : remainingYears === 1 ? `${remainingYears} year ` : `${remainingYears} years `;
+                const months = remainingMonths === 0 ? "" : remainingMonths === 1 ? `${remainingMonths} month ` : `${remainingMonths} months `;
+                const weeks = remainingWeeks === 0 ? "" : remainingWeeks === 1 ? `${remainingWeeks} week ` : `${remainingWeeks} weeks `;
+                const days = remainingDays === 0 ? "" : remainingDays === 1 ? `${remainingDays} day ` : `${remainingDays} days `;
+                const hours = remainingHours === 0 ? "" : remainingHours === 1 ? `${remainingHours} hour ` : `${remainingHours} hours `;
+                const minutes = remainingMinutes === 0 ? "" : remainingMinutes === 1 ? `${remainingMinutes} minute ` : `${remainingMinutes} minutes `;
+                const seconds = remainingSeconds === 0 ? "" : remainingSeconds === 1 ? `${remainingSeconds} second` : `${remainingSeconds} seconds`;
+
+                jailedPlayerRaw.onScreenDisplay.setActionBar(`§l§o§m* §4Remaining time: §c${years}${months}${weeks}${days}${hours}${minutes}${seconds}\n§m* §4Reason: §c${reason}\n§m* §4Jailed by: §c${jailedBy}`);
+            }
         }
     }
 }, 1);
@@ -136,6 +181,8 @@ world.afterEvents.playerJoin.subscribe(async event => {
                 overworld.runCommand(`kick "${playerName}" "\n§l§6----------------------------\n§l§4§k|||||§r§l§cYou were temporarily banned by §4${bannedBy}§4§k|||||§r\n§l§o§4Reason: §c${reason}\n§4Remaining time: §c${years}${months}${weeks}${days}${hours}${minutes}${seconds}\n§r§l§6----------------------------§r"`);
             }
         }
+    } else if (isJailed(playerName)) {
+
     }
 });
 
@@ -151,7 +198,6 @@ world.beforeEvents.itemUse.subscribe(data => {
         */
         system.run(() => {
             adminUtilsGui(player);
-            world.getPlayers({ name: player.nameTag })[0].onScreenDisplay.setActionBar('Remaining time: 1 year 2 months 3 weeks 5 days 10 hours 46 minutes 13 seconds\nReason: hacker\nJailed by: MisledPaul');
             const lockMode = "none";
             for (let slot = 0; slot < player.getComponent("minecraft:inventory").inventorySize; slot++) {
                 try { player.getComponent("minecraft:inventory").container.getSlot(slot).lockMode = lockMode; } catch (e) { }
@@ -1025,14 +1071,17 @@ function jailPlayer(p) {
                     } else if (result.formValues.slice(3).every(value => value === 0)) {
                         await runTellraw(p, `§cError, you must must specify a jail time.`);
 
+                    } else if (!isValidUsername(player)) {
+                        await runTellraw(p, `§cError, the username you entered is invalid.`);
+
+                    } else if (isBanned(player)) {
+                        await runTellraw(p, `§cError, the specified player is currently banned.`);
+
                     } else if (isJailed(player)) {
                         await runTellraw(p, `§cError, the specified player is already in jail.`);
 
                     } else if (isAdmin(player)) {
                         await runTellraw(p, `§cError, the specified player is an admin, cannot jail.`);
-
-                    } else if (!isValidUsername(player)) {
-                        await runTellraw(p, `§cError, the username you entered is invalid.`);
 
                     } else if (!isJailLocSet()) {
                         await runTellraw(p, `§cError, the location of the jail hasn't been set yet.`);
@@ -1048,13 +1097,12 @@ function jailPlayer(p) {
                             const weeks = jailWeeks === 0 ? "" : jailWeeks === 1 ? `${jailWeeks} week ` : `${jailWeeks} weeks `;
                             const days = jailDays === 0 ? "" : jailDays === 1 ? `${jailDays} day ` : `${jailDays} days `;
                             const hours = jailHours === 0 ? "" : jailHours === 1 ? `${jailHours} hour ` : `${jailHours} hours `;
-                            const minutes = jailMinutes === 0 ? "" : jailMinutes === 1 ? `${jailMijailnutes} minute ` : `${jailMinutes} minutes `;
+                            const minutes = jailMinutes === 0 ? "" : jailMinutes === 1 ? `${jailMinutes} minute ` : `${jailMinutes} minutes `;
                             const seconds = jailSeconds === 0 ? "" : jailSeconds === 1 ? `${jailSeconds} second` : `${jailSeconds} seconds`;
-                            try {
-                                
-                            } catch (e) {
-                                
-                            }
+
+                            const playerRaw = world.getPlayers({ name: player })[0]; //Añadir efecto de cámara?
+                            playerRaw.teleport(getJailLoc()[0], getJailLoc()[1]);
+                            await runTellraw(p, `§aThe player §b${player}§a has been jailed successfully with reason: §c${reason}\n§7* §2Time: §3${years}${months}${weeks}${days}${hours}${minutes}${seconds}`);
                         } catch (e) {
                             await runTellraw(p, `§cError, couldn't jail the player.`);
                         }
@@ -1073,11 +1121,170 @@ function unJailPlayer(p) {
 }
 
 function jailLocConfig(p) {
+    const form = new ActionFormData()
+        .title("Jail location config")
+        .button("<-- Back", "textures/icons/back.png"); //0
+    if (!isJailLocSet()) {
+        form.body("You haven't set the location of the jail yet, please select an option. You can go to any dimension.")
+            .button("Set jail location to current location"); //1
+    } else {
+        const _jailDim = getJailLoc()[1].dimension.id;
+        let jailDim = '';
+        if (_jailDim === "minecraft:overworld") {
+            jailDim = '§bOverworld';
+        } else if (_jailDim === "minecraft:nether") {
+            jailDim = '§cNether';
+        } else if (_jailDim === "minecraft:the_end") {
+            jailDim = '§5The End';
+        }
 
+        form.body(`The location of the jail has already been set at §a${round(getJailLoc()[0].x)} ${round(getJailLoc()[0].y)} ${round(getJailLoc()[0].z)}§r, ${jailDim}§r. Select an option.`)
+            .button("Teleport to jail location") //1
+            .button("Set jail location to current location") //2
+            .button("Remove jail location"); //3
+    }
+    form.show(p).then((response) => {
+        if (response.canceled) return;
+
+        const { selection } = response;
+        if (selection === 0) {
+            jailMenu(p);
+        } else if (!isJailLocSet()) {
+            if (selection === 1) {
+                const _playerDim = p.dimension.id;
+                let playerDim = '';
+                if (_playerDim === "minecraft:overworld") {
+                    playerDim = '§bOverworld';
+                } else if (_playerDim === "minecraft:nether") {
+                    playerDim = '§cNether';
+                } else if (_playerDim === "minecraft:the_end") {
+                    playerDim = '§5The End';
+                }
+                const currentLoc = p.location;
+
+                const form = new MessageFormData()
+                    .title("Jail location config")
+                    .body(`Are you sure you want to set the location of the jail to §a${round(currentLoc.x)} ${round(currentLoc.y)} ${round(currentLoc.z)}§r, ${playerDim}§r?`)
+                    .button1("No")
+                    .button2("Yes");
+                form.show(p).then(async result => {
+                    if (result.selection === 1) {
+                        if (!isJailLocSet()) { //Test this type of thing in the rest of the code!
+                            try {
+                                await runCmd(p, `scoreboard players set "-au${p.dimension.id.replace(/minecraft:/, '')} -au${currentLoc.x} -au${currentLoc.y} -au${currentLoc.z}" -auJailLoc 0`);
+                                await runTellraw(p, `§aThe jail location has been successfully set to §b${round(currentLoc.x)} ${round(currentLoc.y)} ${round(currentLoc.z)}§a, ${playerDim}§a.`);
+                            } catch (e) {
+                                await runTellraw(p, `§cError, couldn't set the jail location.`);
+                            }
+                        } else {
+                            await runTellraw(p, `§cError, the jail location has been set recently by another user.`);
+                        }
+                    }
+                });
+            }
+        } else {
+            if (selection === 1) {
+                const _jailDim = getJailLoc()[1].dimension.id;
+                let jailDim = '';
+                if (_jailDim === "minecraft:overworld") {
+                    jailDim = '§bOverworld';
+                } else if (_jailDim === "minecraft:nether") {
+                    jailDim = '§cNether';
+                } else if (_jailDim === "minecraft:the_end") {
+                    jailDim = '§5The End';
+                }
+
+                const form = new MessageFormData()
+                    .title("Jail location config")
+                    .body(`Are you sure you want to teleport to §a${round(getJailLoc()[0].x)} ${round(getJailLoc()[0].y)} ${round(getJailLoc()[0].z)}§r, ${jailDim}§r?`)
+                    .button1("No")
+                    .button2("Yes");
+                form.show(p).then(async result => {
+                    if (result.selection === 1) {
+                        try {
+                            await runTellraw(p, `§bTeleporting...`);
+                            const delay = ticks => new Promise(res => system.runTimeout(res, ticks));
+                            await delay(3 * TicksPerSecond);
+                            p.teleport(getJailLoc()[0], getJailLoc()[1]);
+                            await runTellraw(p, `§bTeleported!`);
+                        } catch (e) {
+                            await runTellraw(p, `§cError, couldn't teleport to the jail location.`);
+                        }
+                    }
+                });
+            } else if (selection === 2) {
+                const _playerDim = p.dimension.id;
+                let playerDim = '';
+                if (_playerDim === "minecraft:overworld") {
+                    playerDim = '§bOverworld';
+                } else if (_playerDim === "minecraft:nether") {
+                    playerDim = '§cNether';
+                } else if (_playerDim === "minecraft:the_end") {
+                    playerDim = '§5The End';
+                }
+                const currentLoc = p.location;
+
+                const form = new MessageFormData()
+                    .title("Jail location config")
+                    .body(`Are you sure you want to set the location of the jail to §a${round(currentLoc.x)} ${round(currentLoc.y)} ${round(currentLoc.z)}§r, ${playerDim}§r?\nThis will override the previous location.`)
+                    .button1("No")
+                    .button2("Yes");
+                form.show(p).then(async result => {
+                    if (result.selection === 1) {
+                        try {
+                            const scoreboard = world.scoreboard.getObjective('-auJailLoc').getParticipants()[0]?.displayName;
+                            if (!scoreboard) {
+                                await runCmd(p, `scoreboard players set "-au${p.dimension.id.replace(/minecraft:/, '')} -au${currentLoc.x} -au${currentLoc.y} -au${currentLoc.z}" -auJailLoc 0`);
+                                await runTellraw(p, `§aThe jail location has been successfully set to §b${round(currentLoc.x)} ${round(currentLoc.y)} ${round(currentLoc.z)}§a, ${playerDim}§a.`);
+                            } else {
+                                await runCmd(p, `scoreboard players reset "${scoreboard}" -auJailLoc`);
+                                await runCmd(p, `scoreboard players set "-au${p.dimension.id.replace(/minecraft:/, '')} -au${currentLoc.x} -au${currentLoc.y} -au${currentLoc.z}" -auJailLoc 0`);
+                                await runTellraw(p, `§aThe jail location has been successfully set to §b${round(currentLoc.x)} ${round(currentLoc.y)} ${round(currentLoc.z)}§a, ${playerDim}§a.`);
+                            }
+                        } catch (e) {
+                            await runTellraw(p, `§cError, couldn't set the jail location.`);
+                        }
+                    }
+                });
+            } else if (selection === 3) {
+                const _jailDim = getJailLoc()[1].dimension.id;
+                let jailDim = '';
+                if (_jailDim === "minecraft:overworld") {
+                    jailDim = '§bOverworld';
+                } else if (_jailDim === "minecraft:nether") {
+                    jailDim = '§cNether';
+                } else if (_jailDim === "minecraft:the_end") {
+                    jailDim = '§5The End';
+                }
+                
+                const form = new MessageFormData()
+                    .title("Jail location config")
+                    .body(`Are you sure you want to remove the current jail location (§a${round(getJailLoc()[0].x)} ${round(getJailLoc()[0].y)} ${round(getJailLoc()[0].z)}§r, ${jailDim}§r)? You won't be able to jail more players until a new location is set.`)
+                    .button1("No")
+                    .button2("Yes");
+                form.show(p).then(async result => {
+                    if (result.selection === 1) {
+                        try {
+                            const scoreboard = world.scoreboard.getObjective('-auJailLoc').getParticipants()[0]?.displayName;
+                            if (scoreboard) {
+                                await runCmd(p, `scoreboard players reset "${scoreboard}" -auJailLoc`);
+                                await runTellraw(p, `§aThe jail location has been successfully removed.`);
+                            } else {
+                                await runTellraw(p, `§cError, the jail location has been removed recently by another user.`);
+                            }
+                        } catch (e) {
+                            await runTellraw(p, `§cError, couldn't remove the jail location.`);
+                        }
+                    }
+                });
+            }
+        }
+    });
 }
 
 function jailExitLocConfig(p) {
-
+    const form = new ActionFormData()
+        .title("Jail exit location config")
 }
 
 function projectilePowers(p) {
@@ -1589,7 +1796,7 @@ function getBannedBy(player) {
 
 function getUnBanISO(player) {
     const bannedParticipants = world.scoreboard.getObjective('-auBan').getParticipants();
-    const matchISO = new RegExp(`(?<=^${convertToRegExpFriendly(player)}-aureason.+-autime)(?!.*-auban)[^]+`); //Also works: `^${convertToRegExpFriendly(player)}-aureason.+-aujailedby.+-autime([^]+)`
+    const matchISO = new RegExp(`(?<=^${convertToRegExpFriendly(player)}-aureason.+-autime)(?!.*-auban)[^]+`);
     const scoreboard = bannedParticipants.filter(participant => matchISO.test(participant.displayName))[0].displayName;
     return scoreboard.match(matchISO)[0];
 }
@@ -1615,50 +1822,70 @@ function isJailExitLocSet() {
 }
 
 function isPermaJailed(player) {
+    if (getReleaseISO(player) === "-aupermajailed-au") return true
+    else return false;
+}
 
+function isJailTimeOver(player) {
+    try {
+        const releaseDate = moment(getReleaseISO(player), moment.ISO_8601);
+        const currentDate = moment();
+        const remainingTime = moment.duration(releaseDate.diff(currentDate));
+        const milliseconds = remainingTime.asMilliseconds();
+        if (milliseconds <= 0) return true
+        else return false;
+    } catch (e) { return; }
 }
 
 function getJailedPlayers() {
     try {
-        return world.scoreboard.getObjective('-auJailed').getParticipants().map(participant => participant.displayName.match(/[^]+(?=-aureason)/)[0]);
+        return world.scoreboard.getObjective('-auJailed').getParticipants().map(participant => participant.displayName.match(/^[^]+(?=-aureason)/)[0]);
     } catch (e) {
         return;
     }
 }
 
 function getJailReason(player) {
-
+    const jailedParticipants = world.scoreboard.getObjective('-auJailed').getParticipants();
+    const regexp = new RegExp(`^${convertToRegExpFriendly(player)}-aureason([^]+)-aujailedby.+`);
+    const scoreboard = jailedParticipants.filter(participant => regexp.test(participant.displayName))[0].displayName;
+    return scoreboard.match(regexp)[1];
 }
 
 function getJailedBy(player) {
-
+    const jailedParticipants = world.scoreboard.getObjective('-auJailed').getParticipants();
+    const regexp = new RegExp(`^${convertToRegExpFriendly(player)}-aureason.+-aujailedby([^]+)-autime.+`);
+    const scoreboard = jailedParticipants.filter(participant => regexp.test(participant.displayName))[0].displayName;
+    return scoreboard.match(regexp)[1];
 }
 
 function getReleaseISO(player) {
     const jailedParticipants = world.scoreboard.getObjective('-auJailed').getParticipants();
-    const matchISO = new RegExp(`(?<=^${convertToRegExpFriendly(player)}-aureason.+-aujailedby.+-autime)(?!.*-aujailedby)[^]+`);
+    const matchISO = new RegExp(`(?<=^${convertToRegExpFriendly(player)}-aureason.+-aujailedby.+-autime)(?!.*-aujailedby)[^]+`); //Also works: `^${convertToRegExpFriendly(player)}-aureason.+-aujailedby.+-autime([^]+)`
     const scoreboard = jailedParticipants.filter(participant => matchISO.test(participant.displayName))[0].displayName;
     return scoreboard.match(matchISO)[0];
 }
 
 function getJailLoc() {
-    //-au-46.123164 -au64 -au79.01385315
+    //-auoverworld -au-46.123164 -au64 -au79.01385315
     const positions = world.scoreboard.getObjective('-auJailLoc').getParticipants()[0]?.displayName.match(/-au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*)/).slice(1).map(pos => parseFloat(pos));
+    const dimension = world.scoreboard.getObjective('-auJailLoc').getParticipants()[0]?.displayName.match(/(?<=-au)overworld|nether|the_end/)[0];
     if (!positions) {
         world.sendMessage('pos fail');
         return;
     } else {
-        return { x: positions[0], y: positions[1], z: positions[2] };
+        return [{ x: positions[0], y: positions[1], z: positions[2] }, { dimension: world.getDimension(dimension) }];
     }
 }
 
 function getJailExitLoc() {
     const positions = world.scoreboard.getObjective('-auJailExitLoc').getParticipants()[0]?.displayName.match(/-au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*)/).slice(1).map(pos => parseFloat(pos));
+    const dimension = world.scoreboard.getObjective('-auJailExitLoc').getParticipants()[0]?.displayName.match(/(?<=-au)overworld|nether|the_end/)[0];
     if (!positions) {
         world.sendMessage('pos fail');
         return;
     } else {
-        return { x: positions[0], y: positions[1], z: positions[2] };
+        return [{ x: positions[0], y: positions[1], z: positions[2] }, { dimension: world.getDimension(dimension) }];
     }
 }
 
@@ -1707,4 +1934,17 @@ function isFrozen(player) {
 
 function convertToRegExpFriendly(str) {
     return str.replace(/[|\\{}()[\]^$+*?.]/g, '\\$&');
+}
+
+function round(num, decimals = 2) {
+    var sign = (num >= 0 ? 1 : -1);
+    num = num * sign;
+    if (decimals === 0) //con 0 decimales
+        return sign * Math.round(num);
+    // round(x * 10 ^ decimales)
+    num = num.toString().split('e');
+    num = Math.round(+(num[0] + 'e' + (num[1] ? (+num[1] + decimals) : decimals)));
+    // x * 10 ^ (-decimales)
+    num = num.toString().split('e');
+    return sign * (num[0] + 'e' + (num[1] ? (+num[1] - decimals) : -decimals));
 }
