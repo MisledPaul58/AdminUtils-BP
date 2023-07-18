@@ -9,6 +9,7 @@ let firstPlayer = false; //Arreglar el método world.scoreboard.get...setscore!,
 let players = [];
 let admins = [];
 let simtest = 0;
+let projNum = 0;
 let tntFlag = "-autnt0";
 let stuckJailedPlayers = [];
 
@@ -267,7 +268,7 @@ world.afterEvents.playerJoin.subscribe(async event => {
             }()) {
                 await delay(10);
             }
-            await delay(4);
+            await delay(20);
 
             const playerRaw = world.getPlayers({ name: playerName })[0];
             try {
@@ -282,9 +283,16 @@ world.afterEvents.playerJoin.subscribe(async event => {
                             waitForJailLoc();
                             async function waitForJailLoc() {
                                 while (!isJailLocSet()) {
+                                    if (!playerRaw) {
+                                        stuckJailedPlayers.splice(stuckJailedPlayers.indexOf(playerName), 1);
+                                        return;
+                                    }
                                     await delay(10);
                                 }
-                                if (isJailed(playerName)) {
+                                if (!playerRaw) {
+                                    stuckJailedPlayers.splice(stuckJailedPlayers.indexOf(playerName), 1);
+                                    return;
+                                } else if (isJailed(playerName)) {
                                     if (getReleaseMillisecondsLeft(playerName) > 6100 || isPermaJailed(playerName)) { //If there is enough time to show the teleport animation or if the player is permanently jailed
                                         playerRaw.runCommand("camera @s set au:tpanimation ease 5 in_sine pos ~ ~100 ~ rot 90 0");
                                         await delay(40);
@@ -352,12 +360,39 @@ world.afterEvents.playerJoin.subscribe(async event => {
                 }
             } catch (e) { }
         }
+    } else {
+        waitForTestFor();
+        async function waitForTestFor() {
+            while (function () {
+                const { successCount } = overworld.runCommand(`testfor "${playerName}"`);
+                if (successCount === 1) return false
+                else return true;
+            }()) {
+                await delay(10);
+            }
+
+            await delay(20);
+            const playerRaw = world.getPlayers({ name: playerName })[0];
+            for (const tag of playerRaw.getTags().filter(tag => /(?<=-au)snowball|arrow|egg/.test(tag))) {
+                playerRaw.removeTag(tag);
+            }
+        }
     }
 });
 
 world.beforeEvents.itemUse.subscribe(data => {
     const player = data.source;
-    if (data.itemStack.typeId === "minecraft:stick" && isAdmin(player.name)) {
+    const items = ['minecraft:snowball', 'minecraft:bow', 'minecraft:crossbow', 'minecraft:egg'];
+    const projectiles = {
+        'minecraft:snowball': 'snowball',
+        'minecraft:bow': 'arrow',
+        'minecraft:crossbow': 'arrow',
+        'minecraft:egg': 'egg'
+    };
+
+    if (isJailed(player.name)) {
+        data.cancel = true;
+    } else if (data.itemStack.typeId === "minecraft:stick" && isAdmin(player.name)) {
         /*const query = {
             maxDistance: 10
         };
@@ -378,16 +413,24 @@ world.beforeEvents.itemUse.subscribe(data => {
             world.sendMessage(`${world.scoreboard.getObjective('-auJailLoc').getParticipants()[0]?.displayName}`);
             world.sendMessage(`${world.getPlayers({ name: 'Paul58' })[0]}`);
         });
+    } else if (Object.keys(projectiles).includes(data.itemStack.typeId)) {
+        const a = player.getTags();
+        world.sendMessage(`${a}`);
+        system.run(() => {
+            player.addTag(`-au${projectiles[data.itemStack.typeId]}${projNum}`);
+            projNum++;
+        });
     }
 });
 
-world.afterEvents.projectileHit.subscribe(event => {
-    const { dimension, projectile, source } = event;
+/*world.afterEvents.projectileHit.subscribe(event => {
+    const { dimension, source } = event;
+    const projTypeId = event.projectile.typeId;
     const HitEntity = event.getEntityHit().entity;
     if (source.typeId === "minecraft:player" && HitEntity.typeId !== "minecraft:tnt") {
         RunProjectilePowers();
         async function RunProjectilePowers() {
-            const proj = projectile.typeId.replace(/minecraft:/, '');
+            const proj = projTypeId.replace(/minecraft:/, '');
             if (isPowerEnabled(source.nameTag, proj, "bolt")) {
                 await runCmd(dimension, `summon lightning_bolt ${HitEntity.location.x} ${HitEntity.location.y} ${HitEntity.location.z}`);
             }
@@ -425,6 +468,72 @@ world.afterEvents.projectileHit.subscribe(event => {
             }
         }
     }
+});
+*/
+
+world.afterEvents.projectileHit.subscribe(event => {
+    const block = event.getBlockHit()?.block;
+    const { source } = event;
+    if (block) {
+        system.run(() => {
+            try {
+                source.removeTag(source.getTags().find(tag => /(?<=-au)snowball|arrow|egg/.test(tag)));
+                projNum--;
+            } catch (e) { }
+        });
+    }
+});
+
+world.afterEvents.entityHurt.subscribe(event => {
+    try {
+        const damagingEntity = event.damageSource?.damagingEntity;
+        // const projTypeId = event.damageSource?.damagingProjectile;
+        const { hurtEntity } = event;
+        if (damagingEntity?.typeId === "minecraft:player" && hurtEntity?.typeId !== "minecraft:tnt") {
+            RunProjectilePowers();
+            async function RunProjectilePowers() {
+                const proj = damagingEntity.getTags().find(tag => /(?<=-au)snowball|arrow|egg/.test(tag)).match(/(?<=-au)snowball|arrow|egg(?=\d+)/);
+                damagingEntity.removeTag(damagingEntity.getTags().find(tag => /(?<=-au)snowball|arrow|egg/.test(tag)));
+                if (isPowerEnabled(damagingEntity.nameTag, proj, "bolt")) {
+                    await runCmd(hurtEntity, `summon lightning_bolt`);
+                }
+                if (isPowerEnabled(damagingEntity.nameTag, proj, "freeze")) { //Centrarlos, quitando los decimales y sustituyendolos por ".5", o quitando los decimales y sumando 1 (minecraft resta 0.5 a los números sin decimales para encajar en el centro del bloque), con Math floor es mejor (listo)
+                    const entityLoc = hurtEntity.location;
+                    await runCmd(hurtEntity, `tp ${Math.floor(entityLoc.x)} ${Math.floor(entityLoc.y)} ${Math.floor(entityLoc.z)}`);
+                    await runCmd(hurtEntity.dimension, `fill ${entityLoc.x - 1} ${entityLoc.y - 1} ${entityLoc.z - 1} ${entityLoc.x + 1} ${entityLoc.y + 2} ${entityLoc.z + 1} ice [] replace air`);
+                    await runCmd(hurtEntity.dimension, `playsound random.glass @a ${entityLoc.x} ${entityLoc.y} ${entityLoc.z} 100`);
+                }
+                if (isPowerEnabled(damagingEntity.nameTag, proj, "tnt")) {
+                    try {
+                        await runCmd(hurtEntity, `summon tnt`);
+                        const query = {
+                            closest: 1,
+                            type: "tnt",
+                            excludeTags: ["-autnt"],
+                            location: hurtEntity.location
+                        };
+                        const tnt = [...hurtEntity.dimension.getEntities(query)][0];
+                        const _tntFlag = tntFlag;
+                        tnt.addTag(_tntFlag);
+                        tnt.addTag("-autnt");
+                        tntFlag = `-autnt${tntFlag.match(/[0-9]+/)[0] * 1 + 1}`; //Va sumando 1 cada vez
+                        asyncTntTp();
+                        async function asyncTntTp() {
+                            try {
+                                while (function () {
+                                    const { successCount } = tnt.dimension.runCommand(`testfor @e[type=tnt, tag=${_tntFlag}]`);
+                                    if (successCount === 0) return false
+                                    else return true;
+                                }()) {
+                                    await runCmd(hurtEntity, `tp @e[type=tnt, tag="${_tntFlag}"] @s`);
+                                }
+                            } catch (e) { }
+                        }
+                    } catch (e) { }
+                }
+            }
+        }
+    } catch (e) { }
 });
 
 function adminUtilsGui(p) {
