@@ -286,7 +286,7 @@ world.afterEvents.playerJoin.subscribe(async event => {
                                 }
                                 if (isJailed(playerName)) {
                                     if (getReleaseMillisecondsLeft(playerName) > 6100 || isPermaJailed(playerName)) { //If there is enough time to show the teleport animation or if the player is permanently jailed
-                                        playerRaw.runCommand("camera @s set minecraft:free ease 5 in_sine pos ~ ~100 ~ rot 90 0");
+                                        playerRaw.runCommand("camera @s set au:tpanimation ease 5 in_sine pos ~ ~100 ~ rot 90 0");
                                         await delay(40);
                                         playerRaw.runCommand("camera @s fade time 3 1 1 color 0 0 0");
                                         await delay(60);
@@ -320,7 +320,7 @@ world.afterEvents.playerJoin.subscribe(async event => {
                         }
                     } else { //If the jail location IS set
                         if (getReleaseMillisecondsLeft(playerName > 6100) || isPermaJailed(playerName)) {
-                            playerRaw.runCommand("camera @s set minecraft:free ease 5 in_sine pos ~ ~100 ~ rot 90 0");
+                            playerRaw.runCommand("camera @s set au:tpanimation ease 5 in_sine pos ~ ~100 ~ rot 90 0");
                             await delay(40);
                             playerRaw.runCommand("camera @s fade time 3 1 1 color 0 0 0");
                             await delay(60);
@@ -1266,7 +1266,7 @@ function jailPlayer(p) {
 
                                 const playerRaw = world.getPlayers({ name: player })[0];
                                 if (playerRaw) {
-                                    playerRaw.runCommand("camera @s set minecraft:free ease 5 in_sine pos ~ ~100 ~ rot 90 0");
+                                    playerRaw.runCommand("camera @s set au:tpanimation ease 5 in_sine pos ~ ~100 ~ rot 90 0");
                                     await delay(40);
                                     playerRaw.runCommand("camera @s fade time 3 1 1 color 0 0 0");
                                     await delay(60);
@@ -1348,7 +1348,7 @@ function jailPlayer(p) {
 
                                 const playerRaw = world.getPlayers({ name: player })[0];
                                 if (playerRaw) {
-                                    playerRaw.runCommand("camera @s set minecraft:free ease 5 in_sine pos ~ ~100 ~ rot 90 0");
+                                    playerRaw.runCommand("camera @s set au:tpanimation ease 5 in_sine pos ~ ~100 ~ rot 90 0");
                                     await delay(40);
                                     playerRaw.runCommand("camera @s fade time 3 1 1 color 0 0 0");
                                     await delay(60);
@@ -1421,7 +1421,7 @@ function jailPlayer(p) {
 
                                     const playerRaw = world.getPlayers({ name: selectedPlayer })[0];
                                     if (playerRaw) {
-                                        playerRaw.runCommand("camera @s set minecraft:free ease 5 in_sine pos ~ ~100 ~ rot 90 0");
+                                        playerRaw.runCommand("camera @s set au:tpanimation ease 5 in_sine pos ~ ~100 ~ rot 90 0");
                                         await delay(40);
                                         playerRaw.runCommand("camera @s fade time 3 1 1 color 0 0 0");
                                         await delay(60);
@@ -1500,7 +1500,7 @@ function jailPlayer(p) {
 
                                     const playerRaw = world.getPlayers({ name: selectedPlayer })[0];
                                     if (playerRaw) {
-                                        playerRaw.runCommand("camera @s set minecraft:free ease 5 in_sine pos ~ ~100 ~ rot 90 0");
+                                        playerRaw.runCommand("camera @s set au:tpanimation ease 5 in_sine pos ~ ~100 ~ rot 90 0");
                                         await delay(40);
                                         playerRaw.runCommand("camera @s fade time 3 1 1 color 0 0 0");
                                         await delay(60);
@@ -1754,7 +1754,7 @@ function jailLocConfig(p) {
                         try {
                             if (isJailLocSet()) {
                                 await runTellraw(p, `§bTeleporting...`);
-                                p.runCommand("camera @s set minecraft:free ease 4 in_sine pos ~ ~100 ~ rot 90 0");
+                                p.runCommand("camera @s set au:tpanimation ease 4 in_sine pos ~ ~100 ~ rot 90 0");
                                 await delay(20);
                                 p.runCommand("camera @s fade time 3 1 1 color 0 0 0");
                                 await delay(60);
@@ -1924,7 +1924,7 @@ function jailExitLocConfig(p) {
                     if (result.selection === 1) {
                         try {
                             await runTellraw(p, `§bTeleporting...`);
-                            p.runCommand("camera @s set minecraft:free ease 4 in_sine pos ~ ~100 ~ rot 90 0");
+                            p.runCommand("camera @s set au:tpanimation ease 4 in_sine pos ~ ~100 ~ rot 90 0");
                             await delay(20);
                             p.runCommand("camera @s fade time 3 1 1 color 0 0 0");
                             await delay(60);
