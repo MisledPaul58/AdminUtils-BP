@@ -1,4 +1,4 @@
-import { world, GameMode, system, Vector, TicksPerSecond, EffectTypes, Player } from "@minecraft/server";
+import { world, GameMode, system, Vector, TicksPerSecond, EffectTypes, Player, Entity } from "@minecraft/server";
 import * as GameTest from "@minecraft/server-gametest";
 import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/server-ui";
 import moment from "./moment/src/moment.js";
@@ -382,7 +382,6 @@ world.afterEvents.playerJoin.subscribe(async event => {
 
 world.beforeEvents.itemUse.subscribe(data => {
     const player = data.source;
-    const items = ['minecraft:snowball', 'minecraft:bow', 'minecraft:crossbow', 'minecraft:egg'];
     const projectiles = {
         'minecraft:snowball': 'snowball',
         'minecraft:bow': 'arrow',
@@ -471,10 +470,16 @@ world.beforeEvents.itemUse.subscribe(data => {
 });
 */
 
-world.afterEvents.projectileHit.subscribe(event => {
+world.afterEvents.projectileHit.subscribe(async event => {
     const block = event.getBlockHit()?.block;
+    world.sendMessage(`${event.getEntityHit()?.entity?.typeId}`);
+    world.sendMessage(`${system.currentTick}`);
     const { source } = event;
-    if (block) {
+    source.addTag(`-au${system.currentTick}-au`);
+    
+    await delay(0.2);
+    world.sendMessage(`xd1${source.getTags()}`)
+    if (block || parseInt(source.getTags().find(tag => /(?<=-au)\d+$/.test(tag))?.match(/(?<=-au)\d+/)[0]) === system.currentTick) { //Looks for another tag with the same number (tick) so that it makes sure the projectile has hit an entity and the entity has been hurt as well (sometimes you don't hurt an entity but the projectileHit event fires)
         system.run(() => {
             try {
                 source.removeTag(source.getTags().find(tag => /(?<=-au)snowball|arrow|egg/.test(tag)));
@@ -482,57 +487,66 @@ world.afterEvents.projectileHit.subscribe(event => {
             } catch (e) { }
         });
     }
+    source.removeTag(source.getTags().find(tag => /(?<=-au)\d+(?=-au)/.test(tag)));
 });
 
-world.afterEvents.entityHurt.subscribe(event => {
+world.afterEvents.entityHurt.subscribe(async event => {
     try {
         const damagingEntity = event.damageSource?.damagingEntity;
+        damagingEntity.addTag(`-au${system.currentTick}`);
         // const projTypeId = event.damageSource?.damagingProjectile;
         const { hurtEntity } = event;
-        if (damagingEntity?.typeId === "minecraft:player" && hurtEntity?.typeId !== "minecraft:tnt") {
-            RunProjectilePowers();
-            async function RunProjectilePowers() {
-                const proj = damagingEntity.getTags().find(tag => /(?<=-au)snowball|arrow|egg/.test(tag)).match(/(?<=-au)snowball|arrow|egg(?=\d+)/);
-                damagingEntity.removeTag(damagingEntity.getTags().find(tag => /(?<=-au)snowball|arrow|egg/.test(tag)));
-                if (isPowerEnabled(damagingEntity.nameTag, proj, "bolt")) {
-                    await runCmd(hurtEntity, `summon lightning_bolt`);
-                }
-                if (isPowerEnabled(damagingEntity.nameTag, proj, "freeze")) { //Centrarlos, quitando los decimales y sustituyendolos por ".5", o quitando los decimales y sumando 1 (minecraft resta 0.5 a los números sin decimales para encajar en el centro del bloque), con Math floor es mejor (listo)
-                    const entityLoc = hurtEntity.location;
-                    await runCmd(hurtEntity, `tp ${Math.floor(entityLoc.x)} ${Math.floor(entityLoc.y)} ${Math.floor(entityLoc.z)}`);
-                    await runCmd(hurtEntity.dimension, `fill ${entityLoc.x - 1} ${entityLoc.y - 1} ${entityLoc.z - 1} ${entityLoc.x + 1} ${entityLoc.y + 2} ${entityLoc.z + 1} ice [] replace air`);
-                    await runCmd(hurtEntity.dimension, `playsound random.glass @a ${entityLoc.x} ${entityLoc.y} ${entityLoc.z} 100`);
-                }
-                if (isPowerEnabled(damagingEntity.nameTag, proj, "tnt")) {
-                    try {
-                        await runCmd(hurtEntity, `summon tnt`);
-                        const query = {
-                            closest: 1,
-                            type: "tnt",
-                            excludeTags: ["-autnt"],
-                            location: hurtEntity.location
-                        };
-                        const tnt = [...hurtEntity.dimension.getEntities(query)][0];
-                        const _tntFlag = tntFlag;
-                        tnt.addTag(_tntFlag);
-                        tnt.addTag("-autnt");
-                        tntFlag = `-autnt${tntFlag.match(/[0-9]+/)[0] * 1 + 1}`; //Va sumando 1 cada vez
-                        asyncTntTp();
-                        async function asyncTntTp() {
-                            try {
-                                while (function () {
-                                    const { successCount } = tnt.dimension.runCommand(`testfor @e[type=tnt, tag=${_tntFlag}]`);
-                                    if (successCount === 0) return false
-                                    else return true;
-                                }()) {
-                                    await runCmd(hurtEntity, `tp @e[type=tnt, tag="${_tntFlag}"] @s`);
-                                }
-                            } catch (e) { }
-                        }
-                    } catch (e) { }
+        if (damagingEntity?.typeId === "minecraft:player" && hurtEntity?.typeId !== "minecraft:tnt" && event.damageSource?.damagingProjectile) {
+            world.sendMessage(`${system.currentTick}`);
+            world.sendMessage(`xd${damagingEntity.getTags()}`)
+            if (parseInt(damagingEntity.getTags().find(tag => /(?<=-au)\d+(?=-au)/.test(tag)).match(/(?<=-au)\d+/)[0]) === system.currentTick) {
+                RunProjectilePowers();
+                async function RunProjectilePowers() {
+                    const _proj = damagingEntity.getTags().filter(tag => /(?<=-au)snowball|arrow|egg/.test(tag));
+                    const proj = _proj[_proj.length - 1].match(/(?<=-au)snowball|arrow|egg(?=\d+)/)[0];
+                    damagingEntity.removeTag(damagingEntity.getTags().find(tag => /(?<=-au)snowball|arrow|egg/.test(tag)));
+                    if (isPowerEnabled(damagingEntity.nameTag, proj, "bolt")) {
+                        hurtEntity.runCommand(`summon lightning_bolt`);
+                    }
+                    if (isPowerEnabled(damagingEntity.nameTag, proj, "freeze")) { //Centrarlos, quitando los decimales y sustituyendolos por ".5", o quitando los decimales y sumando 1 (minecraft resta 0.5 a los números sin decimales para encajar en el centro del bloque), con Math floor es mejor (listo)
+                        const entityLoc = hurtEntity.location;
+                        hurtEntity.runCommand(`tp ${Math.floor(entityLoc.x)} ${Math.floor(entityLoc.y)} ${Math.floor(entityLoc.z)}`);
+                        hurtEntity.dimension.runCommand(`fill ${entityLoc.x - 1} ${entityLoc.y - 1} ${entityLoc.z - 1} ${entityLoc.x + 1} ${entityLoc.y + 2} ${entityLoc.z + 1} ice [] replace air`);
+                        hurtEntity.dimension.runCommand(`playsound random.glass @a ${entityLoc.x} ${entityLoc.y} ${entityLoc.z} 100`);
+                    }
+                    if (isPowerEnabled(damagingEntity.nameTag, proj, "tnt")) {
+                        try {
+                            await runCmd(hurtEntity, `summon tnt`);
+                            const query = {
+                                closest: 1,
+                                type: "tnt",
+                                excludeTags: ["-autnt"],
+                                location: hurtEntity.location
+                            };
+                            const tnt = [...hurtEntity.dimension.getEntities(query)][0];
+                            const _tntFlag = tntFlag;
+                            tnt.addTag(_tntFlag);
+                            tnt.addTag("-autnt");
+                            tntFlag = `-autnt${tntFlag.match(/[0-9]+/)[0] * 1 + 1}`; //Va sumando 1 cada vez
+                            asyncTntTp();
+                            async function asyncTntTp() {
+                                try {
+                                    while (function () {
+                                        const { successCount } = tnt.dimension.runCommand(`testfor @e[type=tnt, tag=${_tntFlag}]`);
+                                        if (successCount === 0) return false
+                                        else return true;
+                                    }()) {
+                                        await runCmd(hurtEntity, `tp @e[type=tnt, tag="${_tntFlag}"] @s`);
+                                    }
+                                } catch (e) { }
+                            }
+                        } catch (e) { }
+                    }
                 }
             }
         }
+        await delay(0.2);
+        damagingEntity.removeTag(damagingEntity.getTags().find(tag => /(?<=-au)\d+$/.test(tag)));
     } catch (e) { }
 });
 
