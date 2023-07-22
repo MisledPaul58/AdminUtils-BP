@@ -6,7 +6,7 @@ import moment from "./moment/src/moment.js";
 const overworld = world.getDimension("overworld"); //Hacer una cárcel con tiempo y un vanish, sendcommandfeedback?, cambiar los /camera para que se apliquen los efectos de poción?, cancelar ItemUse con beforeEvents para los encarcelados?, invSee?!
 const delay = ticks => new Promise(res => system.runTimeout(res, ticks));
 let firstPlayer = false; //Arreglar el método world.scoreboard.get...setscore!, y en cada tick asegurarse de que el jugador encarcelado esté conectado
-let players = [];
+let players = []; //Hacer que vuelva a la lista de jugadores en projectilePowers después de darle a submit?, recordarte el jugador que has seleccionado en el ModalFormData?
 let admins = [];
 let simtest = 0;
 let projNum = 0;
@@ -31,6 +31,7 @@ system.runInterval(async tick => {
         try { await runCmd(overworld, 'scoreboard objectives add -auTempUnjailed dummy') } catch (e) { }
         try { await runCmd(overworld, 'scoreboard objectives add -auJailLoc dummy') } catch (e) { }
         try { await runCmd(overworld, 'scoreboard objectives add -auJailExitLoc dummy') } catch (e) { }
+        try { await runCmd(overworld, 'scoreboard objectives add -auVanished dummy') } catch (e) { }
         if (currentTick % 200 === 0) {
             await runCmd(overworld, `execute @a ~~~ tellraw @s {"rawtext":[{"text":"§l§4§kqww§r§l§bThanks for using Admin Utils! §aMade by §6MisledPaul58§4§kqww§r"}]}`);
             firstPlayer = true;
@@ -61,6 +62,11 @@ system.runInterval(async tick => {
                 await runCmd(player.dimension, `scoreboard players reset "${scoreboard}" -auFrozen`);
                 await runCmd(player.dimension, `scoreboard players set "-auname${player.name} -au${player.location.x} -au${player.location.y} -au${player.location.z}" -auFrozen 0`);
             }
+        }
+
+        if (isVanished(player.name)) {
+            player.addEffect(EffectTypes.get('invisibility'), 1 * TicksPerSecond, { amplifier: 1, showParticles: false });
+            player.playAnimation('animation.player.vanish', { blendOutTime: 1 });
         }
     }
 
@@ -363,8 +369,8 @@ world.afterEvents.playerJoin.subscribe(async event => {
     } else {
         waitForTestFor();
         async function waitForTestFor() {
-            while (function () {
-                const { successCount } = overworld.runCommand(`testfor "${playerName}"`);
+            while (async function () {
+                const { successCount } = await runCmd(overworld, `testfor "${playerName}"`);
                 if (successCount === 1) return false
                 else return true;
             }()) {
@@ -476,7 +482,7 @@ world.afterEvents.projectileHit.subscribe(async event => {
     world.sendMessage(`${system.currentTick}`);
     const { source } = event;
     source.addTag(`-au${system.currentTick}-au`);
-    
+
     await delay(0.2);
     world.sendMessage(`xd1${source.getTags()}`)
     if (block || parseInt(source.getTags().find(tag => /(?<=-au)\d+$/.test(tag))?.match(/(?<=-au)\d+/)[0]) === system.currentTick) { //Looks for another tag with the same number (tick) so that it makes sure the projectile has hit an entity and the entity has been hurt as well (sometimes you don't hurt an entity but the projectileHit event fires)
@@ -678,8 +684,9 @@ function adminCommands(p) {
         .button("Simulated player") //3
         .button("Projectiles powers") //4
         .button("Freeze or unfreeze a player", "textures/icons/freeze.png") //5
-        .button("Kill a player") //6
-        .button("Launch a player") //7
+        .button("Vanish menu") //6
+        .button("Kill a player") //7
+        .button("Launch a player") //8
     form.show(p).then((response) => {
         switch (response.selection) {
             case 0: { //Back 
@@ -807,7 +814,10 @@ function adminCommands(p) {
                     });
                 }
             } break;
-            case 6: { //Kill a player 
+            case 6: { //Vanish menu
+                vanishMenu(p);
+            } break;
+            case 7: { //Kill a player 
                 const playersArray = players.map(pname => pname.name);
                 const locPlayers = players;
                 const form = new ActionFormData()
@@ -875,7 +885,7 @@ function adminCommands(p) {
                     }
                 });
             } break;
-            case 7: { //Launch a player
+            case 8: { //Launch a player
                 const locPlayers = players;
                 const form = new ActionFormData()
                     .title("Launch a player")
@@ -1320,7 +1330,7 @@ function jailPlayer(p) {
             }
         });
     } else {
-        const availablePlayers = [];
+        let availablePlayers = [];
 
         const form = new ActionFormData()
             .title("Jail a player");
@@ -1507,7 +1517,7 @@ function jailPlayer(p) {
 
                 } else {
                     const form = new ModalFormData()
-                        .title("Jail a player")
+                        .title(`Jail §b${selectedPlayer}`)
                         .textField("Enter a reason:", "Reason") //0
                         .toggle("Permanent jail", false) //1
                         .slider("Years", 0, 10, 1, 0) //2
@@ -2245,6 +2255,221 @@ function projectilePowers(p) {
     });
 }
 
+function vanishMenu(p) {
+    const form = new ActionFormData()
+        .title("Vanish menu")
+        .body("Select an option")
+        .button("<-- Back", "textures/icons/back.png")
+        .button("Enable vanish mode for a player")
+        .button("Disable vanish mode for a player");
+    form.show(p).then((response) => {
+        switch (response.selection) {
+            case 0:
+                adminCommands(p);
+                break;
+            case 1:
+                enableVanishGUI(p);
+                break;
+            case 2:
+                disableVanishGUI(p);
+                break;
+            default:
+                break;
+        }
+    });
+
+}
+
+function enableVanishGUI(p) {
+    let availablePlayers = [];
+    const form = new ActionFormData()
+        .title("Enable vanish mode")
+        .body("Select an online player to enable vanish mode for")
+        .button("<-- Back", "textures/icons/back.png")
+        .button("Type an offline/online player instead", "textures/icons/pencil.png")
+        .button("Vanish myself");
+    for (const player of players.map(pname => pname.name)) {
+        if (!isVanished(player) && player !== p.name) {
+            form.button(player, "textures/icons/steve_icon.png");
+            availablePlayers.push(player);
+        }
+    }
+
+    form.show(p).then((response) => {
+        const { selection } = response;
+        if (selection === 0) {
+            vanishMenu(p);
+
+        } else if (selection === 1) {
+            const form = new ModalFormData()
+                .title("Enable vanish mode")
+                .textField("Type below the player you would like to vanish.", "Player's name");
+            form.show(p).then(result => {
+                const player = result.formValues[0];
+                if (!isValidUsername(player)) {
+                    p.sendMessage("§cError, the username you entered is invalid.");
+
+                } else if (isVanished(player)) {
+                    p.sendMessage("§cError, the specified player is already vanished.");
+
+                } else {
+                    try {
+                        world.scoreboard.getObjective('-auVanished').setScore(`-au${player}`, 0);
+                        p.sendMessage(`§aThe player §b${player}§a has been vanished successfully.`);
+                    } catch (e) {
+                        p.sendMessage(`§cError, couldn't vanish §4${player}§c.`);
+                    }
+                }
+            });
+        } else if (selection === 2) {
+            const form = new MessageFormData()
+                .title("Enable vanish mode")
+                .body("Are you sure you want to enable vanish mode for §byourself§r?")
+                .button1("No")
+                .button2("Yes");
+            form.show(p).then(result => {
+                if (result.selection === 0) {
+                    enableVanishGUI(p);
+
+                } else if (result.selection === 1) {
+                    if (isVanished(p.name)) {
+                        p.sendMessage("§cError, you are already vanished.");
+
+                    } else {
+                        try {
+                            world.scoreboard.getObjective('-auVanished').setScore(`-au${p.name}`, 0);
+                            p.sendMessage(`§aYou have been vanished successfully.`);
+                        } catch (e) {
+                            p.sendMessage("§cError, couldn't enable vanish mode.");
+                        }
+                    }
+                }
+            });
+        } else if (selection >= 3) {
+            const selectedPlayer = availablePlayers[selection - 3];
+
+            const form = new MessageFormData()
+                .title("Enable vanish mode")
+                .body(`Are you sure you want to vanish §b${selectedPlayer}§r?`)
+                .button1("No")
+                .button2("Yes");
+            form.show(p).then(result => {
+                if (result.selection === 0) {
+                    enableVanishGUI(p);
+
+                } else if (result.selection === 1) {
+                    if (isVanished(selectedPlayer)) {
+                        p.sendMessage("§cError, the selected player has recently been vanished by another user.");
+
+                    } else {
+                        try {
+                            world.scoreboard.getObjective('-auVanished').setScore(`-au${selectedPlayer}`, 0);
+                            p.sendMessage(`§aThe player §b${selectedPlayer}§a has been vanished successfully.`);
+                        } catch (e) {
+                            p.sendMessage("§cError, couldn't vanish the player.");
+                        }
+                    }
+                }
+            });
+        }
+    });
+}
+
+function disableVanishGUI(p) {
+    let availablePlayers = [];
+    const form = new ActionFormData()
+        .title("Disable vanish mode")
+        .body("Select an offline/online vanished player to disable vanish mode for")
+        .button("<-- Back", "textures/icons/back.png")
+        .button("Type an offline/online player instead", "textures/icons/pencil.png")
+        .button("Disable vanish mode for myself");
+    for (const player of players.map(pname => pname.name)) {
+        if (isVanished(player) && player !== p.name) {
+            form.button(player, "textures/icons/steve_icon.png");
+            availablePlayers.push(player);
+        }
+    }
+
+    form.show(p).then((response) => {
+        const { selection } = response;
+        if (selection === 0) {
+            vanishMenu(p);
+
+        } else if (selection === 1) {
+            const form = new ModalFormData()
+                .title("Disable vanish mode")
+                .textField("Type below the player you would like to disable vanish mode for.", "Player's name");
+            form.show(p).then(result => {
+                const player = result.formValues[0];
+                if (!isValidUsername(player)) {
+                    p.sendMessage("§cError, the username you entered is invalid.");
+
+                } else if (!isVanished(player)) {
+                    p.sendMessage("§cError, the specified player isn't vanished.");
+
+                } else {
+                    try {
+                        world.scoreboard.getObjective('-auVanished').removeParticipant(`-au${player}`);
+                        p.sendMessage(`§aVanish mode has been successfully disabled for §b${player}§a.`);
+                    } catch (e) {
+                        p.sendMessage(`§cError, couldn't disable vanish mode for §4${player}§c.`);
+                    }
+                }
+            });
+        } else if (selection === 2) {
+            const form = new MessageFormData()
+                .title("Disable vanish mode")
+                .body("Are you sure you want to disable vanish mode for §byourself§r?")
+                .button1("No")
+                .button2("Yes");
+            form.show(p).then(result => {
+                if (result.selection === 0) {
+                    disableVanishGUI(p);
+
+                } else if (result.selection === 1) {
+                    if (!isVanished(p.name)) {
+                        p.sendMessage("§cError, you aren't vanished.");
+
+                    } else {
+                        try {
+                            world.scoreboard.getObjective('-auVanished').removeParticipant(`-au${p.name}`);
+                            p.sendMessage(`§aVanish mode has been successfully disabled for you.`);
+                        } catch (e) {
+                            p.sendMessage("§cError, couldn't disable vanish mode.");
+                        }
+                    }
+                }
+            });
+        } else if (selection >= 3) {
+            const selectedPlayer = availablePlayers[selection - 3];
+
+            const form = new MessageFormData()
+                .title("Disable vanish mode")
+                .body(`Are you sure you want to disable vanish mode for §b${selectedPlayer}§r?`)
+                .button1("No")
+                .button2("Yes");
+            form.show(p).then(result => {
+                if (result.selection === 0) {
+                    disableVanishGUI(p);
+
+                } else if (result.selection === 1) {
+                    if (isVanished(selectedPlayer)) {
+                        p.sendMessage("§cError, another user has recently disabled vanish mode for the selected player.");
+
+                    } else {
+                        try {
+                            world.scoreboard.getObjective('-auVanished').removeParticipant(`-au${selectedPlayer}`);
+                            p.sendMessage(`§aVanish mode has been successfully disabled for §b${selectedPlayer}§a.`);
+                        } catch (e) {
+                            p.sendMessage(`§cError, couldn't disable vanish mode for §4${selectedPlayer}§c.`);
+                        }
+                    }
+                }
+            });
+        }
+    });
+}
+
 function simPlayer(p) {
     const form = new ActionFormData()
         .title("Create a simulated player")
@@ -2763,6 +2988,26 @@ function getJailExitLoc() {
         return;
     } else {
         return [{ x: positions[0], y: positions[1], z: positions[2] }, { dimension: world.getDimension(dimension) }];
+    }
+}
+
+/**
+ * 
+ * @param { String } player 
+ * @returns { Boolean }
+ */
+
+function isVanished(player) {
+    const vanishedPlayers = getVanishedPlayers();
+    if (vanishedPlayers.includes(player)) return true
+    else return false;
+}
+
+function getVanishedPlayers() {
+    try {
+        return world.scoreboard.getObjective('-auVanished').getParticipants().map(participant => participant.displayName.match(/(?<=^-au)[^]+/)[0]);
+    } catch (e) {
+        return;
     }
 }
 
