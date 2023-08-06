@@ -1,14 +1,15 @@
-import { world, GameMode, system, Vector, TicksPerSecond, EffectTypes, Player, Entity } from "@minecraft/server";
+import { world, GameMode, system, Vector, TicksPerSecond, EffectTypes, Player, Entity, BlockType, BlockPermutation, MinecraftBlockTypes } from "@minecraft/server";
 import * as GameTest from "@minecraft/server-gametest";
 import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/server-ui";
 import moment from "./moment/src/moment.js";
 
 const overworld = world.getDimension("overworld"); //Hacer una cárcel con tiempo y un vanish, sendcommandfeedback?, cambiar los /camera para que se apliquen los efectos de poción?, cancelar ItemUse con beforeEvents para los encarcelados?, invSee?!
 const delay = ticks => new Promise(res => system.runTimeout(res, ticks));
-let firstPlayer = false; //Arreglar el método world.scoreboard.get...setscore!, y en cada tick asegurarse de que el jugador encarcelado esté conectado
+let firstPlayer = false;
+let chest = false;
 let players = []; //Hacer que vuelva a la lista de jugadores en projectilePowers después de darle a submit?, recordarte el jugador que has seleccionado en el ModalFormData?
-let admins = [];
-let simtest = 0;
+let admins = []; //Usar una entidad para el invsee en vez de cofres?
+let simcount = 0;
 let projNum = 0;
 let tntFlag = "-autnt0";
 let stuckJailedPlayers = [];
@@ -32,10 +33,28 @@ system.runInterval(async tick => {
         try { await runCmd(overworld, 'scoreboard objectives add -auJailLoc dummy') } catch (e) { }
         try { await runCmd(overworld, 'scoreboard objectives add -auJailExitLoc dummy') } catch (e) { }
         try { await runCmd(overworld, 'scoreboard objectives add -auVanished dummy') } catch (e) { }
+        try { await runCmd(overworld, 'scoreboard objectives add -auInvSees dummy') } catch (e) { }
         if (currentTick % 200 === 0) {
             await runCmd(overworld, `execute @a ~~~ tellraw @s {"rawtext":[{"text":"§l§4§kqww§r§l§bThanks for using Admin Utils! §aMade by §6MisledPaul58§4§kqww§r"}]}`);
             firstPlayer = true;
         }
+    }
+
+    const block = overworld.getBlock({ x: -171, y: 77, z: -99 });
+    if (block.typeId === 'minecraft:chest' && chest === false) {
+        chest = true;
+        waitForBreak()
+        async function waitForBreak() {
+            while (block.typeId === 'minecraft:chest') {
+                await delay(1);
+            }
+            chest = false;
+            overworld.runCommand('kill @e[type=item, x=-171, y=77, z=-99, r=1.7]');
+        }
+    }
+    if (block.typeId === 'minecraft:chest' && overworld.getBlock({ x: -171, y: 77, z: -98 }).typeId === 'minecraft:chest' && overworld.getBlock({ x: -171, y: 77, z: -98 }).permutation === BlockPermutation.resolve("minecraft:chest", { facing_direction: 4 })) {
+        const container = block.getComponent("minecraft:inventory").container;
+        world.sendMessage(`${container.size}`);
     }
 
     // players[0].runCommand('execute @s ~ ~1.5 ~ tp @e[type=au:nopvp, c=1] ^ ^ ^0.1');
@@ -46,7 +65,7 @@ system.runInterval(async tick => {
             player.removeTag("admin");
             try {
                 await runCmd(overworld, `scoreboard players set "-au${player.name}-au" -au 0`);
-                await runCmd(overworld, `execute @a ~~~ tellraw @s {"rawtext": [{ "text": "§aThe player §b${player.name}§a has been successfully added as an admin." }]}`);
+                await runCmd(overworld, `execute @a ~~~ tellraw @s {"rawtext": [{ "text": "§aThe player §b${player.name}§a has been added successfully as an admin." }]}`);
             } catch (e) {
                 await runCmd(overworld, `execute @a ~~~ tellraw @s {"rawtext": [{ "text": "§cError, couldn't add ${player.name} as an admin, probably it already is." }]}`);
             }
@@ -417,6 +436,38 @@ world.beforeEvents.itemUse.subscribe(data => {
             }
             world.sendMessage(`${world.scoreboard.getObjective('-auJailLoc').getParticipants()[0]?.displayName}`);
             world.sendMessage(`${world.getPlayers({ name: 'Paul58' })[0]}`);
+            world.sendMessage(`${player.getRotation().y}`);
+            const YRot = player.getRotation().y;
+            if (YRot > -45 && YRot < 45) {
+                const block = overworld.getBlock({ x: -171, y: 77, z: -99 });
+                block.setType(MinecraftBlockTypes.chest);
+                block.setPermutation(BlockPermutation.resolve("minecraft:chest", { facing_direction: 2 }));
+            } else if (YRot >= 45 && YRot < 135) {
+                const block = overworld.getBlock({ x: -171, y: 77, z: -99 });
+                block.setType(MinecraftBlockTypes.chest);
+                block.setPermutation(BlockPermutation.resolve("minecraft:chest", { facing_direction: 5 }));
+            } else if ((YRot >= 135 && YRot < 180) || (YRot > -180 && YRot < -135)) { //O usar: (YRot + 180 - (180 - YRot) * 2) > -45
+                const block = overworld.getBlock({ x: -171, y: 77, z: -99 });
+                block.setType(MinecraftBlockTypes.chest);
+                block.setPermutation(BlockPermutation.resolve("minecraft:chest", { facing_direction: 3 }));
+            } else if (YRot >= -135 && YRot <= -45) {
+                const block = overworld.getBlock({ x: -171, y: 77, z: -99 });
+                block.setType(MinecraftBlockTypes.chest);
+                block.setPermutation(BlockPermutation.resolve("minecraft:chest", { facing_direction: 4 }));
+            }
+
+            /*foobar();
+            async function foobar() {
+                const sign = overworld.getBlock({ x: -191, y: 77, z: -95 });
+                while (true === true) {
+                    const _sign = overworld.getBlock({ x: -191, y: 77, z: -95 });
+                    if (sign === _sign ) {
+                        world.sendMessage('Sign is still the same!');
+                    }
+                    await delay(1);
+                }
+            }
+            */
         });
     } else if (Object.keys(projectiles).includes(data.itemStack.typeId)) {
         const a = player.getTags();
@@ -637,7 +688,7 @@ function adminSettings(p) { //Maybe make it so that if you're an admin you can't
                         await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§cError, that doesn't look like a valid username.§r" }]}`);
                     } else {
                         await runCmd(overworld, `scoreboard players set "-au${admin}-au" -au 0`);
-                        await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§aThe player §b${admin}§a has been successfully added as an admin.§r" }]}`);
+                        await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§aThe player §b${admin}§a has been added successfully as an admin.§r" }]}`);
                     }
                 });
             } break;
@@ -681,12 +732,13 @@ function adminCommands(p) {
         .button("<-- Back", "textures/icons/back.png") //0
         .button("Ban or unban menu") //1
         .button("Jail menu") //2
-        .button("Simulated player") //3
-        .button("Projectiles powers") //4
-        .button("Freeze or unfreeze a player", "textures/icons/freeze.png") //5
-        .button("Vanish menu") //6
-        .button("Kill a player") //7
-        .button("Launch a player") //8
+        .button("Vanish menu") //3
+        .button("Freeze or unfreeze a player", "textures/icons/freeze.png") //4
+        .button("See an inventory") //5
+        .button("Simulated player") //6
+        .button("Projectiles powers") //7
+        .button("Kill a player") //8
+        .button("Launch a player") //9
     form.show(p).then((response) => {
         switch (response.selection) {
             case 0: { //Back 
@@ -698,13 +750,10 @@ function adminCommands(p) {
             case 2: { //Jail menu
                 jailMenu(p);
             } break;
-            case 3: { //Make a sim player menu 
-                simPlayer(p);
+            case 3: { //Vanish menu
+                vanishMenu(p);
             } break;
-            case 4: { //Projectiles powers
-                projectilePowers(p);
-            } break;
-            case 5: { //Freeze or unfreeze a player
+            case 4: { //Freeze or unfreeze a player
                 freezeUnfreeze();
                 function freezeUnfreeze() {
                     const form = new ActionFormData()
@@ -814,10 +863,16 @@ function adminCommands(p) {
                     });
                 }
             } break;
-            case 6: { //Vanish menu
-                vanishMenu(p);
+            case 5: { //See an inventory
+                seeInventory(p);
             } break;
-            case 7: { //Kill a player 
+            case 6: { //Make a sim player menu 
+                simPlayer(p);
+            } break;
+            case 7: { //Projectiles powers
+                projectilePowers(p);
+            } break;
+            case 8: { //Kill a player 
                 const playersArray = players.map(pname => pname.name);
                 const locPlayers = players;
                 const form = new ActionFormData()
@@ -846,14 +901,14 @@ function adminCommands(p) {
                                     };
                                     let playerEntity = [...world.getPlayers(query)][0];
                                     playerEntity.kill();
-                                    await runTellraw(p, `§aThe player §b${playerName}§a has been successfully killed.`);
+                                    await runTellraw(p, `§aThe player §b${playerName}§a has been killed successfully.`);
                                 } catch (e) {
                                     await runTellraw(p, `§cError, the player couldn't be killed or wasn't found.`);
                                 }
                             } else if (result.formValues[1] === false) {
                                 try {
                                     await runCmd(overworld, `kill ${playerName}`);
-                                    await runTellraw(p, `§aThe player §b${playerName}§a has been successfully killed.`);
+                                    await runTellraw(p, `§aThe player §b${playerName}§a has been killed successfully.`);
                                 } catch (e) {
                                     await runTellraw(p, `§cError, the player couldn't be killed or wasn't found.`);
                                 }
@@ -869,14 +924,14 @@ function adminCommands(p) {
                             if (result.formValues[0] === true) {
                                 try {
                                     selectedPlayer.kill();
-                                    await runTellraw(p, `§aThe player §b${selectedPlayer.name}§a has been successfully killed.`);
+                                    await runTellraw(p, `§aThe player §b${selectedPlayer.name}§a has been killed successfully.`);
                                 } catch (e) {
                                     await runTellraw(p, `§cError, the player couldn't be killed or wasn't found.`);
                                 }
                             } else if (result.formValues[0] === false) {
                                 try {
                                     await runCmd(overworld, `kill ${selectedPlayer.name}`);
-                                    await runTellraw(p, `§aThe player §b${selectedPlayer.name}§a has been successfully killed.`);
+                                    await runTellraw(p, `§aThe player §b${selectedPlayer.name}§a has been killed successfully.`);
                                 } catch (e) {
                                     await runTellraw(p, `§cError, the player couldn't be killed or wasn't found.`);
                                 }
@@ -885,7 +940,7 @@ function adminCommands(p) {
                     }
                 });
             } break;
-            case 8: { //Launch a player
+            case 9: { //Launch a player
                 const locPlayers = players;
                 const form = new ActionFormData()
                     .title("Launch a player")
@@ -1513,7 +1568,7 @@ function jailPlayer(p) {
             } else if (response.selection >= 2) {
                 const selectedPlayer = availablePlayers[response.selection - 2];
                 if (isJailed(selectedPlayer)) {
-                    await runTellraw(p, `§cError, the selected player has recently been jailed by another user.`);
+                    await runTellraw(p, `§cError, the selected player has recently been jailed by another user.`); //Hacer estas comprobaciones en otras partes del código
 
                 } else {
                     const form = new ModalFormData()
@@ -1960,7 +2015,7 @@ function jailLocConfig(p) {
                             const scoreboard = world.scoreboard.getObjective('-auJailLoc').getParticipants()[0]?.displayName;
                             if (scoreboard) {
                                 await runCmd(p, `scoreboard players reset "${scoreboard}" -auJailLoc`);
-                                await runTellraw(p, `§aThe §bjail location§a has been successfully removed.`);
+                                await runTellraw(p, `§aThe §bjail location§a has been removed successfully.`);
                             } else {
                                 await runTellraw(p, `§cError, the jail location has recently been removed by another user.`);
                             }
@@ -2127,7 +2182,7 @@ function jailExitLocConfig(p) {
                             const scoreboard = world.scoreboard.getObjective('-auJailExitLoc').getParticipants()[0]?.displayName;
                             if (scoreboard) {
                                 await runCmd(p, `scoreboard players reset "${scoreboard}" -auJailExitLoc`);
-                                await runTellraw(p, `§aThe §bjail exit location§a has been successfully removed.`);
+                                await runTellraw(p, `§aThe §bjail exit location§a has been removed successfully.`);
                             } else {
                                 await runTellraw(p, `§cError, the jail exit location has recently been removed by another user.`);
                             }
@@ -2297,6 +2352,7 @@ function enableVanishGUI(p) {
 
     form.show(p).then((response) => {
         const { selection } = response;
+        if (response.canceled === true) return;
         if (selection === 0) {
             vanishMenu(p);
 
@@ -2410,7 +2466,7 @@ function disableVanishGUI(p) {
                 } else {
                     try {
                         world.scoreboard.getObjective('-auVanished').removeParticipant(`-au${player}`);
-                        p.sendMessage(`§aVanish mode has been successfully disabled for §b${player}§a.`);
+                        p.sendMessage(`§aVanish mode has been disabled successfully for §b${player}§a.`);
                     } catch (e) {
                         p.sendMessage(`§cError, couldn't disable vanish mode for §4${player}§c.`);
                     }
@@ -2433,7 +2489,7 @@ function disableVanishGUI(p) {
                     } else {
                         try {
                             world.scoreboard.getObjective('-auVanished').removeParticipant(`-au${p.name}`);
-                            p.sendMessage(`§aVanish mode has been successfully disabled for you.`);
+                            p.sendMessage(`§aVanish mode has been disabled successfully for you.`);
                         } catch (e) {
                             p.sendMessage("§cError, couldn't disable vanish mode.");
                         }
@@ -2459,10 +2515,108 @@ function disableVanishGUI(p) {
                     } else {
                         try {
                             world.scoreboard.getObjective('-auVanished').removeParticipant(`-au${selectedPlayer}`);
-                            p.sendMessage(`§aVanish mode has been successfully disabled for §b${selectedPlayer}§a.`);
+                            p.sendMessage(`§aVanish mode has been disabled successfully for §b${selectedPlayer}§a.`);
                         } catch (e) {
                             p.sendMessage(`§cError, couldn't disable vanish mode for §4${selectedPlayer}§c.`);
                         }
+                    }
+                }
+            });
+        }
+    });
+}
+
+/**
+ * 
+ * @param { Player } p 
+ */
+
+function seeInventory(p) {
+    const playersArray = players.map(pname => pname.name);
+    const form = new ActionFormData()
+        .title("See an inventory");
+    if (!isEnoughSpace(p)) {
+        form.body("Select an online player to see his inventory inside a chest.\n§4WARNING§c, you there isn't enough space in front of you, you won't be able to create a chest to see the inventory of a player. Make some space and try again.")
+    } else {
+        form.body("Select an online player to see his inventory inside a chest");
+    }
+    form.button("<-- Back", "textures/icons/back.png")
+        .button("Type an offline/online player instead", "textures/icons/pencil.png")
+        .button("Check active chests");
+    for (const player of playersArray) {
+        form.button(player, "textures/icons/steve_icon.png");
+    }
+
+    form.show(p).then((response) => {
+        const { selection } = response;
+        if (response.canceled === true) return;
+        if (selection === 0) {
+            adminCommands(p);
+
+        } else if (selection === 1) {
+            const form = new ModalFormData()
+                .title("See an inventory")
+                .textField("§bType below the player you would like to see the inventory of.§r\nThis will place a large chest in front of you, so make sure there's enough space.", "Player's name");
+            form.show(p).then(result => {
+                if (result.canceled === true) return;
+                const player = result.formValues[0];
+
+                if (!isValidUsername(player)) {
+                    p.sendMessage("§cError, the username you entered is invalid.");
+
+                } else if (isInvSeen(player)) {
+                    const form = new MessageFormData()
+                        .title("See an inventory")
+                        .body(`The player §b${player}§r already has a chest with his inventory. Are you sure you want to create another one?`)
+                        .button1("No")
+                        .button2("Yes");
+                    form.show(p).then(result => {
+                        if (result.selection === 0) {
+                            seeInventory(p);
+                        } else if (result.selection === 1) {
+                            try {
+                                if (!isEnoughSpace(p)) {
+                                    p.sendMessage("§cError, there isn't enough space in front of you to create the chest. Make some space or move to another place and try again.");
+                                } else {
+                                    const YRot = p.getRotation().y;
+                                    const loc = p.location;
+                                    let frontLoc1;
+                                    let frontLoc2;
+                                    if (YRot > -45 && YRot < 45) { //Chest & sign placement
+                                        frontLoc1 = { x: loc.x, y: loc.y, z: loc.z + 1 };
+                                        frontLoc2 = { x: loc.x - 1, y: loc.y, z: loc.z + 1 };
+                                        p.runCommand(`structure load invchest ${loc.x - 1} ${loc.y} ${loc.z} 180_degrees`);
+                                    } else if (YRot >= 45 && YRot < 135) {
+                                        frontLoc1 = { x: loc.x - 1, y: loc.y, z: loc.z };
+                                        frontLoc2 = { x: loc.x - 1, y: loc.y, z: loc.z - 1 };
+                                        p.runCommand(`structure load invchest ${loc.x - 1} ${loc.y} ${loc.z - 1} 270_degrees`);
+                                    } else if ((YRot >= 135 && YRot < 180) || (YRot > -180 && YRot < -135)) { //Also: (YRot + 180 - (180 - YRot) * 2) > -45
+                                        frontLoc1 = { x: loc.x, y: loc.y, z: loc.z - 1 };
+                                        frontLoc2 = { x: loc.x + 1, y: loc.y, z: loc.z - 1 };
+                                        p.runCommand(`structure load invchest ${loc.x} ${loc.y} ${loc.z - 1}`);
+                                    } else if (YRot >= -135 && YRot <= -45) {
+                                        frontLoc1 = { x: loc.x + 1, y: loc.y, z: loc.z };
+                                        frontLoc2 = { x: loc.x + 1, y: loc.y, z: loc.z + 1 };
+                                        p.runCommand(`structure load invchest ${loc.x} ${loc.y} ${loc.z} 90_degrees`);
+                                    }
+                                    const signComponent = p.dimension.getBlock(loc).getComponent("minecraft:sign");
+                                    signComponent.setText(`§b${player}'s §qinventory`);
+                                    signComponent.setWaxed();
+
+                                    world.scoreboard.getObjective('-auInvSees').setScore(`-au${p.dimension.id} -au${player} -au${frontLoc1.x} -au${frontLoc1.y} -au${frontLoc1.z} -au${frontLoc2.x} -au${frontLoc2.y} -au${frontLoc2.z}`, 0);
+                                    p.sendMessage(`§aThe chest has been created successfully with §b${player}'s §ainventory inside.`);
+                                }
+                            } catch (e) {
+                                p.sendMessage("§cError, couldn't create the chest.");
+                            }
+                        }
+                    });
+
+                } else {
+                    try {
+
+                    } catch (e) {
+
                     }
                 }
             });
@@ -2518,13 +2672,13 @@ function simPlayer(p) {
                             if (isValidUsername(victim)) {
                                 const { successCount } = await runCmd(p, `testfor "${victim}"`);
                                 if (successCount !== 0) {
-                                    GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
+                                    GameTest.register("SimPlayers", `sim_player${simcount}`, (test) => {
                                         const spawnLoc = new Vector(1, 2, 1);
                                         const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
                                         player.addEffect(EffectTypes.get('speed'), 99999 * TicksPerSecond, { amplifier: 4, showParticles: false });
-                                        player.addEffect(EffectTypes.get('jumpBoost'), 99999 * TicksPerSecond, { amplifier: 1, showParticles: false });
+                                        player.addEffect(EffectTypes.get('jump_boost'), 99999 * TicksPerSecond, { amplifier: 1, showParticles: false });
                                         player.addEffect(EffectTypes.get('strength'), 99999 * TicksPerSecond, { amplifier: 2, showParticles: false });
-                                        overworld.runCommand('fill 1234564 0 -1234563 1234568 319 -1234567 air');
+                                        overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
                                         const { successCount } = overworld.runCommand('testfor @e[type=au:basedetect, x=1234567, y=225, z=-1234567, r=20]');
                                         if (successCount === 0) {
                                             overworld.runCommand('summon au:basedetect 1234567 225 -1234567');
@@ -2545,10 +2699,10 @@ function simPlayer(p) {
                                     })
                                         .maxTicks(timeInTicks)
                                         .setupTicks(0)
-                                        .structureName("SimFolder:simtest")
+                                        .structureName("AdminUtils:simplayer")
                                         .tag(GameTest.Tags.suiteDefault);
-                                    overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simtest:sim_test${simtest} false 1`);
-                                    simtest++;
+                                    overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simplayers:sim_player${simcount} false 1`);
+                                    simcount++;
                                 } else {
                                     await runTellraw(p, '§cError, the player you entered is not online.');
                                 }
@@ -2569,13 +2723,13 @@ function simPlayer(p) {
 
                             const { successCount } = await runCmd(p, `testfor "${selectedPlayerRaw.name}"`);
                             if (successCount !== 0) {
-                                GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
+                                GameTest.register("SimPlayers", `sim_player${simcount}`, (test) => {
                                     const spawnLoc = new Vector(1, 2, 1);
                                     const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
                                     player.addEffect(EffectTypes.get('speed'), 99999 * TicksPerSecond, { amplifier: 4, showParticles: false });
-                                    player.addEffect(EffectTypes.get('jumpBoost'), 99999 * TicksPerSecond, { amplifier: 1, showParticles: false });
+                                    player.addEffect(EffectTypes.get('jump_boost'), 99999 * TicksPerSecond, { amplifier: 1, showParticles: false });
                                     player.addEffect(EffectTypes.get('strength'), 99999 * TicksPerSecond, { amplifier: 2, showParticles: false });
-                                    overworld.runCommand('fill 1234564 0 -1234563 1234568 319 -1234567 air');
+                                    overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
                                     const { successCount } = overworld.runCommand('testfor @e[type=au:basedetect, x=1234567, y=225, z=-1234567, r=20]');
                                     if (successCount === 0) {
                                         overworld.runCommand('summon au:basedetect 1234567 225 -1234567');
@@ -2596,10 +2750,10 @@ function simPlayer(p) {
                                 })
                                     .maxTicks(timeInTicks)
                                     .setupTicks(0)
-                                    .structureName("SimFolder:simtest")
+                                    .structureName("AdminUtils:simplayer")
                                     .tag(GameTest.Tags.suiteDefault);
-                                overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simtest:sim_test${simtest} false 1`);
-                                simtest++;
+                                overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simplayers:sim_player${simcount} false 1`);
+                                simcount++;
                             } else {
                                 await runTellraw(p, '§cError, the player you selected is now offline.');
                             }
@@ -2642,12 +2796,12 @@ function simPlayer(p) {
                             if (isValidUsername(victim)) {
                                 const { successCount } = await runCmd(overworld, `testfor "${victim}"`);
                                 if (successCount !== 0) {
-                                    GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
+                                    GameTest.register("SimPlayers", `sim_player${simcount}`, (test) => {
                                         const spawnLoc = new Vector(1, 2, 1);
                                         const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
                                         player.addEffect(EffectTypes.get('speed'), 99999 * TicksPerSecond, { amplifier: 4, showParticles: false });
-                                        player.addEffect(EffectTypes.get('jumpBoost'), 99999 * TicksPerSecond, { amplifier: 1, showParticles: false });
-                                        overworld.runCommand('fill 1234564 0 -1234563 1234568 319 -1234567 air');
+                                        player.addEffect(EffectTypes.get('jump_boost'), 99999 * TicksPerSecond, { amplifier: 1, showParticles: false });
+                                        overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
                                         const { successCount } = overworld.runCommand('testfor @e[type=au:basedetect, x=1234567, y=225, z=-1234567, r=20]');
                                         if (successCount === 0) {
                                             overworld.runCommand('summon au:basedetect 1234567 225 -1234567');
@@ -2667,10 +2821,10 @@ function simPlayer(p) {
                                     })
                                         .maxTicks(timeInTicks)
                                         .setupTicks(0)
-                                        .structureName("SimFolder:simtest")
+                                        .structureName("AdminUtils:simplayer")
                                         .tag(GameTest.Tags.suiteDefault);
-                                    overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simtest:sim_test${simtest} false 1`);
-                                    simtest++;
+                                    overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simplayers:sim_player${simcount} false 1`);
+                                    simcount++;
                                 } else {
                                     await runTellraw(p, '§cError, the player you entered is not online.');
                                 }
@@ -2691,12 +2845,12 @@ function simPlayer(p) {
 
                             const { successCount } = await runCmd(p, `testfor "${selectedPlayerRaw.name}"`);
                             if (successCount !== 0) {
-                                GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
+                                GameTest.register("SimPlayers", `sim_player${simcount}`, (test) => {
                                     const spawnLoc = new Vector(1, 2, 1);
                                     const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
                                     player.addEffect(EffectTypes.get('speed'), 99999 * TicksPerSecond, { amplifier: 4, showParticles: false });
-                                    player.addEffect(EffectTypes.get('jumpBoost'), 99999 * TicksPerSecond, { amplifier: 1, showParticles: false });
-                                    overworld.runCommand('fill 1234564 0 -1234563 1234568 319 -1234567 air');
+                                    player.addEffect(EffectTypes.get('jump_boost'), 99999 * TicksPerSecond, { amplifier: 1, showParticles: false });
+                                    overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
                                     const { successCount } = overworld.runCommand('testfor @e[type=au:basedetect, x=1234567, y=225, z=-1234567, r=20]');
                                     if (successCount === 0) {
                                         overworld.runCommand('summon au:basedetect 1234567 225 -1234567');
@@ -2716,10 +2870,10 @@ function simPlayer(p) {
                                 })
                                     .maxTicks(timeInTicks)
                                     .setupTicks(0)
-                                    .structureName("SimFolder:simtest")
+                                    .structureName("AdminUtils:simplayer")
                                     .tag(GameTest.Tags.suiteDefault);
-                                overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simtest:sim_test${simtest} false 1`);
-                                simtest++;
+                                overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simplayers:sim_player${simcount} false 1`);
+                                simcount++;
                             } else {
                                 await runTellraw(p, '§cError, the player you selected is now offline.');
                             }
@@ -2741,10 +2895,10 @@ function simPlayer(p) {
                         let lookClosePlayer = result.formValues[2];
                         let tpped = false;
 
-                        GameTest.register("SimTest", `sim_test${simtest}`, (test) => {
+                        GameTest.register("SimPlayers", `sim_player${simcount}`, (test) => {
                             const spawnLoc = new Vector(1, 2, 1);
                             const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
-                            overworld.runCommand('fill 1234564 0 -1234563 1234568 319 -1234567 air');
+                            overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
                             const { successCount } = overworld.runCommand('testfor @e[type=au:basedetect, x=1234567, y=225, z=-1234567, r=20]');
                             if (successCount === 0) {
                                 overworld.runCommand('summon au:basedetect 1234567 225 -1234567');
@@ -2775,10 +2929,10 @@ function simPlayer(p) {
                         })
                             .maxTicks(timeInTicks)
                             .setupTicks(0)
-                            .structureName("SimFolder:simtest")
+                            .structureName("AdminUtils:simplayer")
                             .tag(GameTest.Tags.suiteDefault);
-                        overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simtest:sim_test${simtest} false 1`);
-                        simtest++;
+                        overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simplayers:sim_player${simcount} false 1`);
+                        simcount++;
                     }
                 });
             }
@@ -3052,6 +3206,95 @@ function isFrozen(player) {
         if (world.scoreboard.getObjective('-auFrozen').getParticipants().map(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1]).includes(player)) return true
         else return false;
     } catch (e) { return false }
+}
+
+/**
+ * 
+ * @param { String } player 
+ * @returns { Boolean }
+ */
+
+function isInvSeen(player) {
+    try {
+        const participants = world.scoreboard.getObjective('-auInvSees').getParticipants().map(participant => participant.displayName);
+        if (!participants[0]) {
+            return;
+        } else {
+            return getInvSees().map(chest => chest.target).includes(player);
+        }
+    } catch (e) {
+        return;
+    }
+}
+
+/**
+ * Returns true if there's enough space for a large chest just in front of the player, if not, returns false.
+ * @param { Player } rawPlayer
+ * @returns { Boolean }
+ */
+
+function isEnoughSpace(rawPlayer) {
+    const YRot = rawPlayer.getRotation().y;
+    const loc = rawPlayer.location;
+    const currentBlock = rawPlayer.dimension.getBlock(loc);
+    if (!currentBlock.isAir()) return false;
+
+    if (YRot > -45 && YRot < 45) {
+        const frontLoc1 = { x: loc.x, y: loc.y, z: loc.z + 1 };
+        const frontLoc2 = { x: loc.x - 1, y: loc.y, z: loc.z + 1 };
+        const block1 = rawPlayer.dimension.getBlock(frontLoc1);
+        const block2 = rawPlayer.dimension.getBlock(frontLoc2);
+        if (block1.isAir() && block2.isAir()) return true
+        else return false;
+
+    } else if (YRot > 45 && YRot < 135) {
+        const frontLoc1 = { x: loc.x - 1, y: loc.y, z: loc.z };
+        const frontLoc2 = { x: loc.x - 1, y: loc.y, z: loc.z - 1 };
+        const block1 = rawPlayer.dimension.getBlock(frontLoc1);
+        const block2 = rawPlayer.dimension.getBlock(frontLoc2);
+        if (block1.isAir() && block2.isAir()) return true
+        else return false;
+
+    } else if ((YRot > 135 && YRot < 180) || (YRot > -180 && YRot < -135)) { //Also: (YRot + 180 - (180 - YRot) * 2) > -45
+        const frontLoc1 = { x: loc.x, y: loc.y, z: loc.z - 1 };
+        const frontLoc2 = { x: loc.x + 1, y: loc.y, z: loc.z - 1 };
+        const block1 = rawPlayer.dimension.getBlock(frontLoc1);
+        const block2 = rawPlayer.dimension.getBlock(frontLoc2);
+        if (block1.isAir() && block2.isAir()) return true
+        else return false;
+
+    } else if (YRot > -135 && YRot < -45) {
+        const frontLoc1 = { x: loc.x + 1, y: loc.y, z: loc.z };
+        const frontLoc2 = { x: loc.x + 1, y: loc.y, z: loc.z + 1 };
+        const block1 = rawPlayer.dimension.getBlock(frontLoc1);
+        const block2 = rawPlayer.dimension.getBlock(frontLoc2);
+        if (block1.isAir() && block2.isAir()) return true
+        else return false;
+    }
+}
+
+function getInvSees() {
+    //-auoverworld -auPaul58 -au-46 -au64 -au79 -au-46 -au64 -au80
+    try {
+        const participants = world.scoreboard.getObjective('-auInvSees').getParticipants().map(participant => participant.displayName);
+        if (!participants[0]) {
+            return;
+        } else {
+            let chests = [];
+            for (const chest of participants) {
+                const properties = {
+                    dimension: chest.match(/(?<=^-au)overworld|nether|the_end/)[0],
+                    target: chest.match(/^-au(?:overworld|nether|the_end) -au([^]+) -au-?[0-9]+/)[1],
+                    pos1: chest.match(/^-au(?:overworld|nether|the_end) -au[^]+? -au(-?[0-9]+) -au(-?[0-9]+) -au(-?[0-9]+) -au-?[0-9]+/).slice(1).map(pos => parseInt(pos)),
+                    pos2: chest.match(/^-au(?:overworld|nether|the_end).+ -au(-?[0-9]+) -au(-?[0-9]+) -au(-?[0-9]+)$/).slice(1).map(pos => parseInt(pos))
+                }
+                chests.push(properties);
+            }
+            return chests;
+        }
+    } catch (e) {
+        return;
+    }
 }
 
 function convertToRegExpFriendly(str) {
