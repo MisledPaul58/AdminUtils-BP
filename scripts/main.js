@@ -2574,49 +2574,49 @@ function seeInventory(p) {
                         if (result.selection === 0) {
                             seeInventory(p);
                         } else if (result.selection === 1) {
-                            try {
-                                if (!isEnoughSpace(p)) {
-                                    p.sendMessage("§cError, there isn't enough space in front of you to create the chest. Make some space or move to another place and try again.");
-                                } else {
-                                    const YRot = p.getRotation().y;
-                                    const loc = p.location;
-                                    let frontLoc1;
-                                    let frontLoc2;
-                                    if (YRot > -45 && YRot < 45) { //Chest & sign placement
-                                        frontLoc1 = { x: loc.x, y: loc.y, z: loc.z + 1 };
-                                        frontLoc2 = { x: loc.x - 1, y: loc.y, z: loc.z + 1 };
-                                        p.runCommand(`structure load invchest ${loc.x - 1} ${loc.y} ${loc.z} 180_degrees`);
-                                    } else if (YRot >= 45 && YRot < 135) {
-                                        frontLoc1 = { x: loc.x - 1, y: loc.y, z: loc.z };
-                                        frontLoc2 = { x: loc.x - 1, y: loc.y, z: loc.z - 1 };
-                                        p.runCommand(`structure load invchest ${loc.x - 1} ${loc.y} ${loc.z - 1} 270_degrees`);
-                                    } else if ((YRot >= 135 && YRot < 180) || (YRot > -180 && YRot < -135)) { //Also: (YRot + 180 - (180 - YRot) * 2) > -45
-                                        frontLoc1 = { x: loc.x, y: loc.y, z: loc.z - 1 };
-                                        frontLoc2 = { x: loc.x + 1, y: loc.y, z: loc.z - 1 };
-                                        p.runCommand(`structure load invchest ${loc.x} ${loc.y} ${loc.z - 1}`);
-                                    } else if (YRot >= -135 && YRot <= -45) {
-                                        frontLoc1 = { x: loc.x + 1, y: loc.y, z: loc.z };
-                                        frontLoc2 = { x: loc.x + 1, y: loc.y, z: loc.z + 1 };
-                                        p.runCommand(`structure load invchest ${loc.x} ${loc.y} ${loc.z} 90_degrees`);
-                                    }
-                                    const signComponent = p.dimension.getBlock(loc).getComponent("minecraft:sign");
-                                    signComponent.setText(`§b${player}'s §qinventory`);
-                                    signComponent.setWaxed();
-
-                                    world.scoreboard.getObjective('-auInvSees').setScore(`-au${p.dimension.id} -au${player} -au${frontLoc1.x} -au${frontLoc1.y} -au${frontLoc1.z} -au${frontLoc2.x} -au${frontLoc2.y} -au${frontLoc2.z}`, 0);
-                                    p.sendMessage(`§aThe chest has been created successfully with §b${player}'s §ainventory inside.`);
-                                }
-                            } catch (e) {
-                                p.sendMessage("§cError, couldn't create the chest.");
-                            }
+                            createChestInv();
                         }
                     });
 
                 } else {
+                    createChestInv();
+                }
+
+                function createChestInv() {
                     try {
+                        if (!isEnoughSpace(p)) {
+                            p.sendMessage("§cError, there isn't enough space in front of you to create the chest. Make some space or move to another place and try again.");
+                        } else {
+                            const YRot = p.getRotation().y;
+                            const loc = p.location;
+                            let frontLoc1;
+                            let frontLoc2;
+                            if (YRot > -45 && YRot < 45) { //Chest & sign placement
+                                frontLoc1 = { x: loc.x, y: loc.y, z: loc.z + 1 };
+                                frontLoc2 = { x: loc.x - 1, y: loc.y, z: loc.z + 1 };
+                                p.runCommand(`structure load invchest ${loc.x - 1} ${loc.y} ${loc.z} 180_degrees`);
+                            } else if (YRot >= 45 && YRot < 135) {
+                                frontLoc1 = { x: loc.x - 1, y: loc.y, z: loc.z };
+                                frontLoc2 = { x: loc.x - 1, y: loc.y, z: loc.z - 1 };
+                                p.runCommand(`structure load invchest ${loc.x - 1} ${loc.y} ${loc.z - 1} 270_degrees`);
+                            } else if ((YRot >= 135 && YRot < 180) || (YRot > -180 && YRot < -135)) { //Also: (YRot + 180 - (180 - YRot) * 2) > -45
+                                frontLoc1 = { x: loc.x, y: loc.y, z: loc.z - 1 };
+                                frontLoc2 = { x: loc.x + 1, y: loc.y, z: loc.z - 1 };
+                                p.runCommand(`structure load invchest ${loc.x} ${loc.y} ${loc.z - 1}`);
+                            } else if (YRot >= -135 && YRot <= -45) {
+                                frontLoc1 = { x: loc.x + 1, y: loc.y, z: loc.z };
+                                frontLoc2 = { x: loc.x + 1, y: loc.y, z: loc.z + 1 };
+                                p.runCommand(`structure load invchest ${loc.x} ${loc.y} ${loc.z} 90_degrees`);
+                            }
+                            const signComponent = p.dimension.getBlock(loc).getComponent("minecraft:sign");
+                            signComponent.setText(`§b${player}'s §qinventory`);
+                            signComponent.setWaxed();
 
+                            world.scoreboard.getObjective('-auInvSees').setScore(`-au${p.dimension.id.replace(/minecraft:/, '')} -au${player} -au${Math.floor(frontLoc1.x)} -au${Math.floor(frontLoc1.y)} -au${Math.floor(frontLoc1.z)} -au${Math.floor(frontLoc2.x)} -au${Math.floor(frontLoc2.y)} -au${Math.floor(frontLoc2.z)}`, 0);
+                            p.sendMessage(`§aThe chest has been created successfully with §b${player}'s §ainventory inside.`);
+                        }
                     } catch (e) {
-
+                        p.sendMessage("§cError, couldn't create the chest.");
                     }
                 }
             });
