@@ -1,4 +1,4 @@
-import { world, GameMode, system, Vector, TicksPerSecond, EffectTypes, Player, Entity, BlockType, BlockPermutation, MinecraftBlockTypes } from "@minecraft/server";
+import { world, GameMode, system, Vector, TicksPerSecond, EffectTypes, Player, Entity, BlockType, BlockPermutation, MinecraftBlockTypes, Container, EntityEquipmentInventoryComponent, ItemStack } from "@minecraft/server";
 import * as GameTest from "@minecraft/server-gametest";
 import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/server-ui";
 import moment from "./moment/src/moment.js";
@@ -13,6 +13,7 @@ let simcount = 0;
 let projNum = 0;
 let tntFlag = "-autnt0";
 let stuckJailedPlayers = [];
+let invChests = [];
 
 system.beforeEvents.watchdogTerminate.subscribe(watchdog => {
     watchdog.cancel = true;
@@ -40,7 +41,7 @@ system.runInterval(async tick => {
         }
     }
 
-    const block = overworld.getBlock({ x: -171, y: 77, z: -99 });
+    /*const block = overworld.getBlock({ x: -171, y: 77, z: -99 });
     if (block.typeId === 'minecraft:chest' && chest === false) {
         chest = true;
         waitForBreak()
@@ -55,6 +56,86 @@ system.runInterval(async tick => {
     if (block.typeId === 'minecraft:chest' && overworld.getBlock({ x: -171, y: 77, z: -98 }).typeId === 'minecraft:chest' && overworld.getBlock({ x: -171, y: 77, z: -98 }).permutation === BlockPermutation.resolve("minecraft:chest", { facing_direction: 4 })) {
         const container = block.getComponent("minecraft:inventory").container;
         world.sendMessage(`${container.size}`);
+    }
+    */
+
+    if (getInvSees()) {
+        for (const invChest of getInvSees()) {
+            if (!invChests.includes(invChest.scoreboard)) {
+                invChests.push(invChest.scoreboard);
+                initChest();
+                chestTick();
+                async function chestTick() {
+                    const dimension = world.getDimension(invChest.dimension);
+                    //Rellenar aquí los espacios vacíos con paneles de cristal grises con lockMode
+                    const run = system.runInterval(() => { //Controls if any block is broken
+                        const chest1 = dimension.getBlock({ x: invChest.pos1[0], y: invChest.pos1[1], z: invChest.pos1[2] });
+                        const chest2 = dimension.getBlock({ x: invChest.pos2[0], y: invChest.pos2[1], z: invChest.pos2[2] });
+                        const sign = dimension.getBlock({ x: invChest.signPos[0], y: invChest.signPos[1], z: invChest.signPos[2] });
+                        if (chest1?.isValid() && chest2?.isValid() && sign?.isValid()) {
+                            if (chest1.type !== MinecraftBlockTypes.chest || chest2.type !== MinecraftBlockTypes.chest || chest1.permutation !== chest2.permutation || sign.getComponent("minecraft:sign")?.getText() !== `§b${invChest.target}'s §qinventory`) {
+                                chest1.setType(MinecraftBlockTypes.air);
+                                chest2.setType(MinecraftBlockTypes.air);
+                                sign.setType(MinecraftBlockTypes.air);
+                                dimension.runCommand(`kill @e[type=item, x=${chest1.x}, y=${chest1.y}, z=${chest1.z}, r=1.7`);
+                                dimension.runCommand(`kill @e[type=item, x=${chest2.x}, y=${chest2.y}, z=${chest2.z}, r=1.7`);
+                                world.scoreboard.getObjective('-auInvSees').removeParticipant(invChest.scoreboard);
+                                invChests.splice(invChests.indexOf(invChest.scoreboard));
+                                system.clearRun(run);
+                            }
+                        }
+                    }, 1);
+
+                    let hasChestInit = false;
+                    while (world.scoreboard.getObjective('-auInvSees').hasParticipant(invChest.scoreboard)) {
+                        const chest1 = dimension.getBlock({ x: invChest.pos1[0], y: invChest.pos1[1], z: invChest.pos1[2] });
+                        const chest2 = dimension.getBlock({ x: invChest.pos2[0], y: invChest.pos2[1], z: invChest.pos2[2] });
+                        const sign = dimension.getBlock({ x: invChest.signPos[0], y: invChest.signPos[1], z: invChest.signPos[2] });
+                        if (chest1?.isValid() && chest2?.isValid() && sign?.isValid()) {
+                            const chestContainer = chest1.getComponent("minecraft:inventory").container;
+                            if (!world.getPlayers({ name: invChest.target })[0]) { //Waits until the player joins
+                                await delay(3);
+
+                            } else if (hasChestInit === false) {
+                                //Initialize the chest
+                                const rawTarget = world.getPlayers({ name: invChest.target })[0];
+                                if (rawTarget) { //Double check
+                                    const targetInventory = rawTarget.getComponent("minecraft:inventory").container;
+                                    const targetEquipments = rawTarget.getComponent("minecraft:equipment_inventory");
+                                    for (let slot = 9; slot < 36; slot++) {
+                                        chestContainer.setItem(slot + 9, targetInventory.getItem(slot));
+                                    }
+                                    for (let slot = 0; slot < 9; slot++) {
+                                        chestContainer.setItem(slot + 45, targetInventory.getItem(slot));
+                                    }
+                                    const chestEquipSlots = [0, 1, 2, 3, 8];
+                                    const targetEquipSlots = ["head", "chest", "legs", "feet", "offhand"];
+                                    for (const slot in chestEquipSlots) {
+                                        chestContainer.setItem(chestEquipSlots[slot], targetEquipments.getEquipment(targetEquipSlots[slot]));
+                                    }
+                                    hasChestInit = true;
+                                    await delay(1);
+                                }
+                            } else {
+                                const rawTarget = world.getPlayers({ name: invChest.target })[0];
+                                const targetInventory = rawTarget?.getComponent("minecraft:inventory").container;
+                                const targetEquipments = rawTarget?.getComponent("minecraft:equipment_inventory");
+                                await handleInventories(chestContainer, targetInventory, targetEquipments);
+                            }
+                        }
+                    }
+                }
+                async function initChest() {
+                    const dimension = world.getDimension(invChest.dimension);
+                    while (!world.getPlayers({ name: invChest.target })[0] && !dimension.getBlock({ x: invChest.pos1[0], y: invChest.pos1[1], z: invChest.pos1[2] })?.isValid()) {
+                        await delay(1);
+                    }
+                    const chest1 = dimension.getBlock({ x: invChest.pos1[0], y: invChest.pos1[1], z: invChest.pos1[2] });
+                    const chestContainer = chest1.getComponent("minecraft:inventory").container;
+                    const targetInventory = rawTarget?.getComponent("minecraft:inventory").container;
+                }
+            }
+        }
     }
 
     // players[0].runCommand('execute @s ~ ~1.5 ~ tp @e[type=au:nopvp, c=1] ^ ^ ^0.1');
@@ -434,27 +515,41 @@ world.beforeEvents.itemUse.subscribe(data => {
             for (const slot of slots) {
                 try { player.getComponent("minecraft:equipment_inventory").getEquipmentSlot(slot).lockMode = lockMode } catch (e) { }
             }
-            world.sendMessage(`${world.scoreboard.getObjective('-auJailLoc').getParticipants()[0]?.displayName}`);
+            world.sendMessage(`${world.scoreboard.getObjective('-auInvSees').getParticipants()}`);
             world.sendMessage(`${world.getPlayers({ name: 'Paul58' })[0]}`);
             world.sendMessage(`${player.getRotation().y}`);
             const YRot = player.getRotation().y;
+            let block;
             if (YRot > -45 && YRot < 45) {
-                const block = overworld.getBlock({ x: -171, y: 77, z: -99 });
+                block = overworld.getBlock({ x: -171, y: 77, z: -99 });
                 block.setType(MinecraftBlockTypes.chest);
                 block.setPermutation(BlockPermutation.resolve("minecraft:chest", { facing_direction: 2 }));
             } else if (YRot >= 45 && YRot < 135) {
-                const block = overworld.getBlock({ x: -171, y: 77, z: -99 });
+                block = overworld.getBlock({ x: -171, y: 77, z: -99 });
                 block.setType(MinecraftBlockTypes.chest);
                 block.setPermutation(BlockPermutation.resolve("minecraft:chest", { facing_direction: 5 }));
             } else if ((YRot >= 135 && YRot < 180) || (YRot > -180 && YRot < -135)) { //O usar: (YRot + 180 - (180 - YRot) * 2) > -45
-                const block = overworld.getBlock({ x: -171, y: 77, z: -99 });
+                block = overworld.getBlock({ x: -171, y: 77, z: -99 });
                 block.setType(MinecraftBlockTypes.chest);
                 block.setPermutation(BlockPermutation.resolve("minecraft:chest", { facing_direction: 3 }));
             } else if (YRot >= -135 && YRot <= -45) {
-                const block = overworld.getBlock({ x: -171, y: 77, z: -99 });
+                block = overworld.getBlock({ x: -171, y: 77, z: -99 });
                 block.setType(MinecraftBlockTypes.chest);
                 block.setPermutation(BlockPermutation.resolve("minecraft:chest", { facing_direction: 4 }));
             }
+            const a = overworld.getBlock({ x: -191, y: 77, z: -96 });
+            const chestLockSlots = [4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17];
+            for (const slot of chestLockSlots) {
+                a.getComponent("minecraft:inventory").container.getSlot(slot).lockMode = "none";
+            }
+            world.sendMessage(`§b${player.getComponent("minecraft:inventory").container.getSlot(17).typeId}`);
+            /*const foobar = player.getComponent("minecraft:equipment_inventory");
+            world.sendMessage(`§b${foobar.getEquipment("chest").typeId}`);
+            await delay(5 * TicksPerSecond);
+            world.sendMessage(`§b${foobar.getEquipment("chest").typeId}`);
+            foobar.setEquipment("head", new ItemStack("minecraft:grass", 1));
+            world.sendMessage(`§b${overworld.getBlock({ x: -171, y: 77, z: -99 }).location}`);
+            */
 
             /*foobar();
             async function foobar() {
@@ -560,7 +655,7 @@ world.afterEvents.entityHurt.subscribe(async event => {
                 RunProjectilePowers();
                 async function RunProjectilePowers() {
                     const _proj = damagingEntity.getTags().filter(tag => /(?<=-au)snowball|arrow|egg/.test(tag));
-                    const proj = _proj[_proj.length - 1].match(/(?<=-au)snowball|arrow|egg(?=\d+)/)[0];
+                    const proj = _proj[_proj.length - 1].match(/(?<=-au)snowball|arrow|egg(?=\d+)/)[0]; //Gets the last projectile tag
                     damagingEntity.removeTag(damagingEntity.getTags().find(tag => /(?<=-au)snowball|arrow|egg/.test(tag)));
                     if (isPowerEnabled(damagingEntity.nameTag, proj, "bolt")) {
                         hurtEntity.runCommand(`summon lightning_bolt`);
@@ -2536,7 +2631,7 @@ function seeInventory(p) {
     const form = new ActionFormData()
         .title("See an inventory");
     if (!isEnoughSpace(p)) {
-        form.body("Select an online player to see his inventory inside a chest.\n§4WARNING§c, you there isn't enough space in front of you, you won't be able to create a chest to see the inventory of a player. Make some space and try again.")
+        form.body("Select an online player to see his inventory inside a chest.\n§4WARNING§c, there isn't enough space in front of you, you won't be able to create a chest to see the inventory of a player. Make some space and try again.")
     } else {
         form.body("Select an online player to see his inventory inside a chest");
     }
@@ -2612,7 +2707,7 @@ function seeInventory(p) {
                             signComponent.setText(`§b${player}'s §qinventory`);
                             signComponent.setWaxed();
 
-                            world.scoreboard.getObjective('-auInvSees').setScore(`-au${p.dimension.id.replace(/minecraft:/, '')} -au${player} -au${Math.floor(frontLoc1.x)} -au${Math.floor(frontLoc1.y)} -au${Math.floor(frontLoc1.z)} -au${Math.floor(frontLoc2.x)} -au${Math.floor(frontLoc2.y)} -au${Math.floor(frontLoc2.z)}`, 0);
+                            world.scoreboard.getObjective('-auInvSees').setScore(`-au${p.dimension.id.replace(/minecraft:/, '')} -au${player} -au${Math.floor(frontLoc1.x)} -au${Math.floor(frontLoc1.y)} -au${Math.floor(frontLoc1.z)} -au${Math.floor(frontLoc2.x)} -au${Math.floor(frontLoc2.y)} -au${Math.floor(frontLoc2.z)} -au${Math.floor(loc.x)} -au${Math.floor(loc.y)} -au${Math.floor(loc.z)}`, 0);
                             p.sendMessage(`§aThe chest has been created successfully with §b${player}'s §ainventory inside.`);
                         }
                     } catch (e) {
@@ -3218,7 +3313,7 @@ function isInvSeen(player) {
     try {
         const participants = world.scoreboard.getObjective('-auInvSees').getParticipants().map(participant => participant.displayName);
         if (!participants[0]) {
-            return;
+            return false;
         } else {
             return getInvSees().map(chest => chest.target).includes(player);
         }
@@ -3286,7 +3381,9 @@ function getInvSees() {
                     dimension: chest.match(/(?<=^-au)overworld|nether|the_end/)[0],
                     target: chest.match(/^-au(?:overworld|nether|the_end) -au([^]+) -au-?[0-9]+/)[1],
                     pos1: chest.match(/^-au(?:overworld|nether|the_end) -au[^]+? -au(-?[0-9]+) -au(-?[0-9]+) -au(-?[0-9]+) -au-?[0-9]+/).slice(1).map(pos => parseInt(pos)),
-                    pos2: chest.match(/^-au(?:overworld|nether|the_end).+ -au(-?[0-9]+) -au(-?[0-9]+) -au(-?[0-9]+)$/).slice(1).map(pos => parseInt(pos))
+                    pos2: chest.match(/^-au(?:overworld|nether|the_end).+ -au(-?[0-9]+) -au(-?[0-9]+) -au(-?[0-9]+) -au-?[0-9]+ -au-?[0-9]+ -au-?[0-9]+$/).slice(1).map(pos => parseInt(pos)),
+                    signPos: chest.match(/^-au(?:overworld|nether|the_end).+ -au(-?[0-9]+) -au(-?[0-9]+) -au(-?[0-9]+)$/).slice(1).map(pos => parseInt(pos)),
+                    scoreboard: chest
                 }
                 chests.push(properties);
             }
@@ -3294,6 +3391,87 @@ function getInvSees() {
         }
     } catch (e) {
         return;
+    }
+}
+
+/**
+ * 
+ * @param { Container } chestContainer 
+ * @param { Container } targetInventory 
+ * @param { EntityEquipmentInventoryComponent } targetEquipments 
+ */
+
+async function handleInventories(chestContainer, targetInventory, targetEquipments) { //Mandar los contenedor antiguos y actuales, tener en cuenta que los contenedores normales se actualizan :p
+    let oldChestInv = [];
+    let oldTargetInv = [];
+    let oldChestEquip = [];
+    let oldTargetEquip = [];
+
+    for (let slot = 18; slot < 54; slot++) { //Save chest inventory (without incluing the top part with the equipment)
+        oldChestInv.push(chestContainer.getItem(slot));
+    }
+    for (let slot = 9; slot < 36; slot++) { //Save inventory (without including the hotbar yet)
+        oldTargetInv.push(targetInventory.getItem(slot));
+    }
+    for (let slot = 0; slot < 9; slot++) { //Save hotbar
+        oldTargetInv.push(targetInventory.getItem(slot));
+    }
+
+    const chestEquipSlots = [0, 1, 2, 3, 8];
+    for (const slot of chestEquipSlots) {
+        oldChestEquip.push(chestContainer.getItem(slot));
+    }
+    const targetEquipSlots = ["head", "chest", "legs", "feet", "offhand"];
+    for (const slot of targetEquipSlots) {
+        oldTargetEquip.push(targetEquipments.getEquipment(slot));
+    }
+
+    await delay(1);
+
+    let newChestInv = [];
+    let newTargetInv = [];
+    let newChestEquip = [];
+    let newTargetEquip = [];
+
+    for (let slot = 18; slot < 54; slot++) { //Save chest inventory (without incluing the top part with the equipment)
+        newChestInv.push(chestContainer.getItem(slot));
+    }
+    for (let slot = 9; slot < 36; slot++) { //Save inventory (without including the hotbar yet)
+        newTargetInv.push(targetInventory.getItem(slot));
+    }
+    for (let slot = 0; slot < 9; slot++) { //Save hotbar
+        newTargetInv.push(targetInventory.getItem(slot));
+    }
+
+    for (const slot of chestEquipSlots) {
+        newChestEquip.push(chestContainer.getItem(slot));
+    }
+    for (const slot of targetEquipSlots) {
+        newTargetEquip.push(targetEquipments.getEquipment(slot));
+    }
+
+    //Inventories
+    for (let i = 0; i < oldChestInv.length; i++) {
+        if (oldTargetInv[i] !== newTargetInv[i] && newChestInv[i] !== newTargetInv[i]) {
+            //Significa que el item del inventario ha cambiado, actualizar cofre
+            chestContainer.setItem(i + 18, newTargetInv[i]);
+        }
+        if (oldChestInv[i] !== newChestInv[i] && newChestInv[i] !== newTargetInv[i]) {
+            //Significa que el item del cofre ha cambiado, actualizar inventario
+            targetInventory.setItem(i, newChestInv[i]);
+        }
+    }
+
+    //Equipment
+    for (let i = 0; i < oldChestEquip.length; i++) {
+        if (oldTargetEquip[i] !== newTargetEquip[i] && newChestEquip[i] !== newTargetEquip[i]) {
+            //Significa que el item de equipamiento del inventario ha cambiado, actualizar cofre
+            chestContainer.setItem(chestEquipSlots[i], newTargetEquip[i]);
+        }
+        if (oldChestEquip[i] !== newChestEquip[i] && newChestEquip[i] !== newTargetEquip[i]) {
+            //Significa que el item de equipamiento del cofre ha cambiado, actualizar inventario
+            targetEquipments.setEquipment(targetEquipSlots[i], newChestEquip[i]);
+        }
     }
 }
 
