@@ -63,7 +63,6 @@ system.runInterval(async tick => {
         for (const invChest of getInvSees()) {
             if (!invChests.includes(invChest.scoreboard)) {
                 invChests.push(invChest.scoreboard);
-                initChest();
                 chestTick();
                 async function chestTick() {
                     const dimension = world.getDimension(invChest.dimension);
@@ -73,12 +72,12 @@ system.runInterval(async tick => {
                         const chest2 = dimension.getBlock({ x: invChest.pos2[0], y: invChest.pos2[1], z: invChest.pos2[2] });
                         const sign = dimension.getBlock({ x: invChest.signPos[0], y: invChest.signPos[1], z: invChest.signPos[2] });
                         if (chest1?.isValid() && chest2?.isValid() && sign?.isValid()) {
-                            if (chest1.type !== MinecraftBlockTypes.chest || chest2.type !== MinecraftBlockTypes.chest || chest1.permutation !== chest2.permutation || sign.getComponent("minecraft:sign")?.getText() !== `§b${invChest.target}'s §qinventory`) {
+                            if (chest1.type !== MinecraftBlockTypes.chest || chest2.type !== MinecraftBlockTypes.chest || chest1.permutation !== chest2.permutation) { // || sign.getComponent("minecraft:sign")?.getText() !== `§b${invChest.target}'s §qinventory`
                                 chest1.setType(MinecraftBlockTypes.air);
                                 chest2.setType(MinecraftBlockTypes.air);
                                 sign.setType(MinecraftBlockTypes.air);
-                                dimension.runCommand(`kill @e[type=item, x=${chest1.x}, y=${chest1.y}, z=${chest1.z}, r=1.7`);
-                                dimension.runCommand(`kill @e[type=item, x=${chest2.x}, y=${chest2.y}, z=${chest2.z}, r=1.7`);
+                                dimension.runCommand(`kill @e[type=item, x=${chest1.x}, y=${chest1.y}, z=${chest1.z}, r=1.7]`);
+                                dimension.runCommand(`kill @e[type=item, x=${chest2.x}, y=${chest2.y}, z=${chest2.z}, r=1.7]`);
                                 world.scoreboard.getObjective('-auInvSees').removeParticipant(invChest.scoreboard);
                                 invChests.splice(invChests.indexOf(invChest.scoreboard));
                                 system.clearRun(run);
@@ -86,17 +85,25 @@ system.runInterval(async tick => {
                         }
                     }, 1);
 
-                    let hasChestInit = false;
+                    let initChest = true; //Cosas a resolver: qué pasa si alguien cambia el cofre mientras el jugador no está conectado, qué pasa si el inventario cambia mientras el cofre no puede ser accedido, qué pasa si alguien pone un item en los slots que no se usan
+                    let replaceInvWhenJoin = false;
+                    let replaceChestWhenLoad = false;
                     while (world.scoreboard.getObjective('-auInvSees').hasParticipant(invChest.scoreboard)) {
                         const chest1 = dimension.getBlock({ x: invChest.pos1[0], y: invChest.pos1[1], z: invChest.pos1[2] });
                         const chest2 = dimension.getBlock({ x: invChest.pos2[0], y: invChest.pos2[1], z: invChest.pos2[2] });
                         const sign = dimension.getBlock({ x: invChest.signPos[0], y: invChest.signPos[1], z: invChest.signPos[2] });
                         if (chest1?.isValid() && chest2?.isValid() && sign?.isValid()) {
+                            if (initChest === true) await delay(20);
                             const chestContainer = chest1.getComponent("minecraft:inventory").container;
+                            world.sendMessage(`${chestContainer.size}`);
                             if (!world.getPlayers({ name: invChest.target })[0]) { //Waits until the player joins
+                                //hasChestInit = false;
+                                world.sendMessage(`${invChest.target}`)
+                                replaceInvWhenJoin = true;
                                 await delay(3);
 
-                            } else if (hasChestInit === false) {
+                            } else if (initChest === true) {
+                                world.sendMessage('chest init!')
                                 //Initialize the chest
                                 const rawTarget = world.getPlayers({ name: invChest.target })[0];
                                 if (rawTarget) { //Double check
@@ -113,26 +120,34 @@ system.runInterval(async tick => {
                                     for (const slot in chestEquipSlots) {
                                         chestContainer.setItem(chestEquipSlots[slot], targetEquipments.getEquipment(targetEquipSlots[slot]));
                                     }
-                                    hasChestInit = true;
+                                    initChest = false;
+                                    replaceInvWhenJoin = false;
                                     await delay(1);
+                                }
+                            } else if (replaceInvWhenJoin === true) {
+                                const rawTarget = world.getPlayers({ name: invChest.target })[0];
+                                if (rawTarget) {
+                                    await handleInventories(invChest, "inv");
+                                    replaceInvWhenJoin = false;
+                                }
+                            } else if (replaceChestWhenLoad === true) {
+                                const rawTarget = world.getPlayers({ name: invChest.target })[0];
+                                if (rawTarget) {
+                                    await handleInventories(invChest, "chest");
+                                    replaceChestWhenLoad = false;
                                 }
                             } else {
                                 const rawTarget = world.getPlayers({ name: invChest.target })[0];
-                                const targetInventory = rawTarget?.getComponent("minecraft:inventory").container;
-                                const targetEquipments = rawTarget?.getComponent("minecraft:equipment_inventory");
-                                await handleInventories(chestContainer, targetInventory, targetEquipments);
+                                if (rawTarget) {
+                                    handleInventories(invChest);
+                                    await delay(20);
+                                }
                             }
+                        } else if (world.getPlayers({ name: invChest.target })[0]) {
+                            replaceChestWhenLoad = true;
+                            await delay(3);
                         }
                     }
-                }
-                async function initChest() {
-                    const dimension = world.getDimension(invChest.dimension);
-                    while (!world.getPlayers({ name: invChest.target })[0] && !dimension.getBlock({ x: invChest.pos1[0], y: invChest.pos1[1], z: invChest.pos1[2] })?.isValid()) {
-                        await delay(1);
-                    }
-                    const chest1 = dimension.getBlock({ x: invChest.pos1[0], y: invChest.pos1[1], z: invChest.pos1[2] });
-                    const chestContainer = chest1.getComponent("minecraft:inventory").container;
-                    const targetInventory = rawTarget?.getComponent("minecraft:inventory").container;
                 }
             }
         }
@@ -542,7 +557,7 @@ world.beforeEvents.itemUse.subscribe(data => {
             for (const slot of chestLockSlots) {
                 a.getComponent("minecraft:inventory").container.getSlot(slot).lockMode = "none";
             }
-            world.sendMessage(`§b${player.getComponent("minecraft:inventory").container.getSlot(17).typeId}`);
+            world.sendMessage(`§b${player.getComponent("minecraft:inventory").container.getSlot(27).typeId}`);
             /*const foobar = player.getComponent("minecraft:equipment_inventory");
             world.sendMessage(`§b${foobar.getEquipment("chest").typeId}`);
             await delay(5 * TicksPerSecond);
@@ -959,7 +974,7 @@ function adminCommands(p) {
                 }
             } break;
             case 5: { //See an inventory
-                seeInventory(p);
+                seeInventoryMenu(p);
             } break;
             case 6: { //Make a sim player menu 
                 simPlayer(p);
@@ -2604,7 +2619,7 @@ function disableVanishGUI(p) {
                     disableVanishGUI(p);
 
                 } else if (result.selection === 1) {
-                    if (isVanished(selectedPlayer)) {
+                    if (!isVanished(selectedPlayer)) {
                         p.sendMessage("§cError, another user has recently disabled vanish mode for the selected player.");
 
                     } else {
@@ -2626,7 +2641,7 @@ function disableVanishGUI(p) {
  * @param { Player } p 
  */
 
-function seeInventory(p) {
+function seeInventoryMenu(p) {
     const playersArray = players.map(pname => pname.name);
     const form = new ActionFormData()
         .title("See an inventory");
@@ -2667,7 +2682,7 @@ function seeInventory(p) {
                         .button2("Yes");
                     form.show(p).then(result => {
                         if (result.selection === 0) {
-                            seeInventory(p);
+                            seeInventoryMenu(p);
                         } else if (result.selection === 1) {
                             createChestInv();
                         }
@@ -2713,6 +2728,20 @@ function seeInventory(p) {
                     } catch (e) {
                         p.sendMessage("§cError, couldn't create the chest.");
                     }
+                }
+            });
+        } else if (selection === 2) {
+
+        } else if (selection >= 3) {
+            const selectedPlayer = playersArray[selection - 3];
+            const form = new MessageFormData()
+                .title("See an inventory")
+                .body(`Are you sure you want to create a chest to see the inventory of §b${selectedPlayer}§r?`)
+                .button1("No")
+                .button2("Yes");
+            form.show(p).then(result => {
+                if (result.selection === 0) {
+
                 }
             });
         }
@@ -3379,7 +3408,7 @@ function getInvSees() {
             for (const chest of participants) {
                 const properties = {
                     dimension: chest.match(/(?<=^-au)overworld|nether|the_end/)[0],
-                    target: chest.match(/^-au(?:overworld|nether|the_end) -au([^]+) -au-?[0-9]+/)[1],
+                    target: chest.match(/^-au(?:overworld|nether|the_end) -au([^]+?) -au-?[0-9]+/)[1],
                     pos1: chest.match(/^-au(?:overworld|nether|the_end) -au[^]+? -au(-?[0-9]+) -au(-?[0-9]+) -au(-?[0-9]+) -au-?[0-9]+/).slice(1).map(pos => parseInt(pos)),
                     pos2: chest.match(/^-au(?:overworld|nether|the_end).+ -au(-?[0-9]+) -au(-?[0-9]+) -au(-?[0-9]+) -au-?[0-9]+ -au-?[0-9]+ -au-?[0-9]+$/).slice(1).map(pos => parseInt(pos)),
                     signPos: chest.match(/^-au(?:overworld|nether|the_end).+ -au(-?[0-9]+) -au(-?[0-9]+) -au(-?[0-9]+)$/).slice(1).map(pos => parseInt(pos)),
@@ -3396,37 +3425,58 @@ function getInvSees() {
 
 /**
  * 
- * @param { Container } chestContainer 
- * @param { Container } targetInventory 
- * @param { EntityEquipmentInventoryComponent } targetEquipments 
+ * @param { {dimension: string, target: string, pos1: number[], pos2: number[], signPos: number[], scoreboard: string} } chestObject
+ * @param { "inv" | "chest" } forceReplace Useful when you want to override the inventory with the chest, for example, if the player has just joined and you can't compare the containers to identify a change.
  */
 
-async function handleInventories(chestContainer, targetInventory, targetEquipments) { //Mandar los contenedor antiguos y actuales, tener en cuenta que los contenedores normales se actualizan :p
+async function handleInventories(chestObject, forceReplace = false) {
+    const rawTarget = world.getPlayers({ name: chestObject.target })[0];
+    const dimension = world.getDimension(chestObject.dimension);
+    const chest1 = dimension.getBlock({ x: chestObject.pos1[0], y: chestObject.pos1[1], z: chestObject.pos1[2] });
+
+    const chestContainer = chest1.getComponent("minecraft:inventory").container;
+    const targetInventory = rawTarget.getComponent("minecraft:inventory").container;
+    const targetEquipments = rawTarget.getComponent("minecraft:equipment_inventory");
+
     let oldChestInv = [];
     let oldTargetInv = [];
     let oldChestEquip = [];
     let oldTargetEquip = [];
-
-    for (let slot = 18; slot < 54; slot++) { //Save chest inventory (without incluing the top part with the equipment)
-        oldChestInv.push(chestContainer.getItem(slot));
-    }
-    for (let slot = 9; slot < 36; slot++) { //Save inventory (without including the hotbar yet)
-        oldTargetInv.push(targetInventory.getItem(slot));
-    }
-    for (let slot = 0; slot < 9; slot++) { //Save hotbar
-        oldTargetInv.push(targetInventory.getItem(slot));
-    }
-
     const chestEquipSlots = [0, 1, 2, 3, 8];
-    for (const slot of chestEquipSlots) {
-        oldChestEquip.push(chestContainer.getItem(slot));
-    }
     const targetEquipSlots = ["head", "chest", "legs", "feet", "offhand"];
-    for (const slot of targetEquipSlots) {
-        oldTargetEquip.push(targetEquipments.getEquipment(slot));
+
+    if (forceReplace === false) {
+        for (let slot = 18; slot < 54; slot++) { //Save chest inventory (without incluing the top part with the equipment)
+            oldChestInv.push(chestContainer.getItem(slot));
+        }
+        for (let slot = 9; slot < 36; slot++) { //Save inventory (without including the hotbar yet)
+            oldTargetInv.push(targetInventory.getItem(slot));
+        }
+        for (let slot = 0; slot < 9; slot++) { //Save hotbar
+            oldTargetInv.push(targetInventory.getItem(slot));
+        }
+
+        for (const slot of chestEquipSlots) {
+            oldChestEquip.push(chestContainer.getItem(slot));
+        }
+        for (const slot of targetEquipSlots) {
+            oldTargetEquip.push(targetEquipments.getEquipment(slot));
+        }
     }
 
-    await delay(1);
+    //Drop any item placed on the slots that are supposed to be empty
+    const emptySlots = [4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17];
+    let items = [];
+    for (const slot of emptySlots) {
+        items.push(chestContainer.getItem(slot));
+    }
+    for (const index in items) {
+        if (items[index] !== undefined) {
+            chestContainer.setItem(emptySlots[index], undefined);
+            dimension.spawnItem(items[index], { x: chestObject.pos1[0], y: chestObject.pos1[1] + 1, z: chestObject.pos1[2] });
+        }
+    }
+    await delay(20); //Tratar de sincronizar para que espere a que esté lista de nueva esta función por la parte de let oldChestInv y luego justo cuando termine de reemplazar los items que de paso a esa función?
 
     let newChestInv = [];
     let newTargetInv = [];
@@ -3450,29 +3500,67 @@ async function handleInventories(chestContainer, targetInventory, targetEquipmen
         newTargetEquip.push(targetEquipments.getEquipment(slot));
     }
 
-    //Inventories
-    for (let i = 0; i < oldChestInv.length; i++) {
-        if (oldTargetInv[i] !== newTargetInv[i] && newChestInv[i] !== newTargetInv[i]) {
-            //Significa que el item del inventario ha cambiado, actualizar cofre
+    if (forceReplace === false) {
+        //Inventories
+        for (let i = 0; i < oldChestInv.length; i++) {
+            if (areItemsEqual(oldTargetInv[i], newTargetInv[i]) === false && areItemsEqual(newChestInv[i], newTargetInv[i]) === false) {
+                //Means the item of the inventory at 'i' has changed, update chest
+                world.sendMessage(`Update chest`);
+                world.sendMessage(`${areItemsEqual(oldTargetInv[i], newTargetInv[i])}`);
+                chestContainer.setItem(i + 18, newTargetInv[i]);
+            }
+            if (areItemsEqual(oldChestInv[i], newChestInv[i]) === false && areItemsEqual(newChestInv[i], newTargetInv[i]) === false) {
+                //Means the item of the chest at 'i' has changed, update inventory
+                world.sendMessage('Update inventory');
+                if (i >= 27) { //Translate the slot from the array to the slot in the inventory
+                    const translatedSlot = i - 27;
+                    targetInventory.setItem(translatedSlot, newChestInv[i]);
+                } else {
+                    const translatedSlot = i + 9;
+                    targetInventory.setItem(translatedSlot, newChestInv[i]);
+                }
+            }
+        }
+
+        //Equipment
+        for (let i = 0; i < oldChestEquip.length; i++) {
+            if (areItemsEqual(oldTargetEquip[i], newTargetEquip[i]) === false && areItemsEqual(newChestEquip[i], newTargetEquip[i]) === false) {
+                //Means the equipment item of the inventory at 'i' has changed, update chest
+                chestContainer.setItem(chestEquipSlots[i], newTargetEquip[i]);
+            }
+            if (areItemsEqual(oldChestEquip[i], newChestEquip[i]) === false && areItemsEqual(newChestEquip[i], newTargetEquip[i]) === false) {
+                //Means the equipment item of the chest at 'i' has changed, update inventory
+                targetEquipments.setEquipment(targetEquipSlots[i], newChestEquip[i]);
+            }
+        }
+
+    } else if (forceReplace === "inv") {
+        for (let i = 0; i < newChestInv.length; i++) {
+            //Update inventory
+            if (i >= 27) { //Translate the slot from the array to the slot in the inventory
+                const translatedSlot = i - 27;
+                targetInventory.setItem(translatedSlot, newChestInv[i]);
+            } else {
+                const translatedSlot = i + 9;
+                targetInventory.setItem(translatedSlot, newChestInv[i]);
+            }
+        }
+        for (let i = 0; i < newChestEquip.length; i++) {
+            //Update inventory equipment
+            targetEquipments.setEquipment(targetEquipSlots[i], newChestEquip[i]);
+        }
+    } else if (forceReplace === "chest") {
+        for (let i = 0; i < newChestInv.length; i++) {
+            //Update chest inventory
             chestContainer.setItem(i + 18, newTargetInv[i]);
         }
-        if (oldChestInv[i] !== newChestInv[i] && newChestInv[i] !== newTargetInv[i]) {
-            //Significa que el item del cofre ha cambiado, actualizar inventario
-            targetInventory.setItem(i, newChestInv[i]);
+        for (let i = 0; i < newChestEquip.length; i++) {
+            //Update chest equipment
+            chestContainer.setItem(chestEquipSlots[i], newTargetEquip[i]);
         }
     }
 
-    //Equipment
-    for (let i = 0; i < oldChestEquip.length; i++) {
-        if (oldTargetEquip[i] !== newTargetEquip[i] && newChestEquip[i] !== newTargetEquip[i]) {
-            //Significa que el item de equipamiento del inventario ha cambiado, actualizar cofre
-            chestContainer.setItem(chestEquipSlots[i], newTargetEquip[i]);
-        }
-        if (oldChestEquip[i] !== newChestEquip[i] && newChestEquip[i] !== newTargetEquip[i]) {
-            //Significa que el item de equipamiento del cofre ha cambiado, actualizar inventario
-            targetEquipments.setEquipment(targetEquipSlots[i], newChestEquip[i]);
-        }
-    }
+
 }
 
 function convertToRegExpFriendly(str) {
@@ -3482,12 +3570,76 @@ function convertToRegExpFriendly(str) {
 function round(num, decimals = 2) {
     var sign = (num >= 0 ? 1 : -1);
     num = num * sign;
-    if (decimals === 0) //con 0 decimales
+    if (decimals === 0) //with 0 decimals
         return sign * Math.round(num);
-    // round(x * 10 ^ decimales)
+    // round(x * 10 ^ decimals)
     num = num.toString().split('e');
     num = Math.round(+(num[0] + 'e' + (num[1] ? (+num[1] + decimals) : decimals)));
-    // x * 10 ^ (-decimales)
+    // x * 10 ^ (-decimals)
     num = num.toString().split('e');
     return sign * (num[0] + 'e' + (num[1] ? (+num[1] - decimals) : -decimals));
+}
+
+/**
+ * @param { {} } obj1
+ * @param { {} } obj2
+ * @returns { Boolean }
+ */
+function areObjectsEqual(obj1, obj2) {
+    let objEqual = false;
+    const obj1Keys = Object.keys(obj1).sort();
+    const obj2Keys = Object.keys(obj2).sort();
+    if (obj1Keys.length === obj2Keys.length) {
+        const areEqual = obj1Keys.every((key, index) => {
+            const objValue1 = obj1[key];
+            const objValue2 = obj2[obj2Keys[index]];
+            return objValue1 === objValue2;
+        });
+        if (areEqual) {
+            objEqual = true;
+        }
+    }
+    return objEqual;
+}
+
+/**
+ * 
+ * @param { ItemStack } itemStack1
+ * @param { ItemStack } itemStack2
+ * @returns { Boolean }
+ */
+function areItemsEqual(itemStack1, itemStack2) {
+    if (itemStack1 && itemStack2) {
+        const itemProperties = ['amount', 'isStackable', 'keepOnDeath', 'maxAmount', 'nameTag', 'typeId'];
+        const itemMethods = ['getLore', 'getTags'];
+
+        let itemData1 = getItemData(itemStack1);
+        let itemData2 = getItemData(itemStack2);
+
+        return itemData1.every((value, index) => value === itemData2[index]);
+
+        function getItemData(itemStack) {
+            let itemData = [];
+            for (const property of itemProperties) {
+                itemData.push(itemStack[property]);
+            }
+
+            itemData.push(itemStack.getComponent("minecraft:durability")?.damage);
+            itemData.push(itemStack.getComponent("minecraft:durability")?.maxDurability);
+            const enchantments = itemStack.getComponent("minecraft:enchantments")?.enchantments;
+            for (const enchantment of enchantments) {
+                itemData.push(enchantment.level);
+                itemData.push(enchantment.type.id);
+                itemData.push(enchantment.type.maxLevel);
+            }
+            
+            for (const method of itemMethods) {
+                itemData.push(itemStack[method]().toString());
+            }
+            
+            return itemData;
+        }
+    } else if ((itemStack1 && !itemStack2) || (!itemStack1 && itemStack2)) {
+        return false;
+    }
 }
