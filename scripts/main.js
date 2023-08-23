@@ -88,6 +88,32 @@ system.runInterval(async tick => {
                     let initChest = true; //Cosas a resolver: qué pasa si alguien cambia el cofre mientras el jugador no está conectado, qué pasa si el inventario cambia mientras el cofre no puede ser accedido, qué pasa si alguien pone un item en los slots que no se usan
                     let replaceInvWhenJoin = false;
                     let replaceChestWhenLoad = false;
+                    let lastTargetData = [{
+                        invItems: [],
+                        equipments: []
+                    },
+                    {
+                        invItems: [],
+                        equipments: []
+                    }];
+                    let lastChestData = [{
+                        invItems: [],
+                        equipments: []
+                    },
+                    {
+                        invItems: [],
+                        equipments: []
+                    }];
+                    let recentChangedSlots = {
+                        target: {
+                            inv: [],
+                            equipment: []
+                        },
+                        chest: {
+                            inv: [],
+                            equipment: []
+                        }
+                    };
                     while (world.scoreboard.getObjective('-auInvSees').hasParticipant(invChest.scoreboard)) {
                         const chest1 = dimension.getBlock({ x: invChest.pos1[0], y: invChest.pos1[1], z: invChest.pos1[2] });
                         const chest2 = dimension.getBlock({ x: invChest.pos2[0], y: invChest.pos2[1], z: invChest.pos2[2] });
@@ -139,8 +165,15 @@ system.runInterval(async tick => {
                             } else {
                                 const rawTarget = world.getPlayers({ name: invChest.target })[0];
                                 if (rawTarget) {
-                                    handleInventories(invChest);
-                                    await delay(20);
+                                    const [targetData, chestData, changedSlots] = await handleInventories(invChest, lastTargetData, lastChestData, recentChangedSlots);
+                                    lastTargetData[1] = lastTargetData[0];
+                                    lastTargetData[0].invItems = targetData[0];
+                                    lastTargetData[0].equipments = targetData[1];
+
+                                    lastChestData[1] = lastTargetData[0];
+                                    lastChestData[0].invItems = chestData[0];
+                                    lastChestData[0].invItems = chestData[1];
+                                    recentChangedSlots = changedSlots;
                                 }
                             }
                         } else if (world.getPlayers({ name: invChest.target })[0]) {
@@ -3425,11 +3458,15 @@ function getInvSees() {
 
 /**
  * 
- * @param { {dimension: string, target: string, pos1: number[], pos2: number[], signPos: number[], scoreboard: string} } chestObject
+ * @param { { dimension: string, target: string, pos1: number[], pos2: number[], signPos: number[], scoreboard: string } } chestObject
+ * @param { { invItems: [], equipments: [] } } lastTargetData
+ * @param { { invItems: [], equipments: [] } } lastChestData
+ * @param { { target: { inv: [], equipment: []}, chest: { inv: [], equipment: [] } } } recentChangedSlots
  * @param { "inv" | "chest" } forceReplace Useful when you want to override the inventory with the chest, for example, if the player has just joined and you can't compare the containers to identify a change.
+ * Default is false.
  */
 
-async function handleInventories(chestObject, forceReplace = false) {
+async function handleInventories(chestObject, lastTargetData, lastChestData, recentChangedSlots, forceReplace = false) {
     const rawTarget = world.getPlayers({ name: chestObject.target })[0];
     const dimension = world.getDimension(chestObject.dimension);
     const chest1 = dimension.getBlock({ x: chestObject.pos1[0], y: chestObject.pos1[1], z: chestObject.pos1[2] });
@@ -3438,6 +3475,16 @@ async function handleInventories(chestObject, forceReplace = false) {
     const targetInventory = rawTarget.getComponent("minecraft:inventory").container;
     const targetEquipments = rawTarget.getComponent("minecraft:equipment_inventory");
 
+    let changedSlots = {
+        target: {
+            inv: [],
+            equipment: []
+        },
+        chest: {
+            inv: [],
+            equipment: []
+        }
+    };
     let oldChestInv = [];
     let oldTargetInv = [];
     let oldChestEquip = [];
@@ -3476,7 +3523,7 @@ async function handleInventories(chestObject, forceReplace = false) {
             dimension.spawnItem(items[index], { x: chestObject.pos1[0], y: chestObject.pos1[1] + 1, z: chestObject.pos1[2] });
         }
     }
-    await delay(20); //Tratar de sincronizar para que espere a que esté lista de nueva esta función por la parte de let oldChestInv y luego justo cuando termine de reemplazar los items que de paso a esa función?
+    await delay(10); //Tratar de sincronizar para que espere a que esté lista de nueva esta función por la parte de let oldChestInv y luego justo cuando termine de reemplazar los items que de paso a esa función?
 
     let newChestInv = [];
     let newTargetInv = [];
@@ -3508,8 +3555,12 @@ async function handleInventories(chestObject, forceReplace = false) {
                 world.sendMessage(`Update chest`);
                 world.sendMessage(`${areItemsEqual(oldTargetInv[i], newTargetInv[i])}`);
                 chestContainer.setItem(i + 18, newTargetInv[i]);
-            }
-            if (areItemsEqual(oldChestInv[i], newChestInv[i]) === false && areItemsEqual(newChestInv[i], newTargetInv[i]) === false) {
+            } else if (!recentChangedSlots.target.inv.includes(i) && areItemsEqual(lastTargetData[0].invItems[i], newTargetInv[i]) === false && areItemsEqual(newChestInv[i], newTargetInv[i]) === false && areItemsEqual(lastTargetData[1].invItems[i], lastTargetData[0].invItems[i]) === false) {
+                world.sendMessage(`Update chest`);
+                world.sendMessage(`${areItemsEqual(lastTargetData[0].invItems[i], newTargetInv[i])}`);
+                chestContainer.setItem(i + 18, newTargetInv[i]);
+                changedSlots.target.inv.push(i);
+            } else if (areItemsEqual(oldChestInv[i], newChestInv[i]) === false && areItemsEqual(newChestInv[i], newTargetInv[i]) === false) {
                 //Means the item of the chest at 'i' has changed, update inventory
                 world.sendMessage('Update inventory');
                 if (i >= 27) { //Translate the slot from the array to the slot in the inventory
@@ -3519,6 +3570,16 @@ async function handleInventories(chestObject, forceReplace = false) {
                     const translatedSlot = i + 9;
                     targetInventory.setItem(translatedSlot, newChestInv[i]);
                 }
+            } else if (!recentChangedSlots.chest.inv.includes(i) && areItemsEqual(lastChestData[0].invItems[i], newChestInv[i]) === false && areItemsEqual(newChestInv[i], newTargetInv[i]) === false && areItemsEqual(lastChestData[1].invItems[i], lastChestData[0].invItems[i]) === false) {
+                world.sendMessage('Update inventory');
+                if (i >= 27) { //Translate the slot from the array to the slot in the inventory
+                    const translatedSlot = i - 27;
+                    targetInventory.setItem(translatedSlot, newChestInv[i]);
+                } else {
+                    const translatedSlot = i + 9;
+                    targetInventory.setItem(translatedSlot, newChestInv[i]);
+                }
+                changedSlots.chest.inv.push(i);
             }
         }
 
@@ -3559,8 +3620,7 @@ async function handleInventories(chestObject, forceReplace = false) {
             chestContainer.setItem(chestEquipSlots[i], newTargetEquip[i]);
         }
     }
-
-
+    return [[newTargetInv, newTargetEquip], [newChestInv, newChestEquip], changedSlots];
 }
 
 function convertToRegExpFriendly(str) {
@@ -3632,14 +3692,16 @@ function areItemsEqual(itemStack1, itemStack2) {
                 itemData.push(enchantment.type.id);
                 itemData.push(enchantment.type.maxLevel);
             }
-            
+
             for (const method of itemMethods) {
                 itemData.push(itemStack[method]().toString());
             }
-            
+
             return itemData;
         }
     } else if ((itemStack1 && !itemStack2) || (!itemStack1 && itemStack2)) {
         return false;
+    } else {
+        return true;
     }
 }
