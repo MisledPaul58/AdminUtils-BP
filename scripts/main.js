@@ -71,8 +71,9 @@ system.runInterval(async tick => {
                         const chest1 = dimension.getBlock({ x: invChest.pos1[0], y: invChest.pos1[1], z: invChest.pos1[2] });
                         const chest2 = dimension.getBlock({ x: invChest.pos2[0], y: invChest.pos2[1], z: invChest.pos2[2] });
                         const sign = dimension.getBlock({ x: invChest.signPos[0], y: invChest.signPos[1], z: invChest.signPos[2] });
+                        world.sendMessage('NANI');
                         if (chest1?.isValid() && chest2?.isValid() && sign?.isValid()) {
-                            if (chest1.type !== MinecraftBlockTypes.chest || chest2.type !== MinecraftBlockTypes.chest || chest1.permutation !== chest2.permutation) { // || sign.getComponent("minecraft:sign")?.getText() !== `§b${invChest.target}'s §qinventory`
+                            if (chest1.type !== MinecraftBlockTypes.chest || chest2.type !== MinecraftBlockTypes.chest || chest1.permutation !== chest2.permutation || sign.getComponent("minecraft:sign")?.getText() !== `§b${invChest.target}'s §qinventory`) { // || sign.getComponent("minecraft:sign")?.getText() !== `§b${invChest.target}'s §qinventory`
                                 chest1.setType(MinecraftBlockTypes.air);
                                 chest2.setType(MinecraftBlockTypes.air);
                                 sign.setType(MinecraftBlockTypes.air);
@@ -88,31 +89,29 @@ system.runInterval(async tick => {
                     let initChest = true; //Cosas a resolver: qué pasa si alguien cambia el cofre mientras el jugador no está conectado, qué pasa si el inventario cambia mientras el cofre no puede ser accedido, qué pasa si alguien pone un item en los slots que no se usan
                     let replaceInvWhenJoin = false;
                     let replaceChestWhenLoad = false;
-                    let lastTargetData = [{
-                        invItems: [],
-                        equipments: []
-                    },
-                    {
-                        invItems: [],
-                        equipments: []
-                    }];
-                    let lastChestData = [{
-                        invItems: [],
-                        equipments: []
-                    },
-                    {
-                        invItems: [],
-                        equipments: []
-                    }];
-                    let recentChangedSlots = {
-                        target: {
-                            inv: [],
-                            equipment: []
+                    let lastTargetData = [
+                        {
+                            invItems: [],
+                            equipments: []
                         },
-                        chest: {
-                            inv: [],
-                            equipment: []
+                        {
+                            invItems: [],
+                            equipments: []
                         }
+                    ];
+                    let lastChestData = [
+                        {
+                            invItems: [],
+                            equipments: []
+                        },
+                        {
+                            invItems: [],
+                            equipments: []
+                        }
+                    ];
+                    let recentChangedSlots = {
+                        inv: [],
+                        equip: []
                     };
                     while (world.scoreboard.getObjective('-auInvSees').hasParticipant(invChest.scoreboard)) {
                         const chest1 = dimension.getBlock({ x: invChest.pos1[0], y: invChest.pos1[1], z: invChest.pos1[2] });
@@ -153,27 +152,19 @@ system.runInterval(async tick => {
                             } else if (replaceInvWhenJoin === true) {
                                 const rawTarget = world.getPlayers({ name: invChest.target })[0];
                                 if (rawTarget) {
-                                    await handleInventories(invChest, "inv");
+                                    await handleInventories(invChest, lastTargetData, lastChestData, recentChangedSlots, "inv");
                                     replaceInvWhenJoin = false;
                                 }
                             } else if (replaceChestWhenLoad === true) {
                                 const rawTarget = world.getPlayers({ name: invChest.target })[0];
                                 if (rawTarget) {
-                                    await handleInventories(invChest, "chest");
+                                    await handleInventories(invChest, lastTargetData, lastChestData, recentChangedSlots, "chest");
                                     replaceChestWhenLoad = false;
                                 }
                             } else {
                                 const rawTarget = world.getPlayers({ name: invChest.target })[0];
                                 if (rawTarget) {
-                                    const [targetData, chestData, changedSlots] = await handleInventories(invChest, lastTargetData, lastChestData, recentChangedSlots);
-                                    lastTargetData[1] = lastTargetData[0];
-                                    lastTargetData[0].invItems = targetData[0];
-                                    lastTargetData[0].equipments = targetData[1];
-
-                                    lastChestData[1] = lastTargetData[0];
-                                    lastChestData[0].invItems = chestData[0];
-                                    lastChestData[0].invItems = chestData[1];
-                                    recentChangedSlots = changedSlots;
+                                    await handleInventories(invChest, lastTargetData, lastChestData, recentChangedSlots);
                                 }
                             }
                         } else if (world.getPlayers({ name: invChest.target })[0]) {
@@ -2691,8 +2682,8 @@ function seeInventoryMenu(p) {
     }
 
     form.show(p).then((response) => {
-        const { selection } = response;
         if (response.canceled === true) return;
+        const { selection } = response;
         if (selection === 0) {
             adminCommands(p);
 
@@ -2764,7 +2755,39 @@ function seeInventoryMenu(p) {
                 }
             });
         } else if (selection === 2) {
+            const repeatedPlayers = getInvSees().map(chest => chest.target);
+            const nonRepeatedPlayers = repeatedPlayers.reduce(function (accumulator, currentValue) {
+                if (accumulator.indexOf(currentValue) === -1) {
+                    accumulator.push(currentValue)
+                }
+                return accumulator;
+            }, []);
+            const form = new ActionFormData()
+                .title("See an inventory: check active chests")
+                .body("Select an option")
+                .button("<-- Back", "textures/icons/back.png")
+            for (const player of nonRepeatedPlayers) {
+                form.button(player, "textures/icons/steve_icon.png");
+            }
+            form.show(p).then((response) => {
+                if (response.canceled === true) return;
+                const { selection } = response;
 
+                if (selection === 0) {
+                    seeInventoryMenu(p);
+
+                } else if (selection >= 1) {
+                    const selectedPlayer = nonRepeatedPlayers[selection - 1];
+                    const chests = getInvSees().filter(chest => chest.target === selectedPlayer);
+                    const form = new ActionFormData()
+                        .title(`Check active chests: §b${selectedPlayer}`)
+                        .body("Select a chest")
+                        .button("<-- Back");
+                    for (let i = 1; i <= chests.length; i++) {
+                        form.button(`Chest ${i}`, "textures/icons/cofre.png");
+                    }
+                }
+            });
         } else if (selection >= 3) {
             const selectedPlayer = playersArray[selection - 3];
             const form = new MessageFormData()
@@ -3459,9 +3482,9 @@ function getInvSees() {
 /**
  * 
  * @param { { dimension: string, target: string, pos1: number[], pos2: number[], signPos: number[], scoreboard: string } } chestObject
- * @param { { invItems: [], equipments: [] } } lastTargetData
- * @param { { invItems: [], equipments: [] } } lastChestData
- * @param { { target: { inv: [], equipment: []}, chest: { inv: [], equipment: [] } } } recentChangedSlots
+ * @param { [{ invItems: [], equipments: [] }, { invItems: [], equipments: [] }] } lastTargetData
+ * @param { [{ invItems: [], equipments: [] }, { invItems: [], equipments: [] }] } lastChestData
+ * @param { { inv: [], equip: [] } } recentChangedSlots
  * @param { "inv" | "chest" } forceReplace Useful when you want to override the inventory with the chest, for example, if the player has just joined and you can't compare the containers to identify a change.
  * Default is false.
  */
@@ -3476,14 +3499,8 @@ async function handleInventories(chestObject, lastTargetData, lastChestData, rec
     const targetEquipments = rawTarget.getComponent("minecraft:equipment_inventory");
 
     let changedSlots = {
-        target: {
-            inv: [],
-            equipment: []
-        },
-        chest: {
-            inv: [],
-            equipment: []
-        }
+        inv: [],
+        equip: []
     };
     let oldChestInv = [];
     let oldTargetInv = [];
@@ -3555,11 +3572,12 @@ async function handleInventories(chestObject, lastTargetData, lastChestData, rec
                 world.sendMessage(`Update chest`);
                 world.sendMessage(`${areItemsEqual(oldTargetInv[i], newTargetInv[i])}`);
                 chestContainer.setItem(i + 18, newTargetInv[i]);
-            } else if (!recentChangedSlots.target.inv.includes(i) && areItemsEqual(lastTargetData[0].invItems[i], newTargetInv[i]) === false && areItemsEqual(newChestInv[i], newTargetInv[i]) === false && areItemsEqual(lastTargetData[1].invItems[i], lastTargetData[0].invItems[i]) === false) {
-                world.sendMessage(`Update chest`);
+                changedSlots.inv.push(i);
+            } else if (!recentChangedSlots.inv.includes(i) && areItemsEqual(lastTargetData[0].invItems[i], oldTargetInv[i]) === false && areItemsEqual(lastTargetData[0].invItems[i], lastTargetData[1].invItems[i]) === true) {
+                world.sendMessage(`Update §bchest`);
                 world.sendMessage(`${areItemsEqual(lastTargetData[0].invItems[i], newTargetInv[i])}`);
                 chestContainer.setItem(i + 18, newTargetInv[i]);
-                changedSlots.target.inv.push(i);
+                changedSlots.inv.push(i);
             } else if (areItemsEqual(oldChestInv[i], newChestInv[i]) === false && areItemsEqual(newChestInv[i], newTargetInv[i]) === false) {
                 //Means the item of the chest at 'i' has changed, update inventory
                 world.sendMessage('Update inventory');
@@ -3570,8 +3588,9 @@ async function handleInventories(chestObject, lastTargetData, lastChestData, rec
                     const translatedSlot = i + 9;
                     targetInventory.setItem(translatedSlot, newChestInv[i]);
                 }
-            } else if (!recentChangedSlots.chest.inv.includes(i) && areItemsEqual(lastChestData[0].invItems[i], newChestInv[i]) === false && areItemsEqual(newChestInv[i], newTargetInv[i]) === false && areItemsEqual(lastChestData[1].invItems[i], lastChestData[0].invItems[i]) === false) {
-                world.sendMessage('Update inventory');
+                changedSlots.inv.push(i);
+            } else if (!recentChangedSlots.inv.includes(i) && areItemsEqual(lastChestData[0].invItems[i], oldChestInv[i]) === false && areItemsEqual(lastChestData[0].invItems[i], lastChestData[1].invItems[i]) === true) {
+                world.sendMessage('Update §binventory'); //A veces te devuelve el item cuando lo tiras
                 if (i >= 27) { //Translate the slot from the array to the slot in the inventory
                     const translatedSlot = i - 27;
                     targetInventory.setItem(translatedSlot, newChestInv[i]);
@@ -3579,7 +3598,7 @@ async function handleInventories(chestObject, lastTargetData, lastChestData, rec
                     const translatedSlot = i + 9;
                     targetInventory.setItem(translatedSlot, newChestInv[i]);
                 }
-                changedSlots.chest.inv.push(i);
+                changedSlots.inv.push(i);
             }
         }
 
@@ -3588,10 +3607,17 @@ async function handleInventories(chestObject, lastTargetData, lastChestData, rec
             if (areItemsEqual(oldTargetEquip[i], newTargetEquip[i]) === false && areItemsEqual(newChestEquip[i], newTargetEquip[i]) === false) {
                 //Means the equipment item of the inventory at 'i' has changed, update chest
                 chestContainer.setItem(chestEquipSlots[i], newTargetEquip[i]);
-            }
-            if (areItemsEqual(oldChestEquip[i], newChestEquip[i]) === false && areItemsEqual(newChestEquip[i], newTargetEquip[i]) === false) {
+                changedSlots.equip.push(i);
+            } else if (!recentChangedSlots.equip.includes(i) && areItemsEqual(lastTargetData[0].equipments[i], oldTargetEquip[i]) === false && areItemsEqual(lastTargetData[0].equipments[i], lastTargetData[1].equipments[i]) === true) {
+                chestContainer.setItem(chestEquipSlots[i], newTargetEquip[i]);
+                changedSlots.equip.push(i);
+            } else if (areItemsEqual(oldChestEquip[i], newChestEquip[i]) === false && areItemsEqual(newChestEquip[i], newTargetEquip[i]) === false) {
                 //Means the equipment item of the chest at 'i' has changed, update inventory
                 targetEquipments.setEquipment(targetEquipSlots[i], newChestEquip[i]);
+                changedSlots.equip.push(i);
+            } else if (!recentChangedSlots.equip.includes(i) && areItemsEqual(lastChestData[0].equipments[i], oldChestEquip[i]) === false && areItemsEqual(lastChestData[0].equipments[i], lastChestData[1].equipments[i]) === true) {
+                targetEquipments.setEquipment(targetEquipSlots[i], newChestEquip[i]);
+                changedSlots.equip.push(i);
             }
         }
 
@@ -3620,7 +3646,16 @@ async function handleInventories(chestObject, lastTargetData, lastChestData, rec
             chestContainer.setItem(chestEquipSlots[i], newTargetEquip[i]);
         }
     }
-    return [[newTargetInv, newTargetEquip], [newChestInv, newChestEquip], changedSlots];
+    //Fill and replace backup variables (pass by reference)
+    Object.assign(lastTargetData[1], lastTargetData[0]);
+    lastTargetData[0].invItems = newTargetInv;
+    lastTargetData[0].equipments = newTargetEquip;
+
+    Object.assign(lastChestData[1], lastChestData[0]);
+    lastChestData[0].invItems = newChestInv;
+    lastChestData[0].equipments = newChestEquip;
+
+    Object.assign(recentChangedSlots, changedSlots);
 }
 
 function convertToRegExpFriendly(str) {
