@@ -2676,7 +2676,7 @@ function seeInventoryMenu(p) {
     }
     form.button("<-- Back", "textures/icons/back.png")
         .button("Type an offline/online player instead", "textures/icons/pencil.png")
-        .button("Check active chests");
+        .button("Manage active chests");
     for (const player of playersArray) {
         form.button(player, "textures/icons/steve_icon.png");
     }
@@ -2755,39 +2755,61 @@ function seeInventoryMenu(p) {
                 }
             });
         } else if (selection === 2) {
-            const repeatedPlayers = getInvSees().map(chest => chest.target);
-            const nonRepeatedPlayers = repeatedPlayers.reduce(function (accumulator, currentValue) {
-                if (accumulator.indexOf(currentValue) === -1) {
-                    accumulator.push(currentValue)
-                }
-                return accumulator;
-            }, []);
-            const form = new ActionFormData()
-                .title("See an inventory: check active chests")
-                .body("Select an option")
-                .button("<-- Back", "textures/icons/back.png")
-            for (const player of nonRepeatedPlayers) {
-                form.button(player, "textures/icons/steve_icon.png");
-            }
-            form.show(p).then((response) => {
-                if (response.canceled === true) return;
-                const { selection } = response;
-
-                if (selection === 0) {
-                    seeInventoryMenu(p);
-
-                } else if (selection >= 1) {
-                    const selectedPlayer = nonRepeatedPlayers[selection - 1];
-                    const chests = getInvSees().filter(chest => chest.target === selectedPlayer);
-                    const form = new ActionFormData()
-                        .title(`Check active chests: §b${selectedPlayer}`)
-                        .body("Select a chest")
-                        .button("<-- Back");
-                    for (let i = 1; i <= chests.length; i++) {
-                        form.button(`Chest ${i}`, "textures/icons/cofre.png");
+            manageActiveChests();
+            function manageActiveChests() {
+                const repeatedPlayers = getInvSees().map(chest => chest.target);
+                const nonRepeatedPlayers = repeatedPlayers.reduce(function (accumulator, currentValue) {
+                    if (accumulator.indexOf(currentValue) === -1) {
+                        accumulator.push(currentValue)
                     }
+                    return accumulator;
+                }, []);
+
+                const form = new ActionFormData()
+                    .title("See an inventory: manage active chests")
+                    .body("Select an option")
+                    .button("<-- Back", "textures/icons/back.png")
+                for (const player of nonRepeatedPlayers) {
+                    form.button(player, "textures/icons/steve_icon.png");
                 }
-            });
+                form.show(p).then((response) => {
+                    if (response.canceled === true) return;
+                    const { selection } = response;
+
+                    if (selection === 0) {
+                        seeInventoryMenu(p);
+
+                    } else if (selection >= 1) {
+                        const selectedPlayer = nonRepeatedPlayers[selection - 1];
+                        const chests = getInvSees().filter(chest => chest.target === selectedPlayer);
+
+                        const form = new ActionFormData()
+                            .title(`Manage active chests: §b${selectedPlayer}`)
+                            .body("Select a chest")
+                            .button("<-- Back");
+                        for (let i = 1; i <= chests.length; i++) {
+                            form.button(`§lChest ${i}`, "textures/icons/chest.png");
+                        }
+                        form.show(p).then((response) => {
+                            if (response.canceled === true) return;
+                            const { selection } = response;
+                            if (selection === 0) {
+                                manageActiveChests();
+
+                            } else if (selection <= 1) {
+                                const selectedChest = chests[selection - 1];
+                                const form = new ActionFormData()
+                                    .title(`§b${selectedPlayer}: §6chest ${selection}`)
+                                    .body("Select an option")
+                                    .button("<-- Back", "textures/icons/back.png")
+                                    .button("Teleport to this chest")
+                                    .button("Delete this chest")
+
+                            }
+                        });
+                    }
+                });
+            }
         } else if (selection >= 3) {
             const selectedPlayer = playersArray[selection - 3];
             const form = new MessageFormData()
@@ -2796,8 +2818,11 @@ function seeInventoryMenu(p) {
                 .button1("No")
                 .button2("Yes");
             form.show(p).then(result => {
+                if (result.canceled === true) world.sendMessage('canceled');
                 if (result.selection === 0) {
 
+                } else if (result.selection === 1) {
+                    
                 }
             });
         }
