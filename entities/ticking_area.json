@@ -2,7 +2,7 @@
 	"format_version": "1.17.0",
 	"minecraft:entity": {
 		"description": {
-			"identifier": "au:basedetect",
+			"identifier": "au:tickingarea",
 			"is_summonable": true,
 			"is_spawnable": false,
 			"is_experimental": false
@@ -35,12 +35,10 @@
 				"has_gravity": false,
 				"has_collision": false
 			},
-			"minecraft:nameable": {},
 			"minecraft:collision_box": {
 				"width": 1,
 				"height": 1
 			},
-			"minecraft:is_saddled": {},
 			"minecraft:conditional_bandwidth_optimization": {}
 		},
 		"events": {}

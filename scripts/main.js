@@ -58,118 +58,117 @@ system.runInterval(async tick => {
         world.sendMessage(`${container.size}`);
     }
     */
-
-    if (getInvSees()) {
-        for (const invChest of getInvSees()) {
-            if (!invChests.includes(invChest.scoreboard)) {
-                invChests.push(invChest.scoreboard);
-                chestTick();
-                async function chestTick() {
-                    const dimension = world.getDimension(invChest.dimension);
-                    //Rellenar aquí los espacios vacíos con paneles de cristal grises con lockMode
-                    const run = system.runInterval(() => { //Controls if any block is broken
-                        const chest1 = dimension.getBlock({ x: invChest.pos1[0], y: invChest.pos1[1], z: invChest.pos1[2] });
-                        const chest2 = dimension.getBlock({ x: invChest.pos2[0], y: invChest.pos2[1], z: invChest.pos2[2] });
-                        const sign = dimension.getBlock({ x: invChest.signPos[0], y: invChest.signPos[1], z: invChest.signPos[2] });
-                        world.sendMessage('NANI');
-                        if (chest1?.isValid() && chest2?.isValid() && sign?.isValid()) {
-                            if (chest1.type !== MinecraftBlockTypes.chest || chest2.type !== MinecraftBlockTypes.chest || chest1.permutation !== chest2.permutation || sign.getComponent("minecraft:sign")?.getText() !== `§b${invChest.target}'s §qinventory`) { // || sign.getComponent("minecraft:sign")?.getText() !== `§b${invChest.target}'s §qinventory`
-                                chest1.setType(MinecraftBlockTypes.air);
-                                chest2.setType(MinecraftBlockTypes.air);
-                                sign.setType(MinecraftBlockTypes.air);
-                                dimension.runCommand(`kill @e[type=item, x=${chest1.x}, y=${chest1.y}, z=${chest1.z}, r=1.7]`);
-                                dimension.runCommand(`kill @e[type=item, x=${chest2.x}, y=${chest2.y}, z=${chest2.z}, r=1.7]`);
-                                world.scoreboard.getObjective('-auInvSees').removeParticipant(invChest.scoreboard);
-                                invChests.splice(invChests.indexOf(invChest.scoreboard));
-                                system.clearRun(run);
+    if (firstPlayer === true) { //Cambiar fistPlayer por una variable que sea true cuando se pueda hacer testfor sobre el primer jugador
+        if (getInvSees()) {
+            for (const invChest of getInvSees()) {
+                if (!invChests.includes(invChest.scoreboard)) {
+                    invChests.push(invChest.scoreboard);
+                    chestTick();
+                    async function chestTick() { //Poner un try catch a todo?
+                        const dimension = world.getDimension(invChest.dimension);
+                        //Rellenar aquí los espacios vacíos con paneles de cristal grises con lockMode
+                        const run = system.runInterval(() => { //Controls if any block is broken
+                            const chest1 = dimension.getBlock({ x: invChest.pos1[0], y: invChest.pos1[1], z: invChest.pos1[2] });
+                            const chest2 = dimension.getBlock({ x: invChest.pos2[0], y: invChest.pos2[1], z: invChest.pos2[2] });
+                            const sign = dimension.getBlock({ x: invChest.signPos[0], y: invChest.signPos[1], z: invChest.signPos[2] });
+                            if (chest1?.isValid() && chest2?.isValid() && sign?.isValid()) {
+                                if (chest1.type !== MinecraftBlockTypes.chest || chest2.type !== MinecraftBlockTypes.chest || chest1.permutation !== chest2.permutation || sign.getComponent("minecraft:sign")?.getText() !== `§b${invChest.target}'s §qinventory`) {
+                                    chest1.setType(MinecraftBlockTypes.air);
+                                    chest2.setType(MinecraftBlockTypes.air);
+                                    sign.setType(MinecraftBlockTypes.air);
+                                    dimension.runCommand(`kill @e[type=item, x=${chest1.x}, y=${chest1.y}, z=${chest1.z}, r=1.7]`);
+                                    dimension.runCommand(`kill @e[type=item, x=${chest2.x}, y=${chest2.y}, z=${chest2.z}, r=1.7]`);
+                                    world.scoreboard.getObjective('-auInvSees').removeParticipant(invChest.scoreboard);
+                                    invChests.splice(invChests.indexOf(invChest.scoreboard));
+                                    system.clearRun(run);
+                                }
                             }
-                        }
-                    }, 1);
+                        }, 1);
 
-                    let initChest = true; //Cosas a resolver: qué pasa si alguien cambia el cofre mientras el jugador no está conectado, qué pasa si el inventario cambia mientras el cofre no puede ser accedido, qué pasa si alguien pone un item en los slots que no se usan
-                    let replaceInvWhenJoin = false;
-                    let replaceChestWhenLoad = false;
-                    let lastTargetData = [
-                        {
-                            invItems: [],
-                            equipments: []
-                        },
-                        {
-                            invItems: [],
-                            equipments: []
-                        }
-                    ];
-                    let lastChestData = [
-                        {
-                            invItems: [],
-                            equipments: []
-                        },
-                        {
-                            invItems: [],
-                            equipments: []
-                        }
-                    ];
-                    let recentChangedSlots = {
-                        inv: [],
-                        equip: []
-                    };
-                    while (world.scoreboard.getObjective('-auInvSees').hasParticipant(invChest.scoreboard)) {
-                        const chest1 = dimension.getBlock({ x: invChest.pos1[0], y: invChest.pos1[1], z: invChest.pos1[2] });
-                        const chest2 = dimension.getBlock({ x: invChest.pos2[0], y: invChest.pos2[1], z: invChest.pos2[2] });
-                        const sign = dimension.getBlock({ x: invChest.signPos[0], y: invChest.signPos[1], z: invChest.signPos[2] });
-                        if (chest1?.isValid() && chest2?.isValid() && sign?.isValid()) {
-                            if (initChest === true) await delay(20);
-                            const chestContainer = chest1.getComponent("minecraft:inventory").container;
-                            world.sendMessage(`${chestContainer.size}`);
-                            if (!world.getPlayers({ name: invChest.target })[0]) { //Waits until the player joins
-                                //hasChestInit = false;
-                                world.sendMessage(`${invChest.target}`)
-                                replaceInvWhenJoin = true;
+                        let initChest = true; //Cosas a resolver: qué pasa si alguien cambia el cofre mientras el jugador no está conectado, qué pasa si el inventario cambia mientras el cofre no puede ser accedido, qué pasa si alguien pone un item en los slots que no se usan
+                        let replaceInvWhenJoin = false;
+                        let replaceChestWhenLoad = false;
+                        let lastTargetData = [
+                            {
+                                invItems: [],
+                                equipments: []
+                            },
+                            {
+                                invItems: [],
+                                equipments: []
+                            }
+                        ];
+                        let lastChestData = [
+                            {
+                                invItems: [],
+                                equipments: []
+                            },
+                            {
+                                invItems: [],
+                                equipments: []
+                            }
+                        ];
+                        let recentChangedSlots = {
+                            inv: [],
+                            equip: []
+                        };
+                        while (world.scoreboard.getObjective('-auInvSees').hasParticipant(invChest.scoreboard)) {
+                            const chest1 = dimension.getBlock({ x: invChest.pos1[0], y: invChest.pos1[1], z: invChest.pos1[2] });
+                            const chest2 = dimension.getBlock({ x: invChest.pos2[0], y: invChest.pos2[1], z: invChest.pos2[2] });
+                            const sign = dimension.getBlock({ x: invChest.signPos[0], y: invChest.signPos[1], z: invChest.signPos[2] });
+                            if (chest1?.isValid() && chest2?.isValid() && sign?.isValid()) {
+                                if (initChest === true) await delay(20);
+                                const chestContainer = chest1.getComponent("minecraft:inventory").container;
+                                if (!world.getPlayers({ name: invChest.target })[0]) { //Waits until the player joins
+                                    //hasChestInit = false;
+                                    world.sendMessage(`${invChest.target}`)
+                                    replaceInvWhenJoin = true;
+                                    await delay(3);
+
+                                } else if (initChest === true) {
+                                    world.sendMessage('chest init!')
+                                    //Initialize the chest
+                                    const rawTarget = world.getPlayers({ name: invChest.target })[0];
+                                    if (rawTarget) { //Double check
+                                        const targetInventory = rawTarget.getComponent("minecraft:inventory").container;
+                                        const targetEquipments = rawTarget.getComponent("minecraft:equipment_inventory");
+                                        for (let slot = 9; slot < 36; slot++) {
+                                            chestContainer.setItem(slot + 9, targetInventory.getItem(slot));
+                                        }
+                                        for (let slot = 0; slot < 9; slot++) {
+                                            chestContainer.setItem(slot + 45, targetInventory.getItem(slot));
+                                        }
+                                        const chestEquipSlots = [0, 1, 2, 3, 8];
+                                        const targetEquipSlots = ["head", "chest", "legs", "feet", "offhand"];
+                                        for (const slot in chestEquipSlots) {
+                                            chestContainer.setItem(chestEquipSlots[slot], targetEquipments.getEquipment(targetEquipSlots[slot]));
+                                        }
+                                        initChest = false;
+                                        replaceInvWhenJoin = false;
+                                        await delay(1);
+                                    }
+                                } else if (replaceInvWhenJoin === true) {
+                                    const rawTarget = world.getPlayers({ name: invChest.target })[0];
+                                    if (rawTarget) {
+                                        await handleInventories(invChest, lastTargetData, lastChestData, recentChangedSlots, "inv");
+                                        replaceInvWhenJoin = false;
+                                    }
+                                } else if (replaceChestWhenLoad === true) {
+                                    const rawTarget = world.getPlayers({ name: invChest.target })[0];
+                                    if (rawTarget) {
+                                        await handleInventories(invChest, lastTargetData, lastChestData, recentChangedSlots, "chest");
+                                        replaceChestWhenLoad = false;
+                                    }
+                                } else {
+                                    const rawTarget = world.getPlayers({ name: invChest.target })[0];
+                                    if (rawTarget) {
+                                        await handleInventories(invChest, lastTargetData, lastChestData, recentChangedSlots);
+                                    }
+                                }
+                            } else if (world.getPlayers({ name: invChest.target })[0]) {
+                                replaceChestWhenLoad = true;
                                 await delay(3);
-
-                            } else if (initChest === true) {
-                                world.sendMessage('chest init!')
-                                //Initialize the chest
-                                const rawTarget = world.getPlayers({ name: invChest.target })[0];
-                                if (rawTarget) { //Double check
-                                    const targetInventory = rawTarget.getComponent("minecraft:inventory").container;
-                                    const targetEquipments = rawTarget.getComponent("minecraft:equipment_inventory");
-                                    for (let slot = 9; slot < 36; slot++) {
-                                        chestContainer.setItem(slot + 9, targetInventory.getItem(slot));
-                                    }
-                                    for (let slot = 0; slot < 9; slot++) {
-                                        chestContainer.setItem(slot + 45, targetInventory.getItem(slot));
-                                    }
-                                    const chestEquipSlots = [0, 1, 2, 3, 8];
-                                    const targetEquipSlots = ["head", "chest", "legs", "feet", "offhand"];
-                                    for (const slot in chestEquipSlots) {
-                                        chestContainer.setItem(chestEquipSlots[slot], targetEquipments.getEquipment(targetEquipSlots[slot]));
-                                    }
-                                    initChest = false;
-                                    replaceInvWhenJoin = false;
-                                    await delay(1);
-                                }
-                            } else if (replaceInvWhenJoin === true) {
-                                const rawTarget = world.getPlayers({ name: invChest.target })[0];
-                                if (rawTarget) {
-                                    await handleInventories(invChest, lastTargetData, lastChestData, recentChangedSlots, "inv");
-                                    replaceInvWhenJoin = false;
-                                }
-                            } else if (replaceChestWhenLoad === true) {
-                                const rawTarget = world.getPlayers({ name: invChest.target })[0];
-                                if (rawTarget) {
-                                    await handleInventories(invChest, lastTargetData, lastChestData, recentChangedSlots, "chest");
-                                    replaceChestWhenLoad = false;
-                                }
-                            } else {
-                                const rawTarget = world.getPlayers({ name: invChest.target })[0];
-                                if (rawTarget) {
-                                    await handleInventories(invChest, lastTargetData, lastChestData, recentChangedSlots);
-                                }
                             }
-                        } else if (world.getPlayers({ name: invChest.target })[0]) {
-                            replaceChestWhenLoad = true;
-                            await delay(3);
                         }
                     }
                 }
@@ -2089,7 +2088,7 @@ function jailLocConfig(p) {
                                 await runTellraw(p, `§cError, the jail location has recently been removed by another user.`);
                             }
                         } catch (e) {
-                            await runTellraw(p, `§cError, couldn't teleport to the jail location.`);
+                            await runTellraw(p, `§cError, couldn't teleport you to the jail location.`);
                         }
                     }
                 });
@@ -2256,7 +2255,7 @@ function jailExitLocConfig(p) {
                             await runCmd(p, "playsound beacon.activate @s ~ ~ ~ 100");
                             await runTellraw(p, `§bTeleported!`);
                         } catch (e) {
-                            await runTellraw(p, `§cError, couldn't teleport to the jail exit location.`);
+                            await runTellraw(p, `§cError, couldn't teleport you to the jail exit location.`);
                         }
                     }
                 });
@@ -2684,10 +2683,10 @@ function seeInventoryMenu(p) {
     form.show(p).then((response) => {
         if (response.canceled === true) return;
         const { selection } = response;
-        if (selection === 0) {
+        if (selection === 0) { //Back
             adminCommands(p);
 
-        } else if (selection === 1) {
+        } else if (selection === 1) { //Type manually
             const form = new ModalFormData()
                 .title("See an inventory")
                 .textField("§bType below the player you would like to see the inventory of.§r\nThis will place a large chest in front of you, so make sure there's enough space.", "Player's name");
@@ -2754,9 +2753,9 @@ function seeInventoryMenu(p) {
                     }
                 }
             });
-        } else if (selection === 2) {
+        } else if (selection === 2) { //Manage active chests
             manageActiveChests();
-            function manageActiveChests() {
+            function manageActiveChests() { //Handle what happens if there isn't any chest.
                 const repeatedPlayers = getInvSees().map(chest => chest.target);
                 const nonRepeatedPlayers = repeatedPlayers.reduce(function (accumulator, currentValue) {
                     if (accumulator.indexOf(currentValue) === -1) {
@@ -2776,37 +2775,153 @@ function seeInventoryMenu(p) {
                     if (response.canceled === true) return;
                     const { selection } = response;
 
-                    if (selection === 0) {
+                    if (selection === 0) { //Back
                         seeInventoryMenu(p);
 
                     } else if (selection >= 1) {
-                        const selectedPlayer = nonRepeatedPlayers[selection - 1];
-                        const chests = getInvSees().filter(chest => chest.target === selectedPlayer);
+                        selectChest();
+                        function selectChest() {
+                            const selectedPlayer = nonRepeatedPlayers[selection - 1];
+                            const chests = getInvSees().filter(chest => chest.target === selectedPlayer);
 
-                        const form = new ActionFormData()
-                            .title(`Manage active chests: §b${selectedPlayer}`)
-                            .body("Select a chest")
-                            .button("<-- Back");
-                        for (let i = 1; i <= chests.length; i++) {
-                            form.button(`§lChest ${i}`, "textures/icons/chest.png");
-                        }
-                        form.show(p).then((response) => {
-                            if (response.canceled === true) return;
-                            const { selection } = response;
-                            if (selection === 0) {
-                                manageActiveChests();
-
-                            } else if (selection <= 1) {
-                                const selectedChest = chests[selection - 1];
-                                const form = new ActionFormData()
-                                    .title(`§b${selectedPlayer}: §6chest ${selection}`)
-                                    .body("Select an option")
-                                    .button("<-- Back", "textures/icons/back.png")
-                                    .button("Teleport to this chest")
-                                    .button("Delete this chest")
-
+                            const form = new ActionFormData()
+                                .title(`Manage active chests: §b${selectedPlayer}`)
+                                .body("Select a chest")
+                                .button("<-- Back", "textures/icons/back.png");
+                            for (let i = 1; i <= chests.length; i++) {
+                                form.button(`§lChest ${i}`, "textures/icons/chest.png");
                             }
-                        });
+                            form.show(p).then((response) => {
+                                if (response.canceled === true) return;
+                                const { selection: chestSelection } = response;
+                                if (chestSelection === 0) { //Back
+                                    manageActiveChests();
+
+                                } else if (chestSelection >= 1) {
+                                    chestOptions();
+                                    function chestOptions() {
+                                        const selectedChest = chests[chestSelection - 1];
+                                        if (!getInvSees().some(chest => chest.scoreboard === selectedChest.scoreboard)) {
+                                            p.sendMessage('§cError, the selected chest has recently been removed by another user.');
+
+                                        } else {
+                                            const _chestDim = selectedChest.dimension;
+                                            let chestDim = '';
+                                            switch (_chestDim) {
+                                                case "overworld":
+                                                    chestDim = '§bOverworld';
+                                                    break;
+                                                case "nether":
+                                                    chestDim = '§cNether';
+                                                    break;
+                                                case "the_end":
+                                                    chestDim = '§5The End';
+                                                    break;
+                                            }
+
+                                            const form = new ActionFormData()
+                                                .title(`§l§b${selectedPlayer}: §6chest ${chestSelection}`)
+                                                .body(`Select an option. This chest is located at §a${selectedChest.signPos[0]}, ${selectedChest.signPos[1]}, ${selectedChest.signPos[2]}§r, ${chestDim}§r.`)
+                                                .button("<-- Back", "textures/icons/back.png")
+                                                .button("Teleport to this chest")
+                                                .button("Delete this chest"); //Spawnear mi entidad y teletransportarla ahí, luego romper el cofre
+                                            form.show(p).then((response) => {
+                                                if (response.canceled === true) return;
+                                                const { selection } = response;
+                                                if (selection === 0) { //Back
+                                                    selectChest();
+
+                                                } else if (selection === 1) {
+                                                    if (!getInvSees().some(chest => chest.scoreboard === selectedChest.scoreboard)) {
+                                                        p.sendMessage('§cError, the selected chest has recently been removed by another user.');
+
+                                                    } else {
+                                                        const form = new MessageFormData()
+                                                            .title(`§l§b${selectedPlayer}: §6chest ${chestSelection}`)
+                                                            .body(`Are you sure you want to teleport to §b${selectedPlayer}'s chest§r located at §a${selectedChest.signPos[0]}, ${selectedChest.signPos[1]}, ${selectedChest.signPos[2]}§r, ${chestDim}§r?`)
+                                                            .button1("No")
+                                                            .button2("Yes");
+                                                        form.show(p).then(async result => {
+                                                            if (result.canceled === true) return;
+                                                            if (result.selection === 0) {
+                                                                chestOptions();
+                                                            } else if (result.selection === 1) {
+                                                                try {
+                                                                    if (!getInvSees().some(chest => chest.scoreboard === selectedChest.scoreboard)) {
+                                                                        p.sendMessage('§cError, the selected chest has recently been removed by another user.');
+
+                                                                    } else {
+                                                                        p.sendMessage('§bTeleporting...'); //Are you sure you want to teleport to.... (coords, dimension..)
+                                                                        p.runCommand("camera @s set au:tpanimation ease 4 in_sine pos ~ ~100 ~ rot 90 0");
+                                                                        await delay(20);
+                                                                        p.runCommand("camera @s fade time 3 1 1 color 0 0 0");
+                                                                        await delay(60);
+                                                                        p.teleport({ x: selectedChest.signPos[0] + 0.5, y: selectedChest.signPos[1], z: selectedChest.signPos[2] + 0.5 }, { dimension: world.getDimension(selectedChest.dimension) });
+                                                                        p.runCommand("camera @s clear");
+                                                                        await delay(20);
+                                                                        await runCmd(p, "playsound beacon.activate @s ~ ~ ~ 100");
+                                                                        p.sendMessage('§bTeleported!');
+
+                                                                    }
+                                                                } catch (e) {
+                                                                    p.sendMessage("§cError, couldn't teleport you to the chest.");
+                                                                }
+                                                            }
+                                                        });
+                                                    }
+
+                                                } else if (selection === 2) {
+                                                    const form = new MessageFormData()
+                                                        .title(`§l§b${selectedPlayer}: §6chest ${chestSelection}`)
+                                                        .body(`Are you sure you want to delete the chest located at §a${selectedChest.signPos[0]}, ${selectedChest.signPos[1]}, ${selectedChest.signPos[2]}§r, ${chestDim}§r?\nA simulated player will be spawned in order to load the chest's chunk and delete it.\nIf you don't want this, you can teleport to the chest and manually break it.`)
+                                                        .button1("No")
+                                                        .button2("Yes");
+                                                    form.show(p).then(async result => { //Usar un simulated player para que rompa el bloque del cartel?!!
+                                                        if (result.canceled === true) return;
+                                                        if (result.selection === 0) {
+                                                            chestOptions();
+                                                        } else {
+                                                            if (!getInvSees().some(chest => chest.scoreboard === selectedChest.scoreboard)) {
+                                                                p.sendMessage('§cError, the selected chest has recently been removed by another user.');
+
+                                                            } else {
+                                                                try {
+                                                                    GameTest.register("SimPlayers", `sim_player${simcount}`, (test) => {
+                                                                        const spawnLoc = new Vector(1, 2 ,1);
+                                                                        const player = test.spawnSimulatedPlayer(spawnLoc, "", GameMode.creative);
+                                                                        overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
+
+                                                                        test
+                                                                            .startSequence()
+                                                                            .thenExecute(() => {
+                                                                                player.teleport({ x: selectedChest.signPos[0] + 0.5, y: selectedChest.signPos[1], z: selectedChest.signPos[2] + 0.5 }, { dimension: world.getDimension(selectedChest.dimension) });
+                                                                                
+                                                                            })
+                                                                    });
+
+
+                                                                    const tickingEntity = p.dimension.spawnEntity("au:tickingarea", { x: p.location.x, y: 319, z: p.location.z });
+                                                                    tickingEntity.teleport({ x: selectedChest.signPos[0] + 0.5, y: selectedChest.signPos[1], z: selectedChest.signPos[2] + 0.5 }, { dimension: world.getDimension(selectedChest.dimension) });
+                                                                    await delay(60);
+                                                                    const dimension = world.getDimension(selectedChest.dimension);
+                                                                    const sign = dimension.getBlock({ x: selectedChest.signPos[0], y: selectedChest.signPos[1], z: selectedChest.signPos[2] });
+                                                                    sign.setType(MinecraftBlockTypes.air);
+                                                                    tickingEntity.kill();
+                                                                    p.sendMessage("§aThe selected chest has been deleted successfully.");
+                                                                } catch (e) {
+                                                                    p.sendMessage("§cError, couldn't delete the chest.");
+                                                                    console.warn(e);
+                                                                }
+                                                            }
+                                                        }
+                                                    });
+                                                }
+                                            });
+                                        }
+                                    }
+                                }
+                            });
+                        }
                     }
                 });
             }
@@ -2818,11 +2933,11 @@ function seeInventoryMenu(p) {
                 .button1("No")
                 .button2("Yes");
             form.show(p).then(result => {
-                if (result.canceled === true) world.sendMessage('canceled');
+                if (result.canceled === true) return;
                 if (result.selection === 0) {
 
                 } else if (result.selection === 1) {
-                    
+
                 }
             });
         }
@@ -2884,10 +2999,10 @@ function simPlayer(p) {
                                         player.addEffect(EffectTypes.get('jump_boost'), 99999 * TicksPerSecond, { amplifier: 1, showParticles: false });
                                         player.addEffect(EffectTypes.get('strength'), 99999 * TicksPerSecond, { amplifier: 2, showParticles: false });
                                         overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
-                                        const { successCount } = overworld.runCommand('testfor @e[type=au:basedetect, x=1234567, y=225, z=-1234567, r=20]');
+                                        /*const { successCount } = overworld.runCommand('testfor @e[type=au:tickingarea, x=1234567, y=225, z=-1234567, r=20]');
                                         if (successCount === 0) {
-                                            overworld.runCommand('summon au:basedetect 1234567 225 -1234567');
-                                        }
+                                            overworld.runCommand('summon au:tickingarea 1234567 225 -1234567');
+                                        }*/
 
                                         test
                                             .startSequence()
@@ -2935,10 +3050,6 @@ function simPlayer(p) {
                                     player.addEffect(EffectTypes.get('jump_boost'), 99999 * TicksPerSecond, { amplifier: 1, showParticles: false });
                                     player.addEffect(EffectTypes.get('strength'), 99999 * TicksPerSecond, { amplifier: 2, showParticles: false });
                                     overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
-                                    const { successCount } = overworld.runCommand('testfor @e[type=au:basedetect, x=1234567, y=225, z=-1234567, r=20]');
-                                    if (successCount === 0) {
-                                        overworld.runCommand('summon au:basedetect 1234567 225 -1234567');
-                                    }
 
                                     test
                                         .startSequence()
@@ -3007,10 +3118,6 @@ function simPlayer(p) {
                                         player.addEffect(EffectTypes.get('speed'), 99999 * TicksPerSecond, { amplifier: 4, showParticles: false });
                                         player.addEffect(EffectTypes.get('jump_boost'), 99999 * TicksPerSecond, { amplifier: 1, showParticles: false });
                                         overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
-                                        const { successCount } = overworld.runCommand('testfor @e[type=au:basedetect, x=1234567, y=225, z=-1234567, r=20]');
-                                        if (successCount === 0) {
-                                            overworld.runCommand('summon au:basedetect 1234567 225 -1234567');
-                                        }
 
                                         test
                                             .startSequence()
@@ -3056,10 +3163,6 @@ function simPlayer(p) {
                                     player.addEffect(EffectTypes.get('speed'), 99999 * TicksPerSecond, { amplifier: 4, showParticles: false });
                                     player.addEffect(EffectTypes.get('jump_boost'), 99999 * TicksPerSecond, { amplifier: 1, showParticles: false });
                                     overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
-                                    const { successCount } = overworld.runCommand('testfor @e[type=au:basedetect, x=1234567, y=225, z=-1234567, r=20]');
-                                    if (successCount === 0) {
-                                        overworld.runCommand('summon au:basedetect 1234567 225 -1234567');
-                                    }
 
                                     test
                                         .startSequence()
@@ -3104,10 +3207,6 @@ function simPlayer(p) {
                             const spawnLoc = new Vector(1, 2, 1);
                             const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
                             overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
-                            const { successCount } = overworld.runCommand('testfor @e[type=au:basedetect, x=1234567, y=225, z=-1234567, r=20]');
-                            if (successCount === 0) {
-                                overworld.runCommand('summon au:basedetect 1234567 225 -1234567');
-                            }
 
                             test
                                 .startSequence()
@@ -3441,40 +3540,44 @@ function isInvSeen(player) {
 function isEnoughSpace(rawPlayer) {
     const YRot = rawPlayer.getRotation().y;
     const loc = rawPlayer.location;
-    const currentBlock = rawPlayer.dimension.getBlock(loc);
-    if (!currentBlock.isAir()) return false;
+    try {
+        const currentBlock = rawPlayer.dimension.getBlock(loc);
+        if (!currentBlock.isAir()) return false;
 
-    if (YRot > -45 && YRot < 45) {
-        const frontLoc1 = { x: loc.x, y: loc.y, z: loc.z + 1 };
-        const frontLoc2 = { x: loc.x - 1, y: loc.y, z: loc.z + 1 };
-        const block1 = rawPlayer.dimension.getBlock(frontLoc1);
-        const block2 = rawPlayer.dimension.getBlock(frontLoc2);
-        if (block1.isAir() && block2.isAir()) return true
-        else return false;
+        if (YRot > -45 && YRot < 45) {
+            const frontLoc1 = { x: loc.x, y: loc.y, z: loc.z + 1 };
+            const frontLoc2 = { x: loc.x - 1, y: loc.y, z: loc.z + 1 };
+            const block1 = rawPlayer.dimension.getBlock(frontLoc1);
+            const block2 = rawPlayer.dimension.getBlock(frontLoc2);
+            if (block1.isAir() && block2.isAir()) return true
+            else return false;
 
-    } else if (YRot > 45 && YRot < 135) {
-        const frontLoc1 = { x: loc.x - 1, y: loc.y, z: loc.z };
-        const frontLoc2 = { x: loc.x - 1, y: loc.y, z: loc.z - 1 };
-        const block1 = rawPlayer.dimension.getBlock(frontLoc1);
-        const block2 = rawPlayer.dimension.getBlock(frontLoc2);
-        if (block1.isAir() && block2.isAir()) return true
-        else return false;
+        } else if (YRot > 45 && YRot < 135) {
+            const frontLoc1 = { x: loc.x - 1, y: loc.y, z: loc.z };
+            const frontLoc2 = { x: loc.x - 1, y: loc.y, z: loc.z - 1 };
+            const block1 = rawPlayer.dimension.getBlock(frontLoc1);
+            const block2 = rawPlayer.dimension.getBlock(frontLoc2);
+            if (block1.isAir() && block2.isAir()) return true
+            else return false;
 
-    } else if ((YRot > 135 && YRot < 180) || (YRot > -180 && YRot < -135)) { //Also: (YRot + 180 - (180 - YRot) * 2) > -45
-        const frontLoc1 = { x: loc.x, y: loc.y, z: loc.z - 1 };
-        const frontLoc2 = { x: loc.x + 1, y: loc.y, z: loc.z - 1 };
-        const block1 = rawPlayer.dimension.getBlock(frontLoc1);
-        const block2 = rawPlayer.dimension.getBlock(frontLoc2);
-        if (block1.isAir() && block2.isAir()) return true
-        else return false;
+        } else if ((YRot > 135 && YRot < 180) || (YRot > -180 && YRot < -135)) { //Also: (YRot + 180 - (180 - YRot) * 2) > -45
+            const frontLoc1 = { x: loc.x, y: loc.y, z: loc.z - 1 };
+            const frontLoc2 = { x: loc.x + 1, y: loc.y, z: loc.z - 1 };
+            const block1 = rawPlayer.dimension.getBlock(frontLoc1);
+            const block2 = rawPlayer.dimension.getBlock(frontLoc2);
+            if (block1.isAir() && block2.isAir()) return true
+            else return false;
 
-    } else if (YRot > -135 && YRot < -45) {
-        const frontLoc1 = { x: loc.x + 1, y: loc.y, z: loc.z };
-        const frontLoc2 = { x: loc.x + 1, y: loc.y, z: loc.z + 1 };
-        const block1 = rawPlayer.dimension.getBlock(frontLoc1);
-        const block2 = rawPlayer.dimension.getBlock(frontLoc2);
-        if (block1.isAir() && block2.isAir()) return true
-        else return false;
+        } else if (YRot > -135 && YRot < -45) {
+            const frontLoc1 = { x: loc.x + 1, y: loc.y, z: loc.z };
+            const frontLoc2 = { x: loc.x + 1, y: loc.y, z: loc.z + 1 };
+            const block1 = rawPlayer.dimension.getBlock(frontLoc1);
+            const block2 = rawPlayer.dimension.getBlock(frontLoc2);
+            if (block1.isAir() && block2.isAir()) return true
+            else return false;
+        }
+    } catch (e) {
+        return false;
     }
 }
 
