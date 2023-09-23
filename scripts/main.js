@@ -1,4 +1,4 @@
-import { world, GameMode, system, Vector, TicksPerSecond, EffectTypes, Player, Entity, BlockType, BlockPermutation, MinecraftBlockTypes, Container, EntityEquipmentInventoryComponent, ItemStack } from "@minecraft/server";
+import { world, GameMode, system, Vector, TicksPerSecond, EffectTypes, Player, Entity, BlockType, BlockPermutation, Container, EntityEquippableComponent, ItemStack } from "@minecraft/server";
 import * as GameTest from "@minecraft/server-gametest";
 import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/server-ui";
 import moment from "./moment/src/moment.js";
@@ -6,11 +6,9 @@ import moment from "./moment/src/moment.js";
 const overworld = world.getDimension("overworld"); //Hacer una cárcel con tiempo y un vanish, sendcommandfeedback?, cambiar los /camera para que se apliquen los efectos de poción?, cancelar ItemUse con beforeEvents para los encarcelados?, invSee?!
 const delay = ticks => new Promise(res => system.runTimeout(res, ticks));
 let firstPlayer = false;
-let chest = false;
 let players = []; //Hacer que vuelva a la lista de jugadores en projectilePowers después de darle a submit?, recordarte el jugador que has seleccionado en el ModalFormData?
 let admins = []; //Usar una entidad para el invsee en vez de cofres?
 let simcount = 0;
-let projNum = 0;
 let tntFlag = "-autnt0";
 let stuckJailedPlayers = [];
 let invChests = [];
@@ -66,20 +64,19 @@ system.runInterval(async tick => {
                     chestTick();
                     async function chestTick() { //Poner un try catch a todo?
                         const dimension = world.getDimension(invChest.dimension);
-                        //Rellenar aquí los espacios vacíos con paneles de cristal grises con lockMode
                         const run = system.runInterval(() => { //Controls if any block is broken
                             const chest1 = dimension.getBlock({ x: invChest.pos1[0], y: invChest.pos1[1], z: invChest.pos1[2] });
                             const chest2 = dimension.getBlock({ x: invChest.pos2[0], y: invChest.pos2[1], z: invChest.pos2[2] });
                             const sign = dimension.getBlock({ x: invChest.signPos[0], y: invChest.signPos[1], z: invChest.signPos[2] });
                             if (chest1?.isValid() && chest2?.isValid() && sign?.isValid()) {
-                                if (chest1.type !== MinecraftBlockTypes.chest || chest2.type !== MinecraftBlockTypes.chest || chest1.permutation !== chest2.permutation || sign.getComponent("minecraft:sign")?.getText() !== `§b${invChest.target}'s §qinventory`) {
-                                    chest1.setType(MinecraftBlockTypes.air);
-                                    chest2.setType(MinecraftBlockTypes.air);
-                                    sign.setType(MinecraftBlockTypes.air);
+                                if (chest1.type.id !== "minecraft:chest" || chest2.type.id !== "minecraft:chest" || chest1.permutation !== chest2.permutation || sign.getComponent("minecraft:sign")?.getText() !== `§b${invChest.target}'s §qinventory`) {
+                                    chest1.setType("minecraft:air");
+                                    chest2.setType("minecraft:air");
+                                    sign.setType("minecraft:air");
                                     dimension.runCommand(`kill @e[type=item, x=${chest1.x}, y=${chest1.y}, z=${chest1.z}, r=1.7]`);
                                     dimension.runCommand(`kill @e[type=item, x=${chest2.x}, y=${chest2.y}, z=${chest2.z}, r=1.7]`);
                                     world.scoreboard.getObjective('-auInvSees').removeParticipant(invChest.scoreboard);
-                                    invChests.splice(invChests.indexOf(invChest.scoreboard));
+                                    invChests.splice(invChests.indexOf(invChest.scoreboard), 1);
                                     system.clearRun(run);
                                 }
                             }
@@ -131,7 +128,7 @@ system.runInterval(async tick => {
                                     const rawTarget = world.getPlayers({ name: invChest.target })[0];
                                     if (rawTarget) { //Double check
                                         const targetInventory = rawTarget.getComponent("minecraft:inventory").container;
-                                        const targetEquipments = rawTarget.getComponent("minecraft:equipment_inventory");
+                                        const targetEquipments = rawTarget.getComponent("minecraft:equippable");
                                         for (let slot = 9; slot < 36; slot++) {
                                             chestContainer.setItem(slot + 9, targetInventory.getItem(slot));
                                         }
@@ -139,7 +136,7 @@ system.runInterval(async tick => {
                                             chestContainer.setItem(slot + 45, targetInventory.getItem(slot));
                                         }
                                         const chestEquipSlots = [0, 1, 2, 3, 8];
-                                        const targetEquipSlots = ["head", "chest", "legs", "feet", "offhand"];
+                                        const targetEquipSlots = ["Head", "Chest", "Legs", "Feet", "Offhand"];
                                         for (const slot in chestEquipSlots) {
                                             chestContainer.setItem(chestEquipSlots[slot], targetEquipments.getEquipment(targetEquipSlots[slot]));
                                         }
@@ -526,12 +523,6 @@ world.afterEvents.playerJoin.subscribe(async event => {
 
 world.beforeEvents.itemUse.subscribe(data => {
     const player = data.source;
-    const projectiles = {
-        'minecraft:snowball': 'snowball',
-        'minecraft:bow': 'arrow',
-        'minecraft:crossbow': 'arrow',
-        'minecraft:egg': 'egg'
-    };
 
     if (isJailed(player.name)) {
         data.cancel = true;
@@ -549,9 +540,9 @@ world.beforeEvents.itemUse.subscribe(data => {
             for (let slot = 0; slot < player.getComponent("minecraft:inventory").inventorySize; slot++) {
                 try { player.getComponent("minecraft:inventory").container.getSlot(slot).lockMode = lockMode; } catch (e) { }
             }
-            const slots = ["head", "chest", "legs", "feet", "offhand"];
+            const slots = ["Head", "Chest", "Legs", "Feet", "Offhand"];
             for (const slot of slots) {
-                try { player.getComponent("minecraft:equipment_inventory").getEquipmentSlot(slot).lockMode = lockMode } catch (e) { }
+                try { player.getComponent("minecraft:equippable").getEquipmentSlot(slot).lockMode = lockMode } catch (e) { }
             }
             world.sendMessage(`${world.scoreboard.getObjective('-auInvSees').getParticipants()}`);
             world.sendMessage(`${world.getPlayers({ name: 'Paul58' })[0]}`);
@@ -560,19 +551,19 @@ world.beforeEvents.itemUse.subscribe(data => {
             let block;
             if (YRot > -45 && YRot < 45) {
                 block = overworld.getBlock({ x: -171, y: 77, z: -99 });
-                block.setType(MinecraftBlockTypes.chest);
+                block.setType("minecraft:chest");
                 block.setPermutation(BlockPermutation.resolve("minecraft:chest", { facing_direction: 2 }));
             } else if (YRot >= 45 && YRot < 135) {
                 block = overworld.getBlock({ x: -171, y: 77, z: -99 });
-                block.setType(MinecraftBlockTypes.chest);
+                block.setType("minecraft:chest");
                 block.setPermutation(BlockPermutation.resolve("minecraft:chest", { facing_direction: 5 }));
             } else if ((YRot >= 135 && YRot < 180) || (YRot > -180 && YRot < -135)) { //O usar: (YRot + 180 - (180 - YRot) * 2) > -45
                 block = overworld.getBlock({ x: -171, y: 77, z: -99 });
-                block.setType(MinecraftBlockTypes.chest);
+                block.setType("minecraft:chest");
                 block.setPermutation(BlockPermutation.resolve("minecraft:chest", { facing_direction: 3 }));
             } else if (YRot >= -135 && YRot <= -45) {
                 block = overworld.getBlock({ x: -171, y: 77, z: -99 });
-                block.setType(MinecraftBlockTypes.chest);
+                block.setType("minecraft:chest");
                 block.setPermutation(BlockPermutation.resolve("minecraft:chest", { facing_direction: 4 }));
             }
             const a = overworld.getBlock({ x: -191, y: 77, z: -96 });
@@ -581,7 +572,7 @@ world.beforeEvents.itemUse.subscribe(data => {
                 a.getComponent("minecraft:inventory").container.getSlot(slot).lockMode = "none";
             }
             world.sendMessage(`§b${player.getComponent("minecraft:inventory").container.getSlot(27).typeId}`);
-            /*const foobar = player.getComponent("minecraft:equipment_inventory");
+            /*const foobar = player.getComponent("minecraft:equippable");
             world.sendMessage(`§b${foobar.getEquipment("chest").typeId}`);
             await delay(5 * TicksPerSecond);
             world.sendMessage(`§b${foobar.getEquipment("chest").typeId}`);
@@ -601,13 +592,6 @@ world.beforeEvents.itemUse.subscribe(data => {
                 }
             }
             */
-        });
-    } else if (Object.keys(projectiles).includes(data.itemStack.typeId)) {
-        const a = player.getTags();
-        world.sendMessage(`${a}`);
-        system.run(() => {
-            player.addTag(`-au${projectiles[data.itemStack.typeId]}${projNum}`);
-            projNum++;
         });
     }
 });
@@ -660,7 +644,7 @@ world.beforeEvents.itemUse.subscribe(data => {
 });
 */
 
-world.afterEvents.projectileHit.subscribe(async event => {
+/*world.afterEvents.projectileHit.subscribe(async event => {
     const block = event.getBlockHit()?.block;
     world.sendMessage(`${event.getEntityHit()?.entity?.typeId}`);
     world.sendMessage(`${system.currentTick}`);
@@ -680,7 +664,27 @@ world.afterEvents.projectileHit.subscribe(async event => {
     source.removeTag(source.getTags().find(tag => /(?<=-au)\d+(?=-au)/.test(tag)));
 });
 
-world.afterEvents.entityHurt.subscribe(async event => {
+world.afterEvents.projectileHitBlock.subscribe(async event => {
+    const block = event.getBlockHit().block;
+    world.senddMessage(`${system.currentTick}`);
+    const { source } = event;
+    source.addTag(`-au${system.currentTick}-au`);
+
+    await delay(0.2);
+    world.sendMessage(`xd1${source.getTags()}`);
+    if (parseInt(source.getTags().find(tag => /(?<=-au)\d+$/.test(tag))?.match(/(?<=-au)\d+/)[0]) === system.currentTick) {
+        system.run(() => {
+            try {
+                source.removeTag(source.getTags().find(tag => /(?<=-au)snowball|arrow|egg/.test(tag)));
+                projNum--;
+            } catch (e) { }
+        });
+    }
+    source.removeTag(source.getTags().find(tag => /(?<=-au)\d+(?=-au)/.test(tag)));
+});
+*/
+
+/*world.afterEvents.entityHurt.subscribe(async event => {
     try {
         const damagingEntity = event.damageSource?.damagingEntity;
         damagingEntity.addTag(`-au${system.currentTick}`);
@@ -688,7 +692,7 @@ world.afterEvents.entityHurt.subscribe(async event => {
         const { hurtEntity } = event;
         if (damagingEntity?.typeId === "minecraft:player" && hurtEntity?.typeId !== "minecraft:tnt" && event.damageSource?.damagingProjectile) {
             world.sendMessage(`${system.currentTick}`);
-            world.sendMessage(`xd${damagingEntity.getTags()}`)
+            world.sendMessage(`xd${damagingEntity.getTags()}`);
             if (parseInt(damagingEntity.getTags().find(tag => /(?<=-au)\d+(?=-au)/.test(tag)).match(/(?<=-au)\d+/)[0]) === system.currentTick) {
                 RunProjectilePowers();
                 async function RunProjectilePowers() {
@@ -698,7 +702,7 @@ world.afterEvents.entityHurt.subscribe(async event => {
                     if (isPowerEnabled(damagingEntity.nameTag, proj, "bolt")) {
                         hurtEntity.runCommand(`summon lightning_bolt`);
                     }
-                    if (isPowerEnabled(damagingEntity.nameTag, proj, "freeze")) { //Centrarlos, quitando los decimales y sustituyendolos por ".5", o quitando los decimales y sumando 1 (minecraft resta 0.5 a los números sin decimales para encajar en el centro del bloque), con Math floor es mejor (listo)
+                    if (isPowerEnabled(damagingEntity.nameTag, proj, "freeze")) {
                         const entityLoc = hurtEntity.location;
                         hurtEntity.runCommand(`tp ${Math.floor(entityLoc.x)} ${Math.floor(entityLoc.y)} ${Math.floor(entityLoc.z)}`);
                         hurtEntity.dimension.runCommand(`fill ${entityLoc.x - 1} ${entityLoc.y - 1} ${entityLoc.z - 1} ${entityLoc.x + 1} ${entityLoc.y + 2} ${entityLoc.z + 1} ice [] replace air`);
@@ -737,15 +741,66 @@ world.afterEvents.entityHurt.subscribe(async event => {
         }
         await delay(0.2);
         damagingEntity.removeTag(damagingEntity.getTags().find(tag => /(?<=-au)\d+$/.test(tag)));
-    } catch (e) { }
+    } catch (e) { console.warn(e) }
+});
+*/
+
+world.afterEvents.projectileHitEntity.subscribe(event => {
+    try {
+        const { source } = event;
+        const hitEntity = event.getEntityHit().entity;
+        const proj = event.projectile.typeId.replace(/minecraft:/, '');
+
+        if (source instanceof Player && hitEntity.typeId !== "minecraft:tnt") {
+            if (isPowerEnabled(source.name, proj, "bolt")) {
+                hitEntity.runCommand('summon lightning_bolt');
+            }
+            if (isPowerEnabled(source.name, proj, "freeze")) {
+                const entityLoc = hitEntity.location;
+                hitEntity.runCommand(`tp ${Math.floor(entityLoc.x)} ${Math.floor(entityLoc.y)} ${Math.floor(entityLoc.z)}`);
+                hitEntity.dimension.runCommand(`fill ${entityLoc.x - 1} ${entityLoc.y - 1} ${entityLoc.z - 1} ${entityLoc.x + 1} ${entityLoc.y + 2} ${entityLoc.z + 1} ice [] replace air`);
+                hitEntity.dimension.runCommand(`playsound random.glass @a ${entityLoc.x} ${entityLoc.y} ${entityLoc.z} 100`);
+            }
+            if (isPowerEnabled(source.name, proj, "tnt")) {
+                try {
+                    hitEntity.runCommand('summon tnt')
+                    const query = {
+                        closest: 1,
+                        type: "tnt",
+                        excludeTags: ["-autnt"],
+                        location: hitEntity.location
+                    };
+                    const tnt = [...hitEntity.dimension.getEntities(query)][0];
+                    const _tntFlag = tntFlag;
+                    tnt.addTag(_tntFlag);
+                    tnt.addTag("-autnt");
+                    tntFlag = `-autnt${tntFlag.match(/[0-9]+/)[0] * 1 + 1}`; //Va sumando 1 cada vez
+                    asyncTntTp();
+                    async function asyncTntTp() {
+                        try {
+                            while (function () {
+                                const { successCount } = tnt.dimension.runCommand(`testfor @e[type=tnt, tag=${_tntFlag}]`);
+                                if (successCount === 0) return false
+                                else return true;
+                            }()) {
+                                await runCmd(hitEntity, `tp @e[type=tnt, tag="${_tntFlag}"] @s`);
+                            }
+                        } catch (e) { }
+                    }
+                } catch (e) { }
+            }
+        }
+    } catch (e) {
+        console.warn(e);
+    }
 });
 
 function adminUtilsGui(p) {
     const form = new ActionFormData()
         .title("AdminUtils GUI")
         .body("Select an option")
-        .button("Admin settings")
-        .button("Admin commands");
+        .button("Admin settings", "textures/icons/settings1.png")
+        .button("Admin utils", "textures/icons/adminUtils.png");
     form.show(p).then((response) => {
         switch (response.selection) {
             case 0: {
@@ -753,125 +808,299 @@ function adminUtilsGui(p) {
                 break;
             }
             case 1: {
-                adminCommands(p);
+                adminUtils(p);
                 break;
             }
         }
     });
 }
 
-function adminSettings(p) { //Maybe make it so that if you're an admin you can't simply remove another admin
-    const form = new ActionFormData();
-
-    form.title("Admin settings");
-    form.body("Select an option");
-    form.button("<-- Back", "textures/icons/back.png");
-    form.button("Set an admin");
-    form.button("Add an admin");
-    form.button("Remove an admin");
-    form.button("Show admins");
+function adminSettings(p) {
+    const form = new ActionFormData()
+        .title("Admin settings")
+        .body("Select an option")
+        .button("§l<-- Back", "textures/icons/back.png")
+        .button("Set an admin", "textures/icons/tick.png")
+        .button("Add an admin", "textures/icons/add.png")
+        .button("Remove an admin", "textures/icons/delete.png")
+        .button("Show admins", "textures/icons/users.png");
     form.show(p).then((response) => {
         switch (response.selection) {
             case 0: { //Back 
                 adminUtilsGui(p);
             } break;
-            case 1: { //Set an admin 
-                let form = new ModalFormData();
+            case 1: { //Set an admin
+                setAnAdmin();
+                function setAnAdmin() {
+                    const nonAdmins = players.filter(player => !isAdmin(player.name)).map(player => player.name);
+                    const form = new ActionFormData()
+                        .title("Admin settings: set an admin")
+                        .body("Select an online player to set as an admin (all other admins will be deleted)")
+                        .button("§l<-- Back", "textures/icons/back.png")
+                        .button("Type an offline/online player instead", "textures/icons/pencil.png");
+                    for (const player of nonAdmins) {
+                        form.button(player, "textures/icons/steve_icon.png");
+                    }
+                    form.show(p).then((response) => {
+                        if (response.canceled === true) return;
+                        const { selection } = response;
+                        if (selection === 0) {
+                            adminSettings(p);
 
-                form.title("Admin settings");
-                form.textField("Set an admin", "Player's name (all admins will be deleted)");
-                form.show(p).then(async result => {
-                    let admin = result.formValues[0];
-                    if (admin == "" || !admin) {
-                        await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§cError, please specify the player's name you would like to set as an admin.§r" }]}`);
-                    } else if (!isValidUsername(admin)) {
-                        await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§cError, that doesn't look like a valid username.§r" }]}`);
-                    } else {
-                        let form = new MessageFormData();
-                        form.title("Admin settings");
-                        form.body(`Are you sure you want to set §b${admin}§r as an admin? §4This will remove all the previous admins.`);
-                        form.button1("No");
-                        form.button2("Yes");
-                        form.show(p).then(async (response) => {
-                            if (response.selection === 1) {
-                                admins.forEach(async (value) => {
-                                    try { await runCmd(overworld, `scoreboard players reset ${value} -au`) } catch (e) { }
-                                }); //Quizás intentar añadir alguna forma para poder asignar a varios admins a la vez 
-                                try {
-                                    await runCmd(overworld, `scoreboard players set "-au${admin}-au" -au 0`);
-                                    await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§aAll the previous admins have been deleted, the current admin is: §b${admin}§a.§r" }]}`);
-                                } catch (e) {
-                                    await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§cError, don't use special characters.§r" }]}`);
+                        } else if (selection === 1) {
+                            const form = new ModalFormData()
+                                .title("Admin settings: set an admin")
+                                .textField("Type below the player you would like to set as an admin (all other admins will be deleted).", "Player's name");
+                            form.show(p).then(async result => {
+                                if (result.canceled === true) return;
+                                const player = result.formValues[0];
+
+                                if (player === "" || !player) {
+                                    p.sendMessage("§cError, please specify the name of the player you would like to set as an admin.");
+
+                                } else if (!isValidUsername(player)) {
+                                    p.sendMessage("§cError, the username you entered is invalid.");
+
+                                } else if (isAdmin(player)) {
+                                    p.sendMessage("§cError, the specified player is already an admin.");
+
+                                } else {
+                                    try { //Quizás intentar añadir alguna forma para poder asignar a varios admins a la vez 
+                                        for (const admin of admins) {
+                                            world.scoreboard.getObjective('-au').removeParticipant(admin);
+                                        }
+                                        world.scoreboard.getObjective('-au').setScore(`-au${player}-au`, 0);
+                                        p.sendMessage(`§aAll the previous admins have been deleted, the current admin is: §b${player}§a.`);
+                                    } catch (e) {
+                                        p.sendMessage(`§cError, couldn't set §4${player}§c as an admin.`);
+                                    }
                                 }
+                            });
+
+                        } else if (selection >= 2) {
+                            const selectedPlayer = nonAdmins[selection - 2];
+                            if (isAdmin(selectedPlayer)) {
+                                p.sendMessage("§cError, the selected player has recently been added as an admin by another user.");
+
+                            } else {
+                                new MessageFormData()
+                                    .title("Admin settings: set an admin")
+                                    .body(`Are you sure you want to set §b${selectedPlayer}§r as an admin?\n§cAll other admins will be deleted.`)
+                                    .button1("No")
+                                    .button2("Yes")
+                                    .show(p).then(result => {
+                                        if (result.selection === 0) {
+                                            setAnAdmin();
+                                        } else if (result.selection === 1) {
+                                            if (isAdmin(selectedPlayer)) {
+                                                p.sendMessage("§cError, the selected player has recently been added as an admin by another user.");
+
+                                            } else {
+                                                try {
+                                                    for (const admin of admins) {
+                                                        world.scoreboard.getObjective('-au').removeParticipant(admin);
+                                                    }
+                                                    world.scoreboard.getObjective('-au').setScore(`-au${selectedPlayer}-au`, 0);
+                                                    p.sendMessage(`§aAll the previous admins have been deleted, the current admin is: §b${selectedPlayer}§a.`);
+                                                } catch (e) {
+                                                    p.sendMessage(`§cError, couldn't set §4${selectedPlayer}§c as an admin.`);
+                                                }
+                                            }
+                                        }
+                                    });
                             }
-                        });
-                    }
-                });
-            } break;
-            case 2: { //Add an admin 
-                let form = new ModalFormData();
-
-                form.title("Admin settings");
-                form.textField("Add an admin", "Player's name");
-                form.show(p).then(async result => {
-                    let admin = result.formValues[0];
-                    if (admin == "" || !admin) {
-                        await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§cError, please specify the player's name you would like to add as an admin.§r" }]}`);
-                    } else if (isValidUsername(admin) === false) {
-                        await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§cError, that doesn't look like a valid username.§r" }]}`);
-                    } else {
-                        await runCmd(overworld, `scoreboard players set "-au${admin}-au" -au 0`);
-                        await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§aThe player §b${admin}§a has been added successfully as an admin.§r" }]}`);
-                    }
-                });
-            } break;
-            case 3: { //Remove an admin 
-                let form = new ModalFormData();
-
-                form.title("Admin settings");
-                form.textField("Remove an admin", "Player's name");
-                form.show(p).then(async result => {
-                    let admin = result.formValues[0];
-                    if (admin == "" || !admin) {
-                        await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§cError, please specify the admin's name you would like to remove.§r" }]}`);
-                    } else if (isValidUsername(admin) === false) {
-                        await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§cError, that doesn't look like a valid username.§r" }]}`);
-                    } else {
-                        try {
-                            await runCmd(overworld, `scoreboard players reset "-au${admin}-au" -au`);
-                            await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§aThe admin §b${admin}§a has successfully been removed.§r" }]}`);
-                        } catch (e) {
-                            await runCmd(overworld, `execute @a[name="${p.name}"] ~~~ tellraw @s {"rawtext": [{ "text": "§cError, couldn't remove the player from the admin list, make sure the player is on the list and try again.§r" }]}`);
                         }
-                        //Añadir tryCatch a todos los tellraws de comandos para que si no se ha podido por ejemplo borrar el admin, envíe un mensaje de error 
+                    });
+                }
+            } break;
+            case 2: { //Add an admin
+                addAnAdmin();
+                function addAnAdmin() {
+                    const nonAdmins = players.filter(player => !isAdmin(player.name)).map(player => player.name);
+                    const form = new ActionFormData()
+                        .title("Admin settings: add an admin")
+                        .body("Select an online player to add as an admin")
+                        .button("§l<-- Back", "textures/icons/back.png")
+                        .button("Type an offline/online player instead", "textures/icons/pencil.png");
+                    for (const player of nonAdmins) {
+                        form.button(player, "textures/icons/steve_icon.png");
                     }
-                });
+                    form.show(p).then((response) => {
+                        if (response.canceled === true) return;
+                        const { selection } = response;
+                        if (selection === 0) {
+                            adminSettings(p);
+
+                        } else if (selection === 1) {
+                            const form = new ModalFormData()
+                                .title("Admin settings: add an admin")
+                                .textField("Type below the player you would like to add as an admin.", "Player's name");
+                            form.show(p).then(result => {
+                                if (result.canceled === true) return;
+                                const player = result.formValues[0];
+
+                                if (player === "" || !player) {
+                                    p.sendMessage("§cError, please specify the name of the player you would like to add as an admin.");
+
+                                } else if (isValidUsername(player) === false) {
+                                    p.sendMessage("§cError, the username you entered is invalid.");
+
+                                } else if (isAdmin(player)) {
+                                    p.sendMessage("§cError, the specified player is already an admin.");
+
+                                } else {
+                                    try {
+                                        world.scoreboard.getObjective('-au').setScore(`-au${player}-au`, 0);
+                                        p.sendMessage(`§aThe player §b${player}§a has been added successfully as an admin.`);
+                                    } catch (e) {
+                                        p.sendMessage(`§cError, couldn't add §4${player}§c as an admin.`);
+                                    }
+                                }
+                            });
+
+                        } else if (selection >= 2) {
+                            const selectedPlayer = nonAdmins[selection - 2];
+                            if (isAdmin(selectedPlayer)) {
+                                p.sendMessage("§cError, the selected player has recently been added as an admin by another user.");
+
+                            } else {
+                                new MessageFormData()
+                                    .title("Admin settings: add an admin")
+                                    .body(`Are you sure you want to add §b${selectedPlayer}§r as an admin?`)
+                                    .button1("No")
+                                    .button2("Yes")
+                                    .show(p).then(result => {
+                                        if (result.selection === 0) {
+                                            addAnAdmin();
+                                        } else if (result.selection === 1) {
+                                            if (isAdmin(selectedPlayer)) {
+                                                p.sendMessage("§cError, the selected player has recently been added as an admin by another user.");
+
+                                            } else {
+                                                try {
+                                                    world.scoreboard.getObjective('-au').setScore(`-au${selectedPlayer}-au`, 0);
+                                                    p.sendMessage(`§aThe player §b${selectedPlayer}§a has been added successfully as an admin.`);
+                                                } catch (e) {
+                                                    p.sendMessage(`§cError, couldn't add §4${selectedPlayer}§c as an admin.`);
+                                                }
+                                            }
+                                        }
+                                    });
+                            }
+                        }
+                    });
+                }
             } break;
-            case 4: { //Show admins 
-                const adminsArray = world.scoreboard.getObjective('-au').getParticipants().map(admin => admin.displayName.match(/(?<=-au)[^]+(?=-au)/)[0]);
-                let form = new ModalFormData();
-                form.title("Admin settings");
-                form.dropdown("Admins list", adminsArray);
-                form.show(p);
+            case 3: { //Remove an admin
+                removeAnAdmin();
+                function removeAnAdmin() {
+                    const locAdmins = admins.map(admin => admin.match(/(?<=^-au)[^]+(?=-au$)/)[0]);
+                    const form = new ActionFormData()
+                        .title("Admin settings: remove an admin")
+                        .body("Select an offline/onlibe admin to remove")
+                        .button("§l<-- Back", "textures/icons/back.png")
+                        .button("Type an offline/online admin instead", "textures/icons/pencil.png");
+                    for (const admin of locAdmins) {
+                        form.button(admin, "texture/icons/steve_icon.png");
+                    }
+                    form.show(p).then((response) => {
+                        if (response.canceled === true) return;
+                        const { selection } = response;
+                        if (selection === 0) {
+                            adminSettings(p);
+
+                        } else if (selection === 1) {
+                            new ModalFormData()
+                                .title("Admin settings: remove an admin")
+                                .textField("Type below the name of the admin you would like to remove.", "Player's name")
+                                .show(p).then(result => {
+                                    if (result.canceled === true) return;
+
+                                    const admin = result.formValues[0];
+                                    if (admin === "" || !admin) {
+                                        p.sendMessage("§cError, please specify the name of the admin you would like to remove.");
+
+                                    } else if (isValidUsername(admin) === false) {
+                                        p.sendMessage("§cError, the username you entered is invalid.");
+
+                                    } else if (!isAdmin(admin)) {
+                                        p.sendMessage("§cError, the specified player is not an admin.");
+
+                                    } else {
+                                        try {
+                                            world.scoreboard.getObjective('-au').removeParticipant(`-au${admin}-au`);
+                                            p.sendMessage(`§aThe admin §b${admin}§a has been removed successfully.`);
+                                        } catch (e) {
+                                            p.sendMessage(`§cError, couldn't remove the admin §4${admin}§c.`);
+                                        }
+                                    }
+                                });
+
+                        } else if (selection >= 2) {
+                            const selectedAdmin = locAdmins[selection - 2];
+                            if (!isAdmin(selectedAdmin)) {
+                                p.sendMessage("§cError, the selected admin has recently been removed by another user.");
+
+                            } else {
+                                new MessageFormData()
+                                    .title("Admin settings: remove an admin")
+                                    .body(`Are you sure you want to remove the admin §b${selectedAdmin}§r?`)
+                                    .button1("No")
+                                    .button2("Yes")
+                                    .show(p).then(result => {
+                                        if (result.selection === 0) {
+                                            removeAnAdmin();
+                                        } else if (result.selection === 1) {
+                                            if (!isAdmin(selectedAdmin)) {
+                                                p.sendMessage("§cError, the selected admin has recently been removed by another user.");
+
+                                            } else {
+                                                try {
+                                                    world.scoreboard.getObjective('-au').removeParticipant(`-au${selectedAdmin}-au`);
+                                                    p.sendMessage(`§aThe admin §b${selectedAdmin}§a has been removed successfully.`);
+                                                } catch (e) {
+                                                    p.sendMessage(`§cError, couldn't remove the admin §4${selectedAdmin}§c.`);
+                                                }
+                                            }
+                                        }
+                                    });
+                            }
+                        }
+                    });
+                }
             } break;
+            case 4: { //Show admins
+                if (!isAdmin(p.name)) {
+                    p.sendMessage("§cError, you have recently been removed from the admins by another user.");
+
+                } else {
+                    const adminsArray = world.scoreboard.getObjective('-au').getParticipants().map(admin => admin.displayName.match(/(?<=^-au)[^]+(?=-au$)/)[0]);
+                    new ModalFormData()
+                        .title("Admin settings: show admins")
+                        .dropdown("Admins list", adminsArray)
+                        .show(p);
+                }
+            } break;
+            default:
+                break;
         }
     });
 }
 
-function adminCommands(p) {
+function adminUtils(p) {
     const form = new ActionFormData()
-        .title("Admin commands")
-        .body("Select a command")
-        .button("<-- Back", "textures/icons/back.png") //0
-        .button("Ban or unban menu") //1
-        .button("Jail menu") //2
-        .button("Vanish menu") //3
+        .title("Admin utils")
+        .body("Select an option")
+        .button("§l<-- Back", "textures/icons/back.png") //0
+        .button("Ban or unban menu", "textures/icons/ban.png") //1
+        .button("Jail menu", "textures/icons/jail.png") //2
+        .button("Vanish menu", "textures/icons/vanish.png") //3
         .button("Freeze or unfreeze a player", "textures/icons/freeze.png") //4
-        .button("See an inventory") //5
-        .button("Simulated player") //6
-        .button("Projectiles powers") //7
-        .button("Kill a player") //8
-        .button("Launch a player") //9
+        .button("See an inventory", "textures/icons/chest.png") //5
+        .button("Simulated player", "textures/icons/simPlayers.png") //6
+        .button("Projectiles powers", "textures/icons/projPowers.png") //7
+        .button("Kill a player", "textures/icons/simAttack.png") //8
+        .button("Launch a player", "textures/icons/launch.png") //9
     form.show(p).then((response) => {
         switch (response.selection) {
             case 0: { //Back 
@@ -892,106 +1121,129 @@ function adminCommands(p) {
                     const form = new ActionFormData()
                         .title("Freeze or unfreeze a player")
                         .body("Select an option")
-                        .button("<-- Back", "textures/icons/back.png")
+                        .button("§l<-- Back", "textures/icons/back.png")
                         .button("Freeze a player", "textures/icons/freeze.png")
-                        .button("Unfreeze a player", "textures/icons/unfreeze.png");
+                        .button("Unfreeze a player", "textures/icons/unFreeze.png");
                     form.show(p).then((response) => {
                         if (response.selection === 0) {
-                            adminCommands(p);
+                            adminUtils(p);
                         } else if (response.selection === 1) {
-                            const locPlayers = players.filter(player => !isFrozen(player.name));
-                            const form = new ActionFormData()
-                                .title("Freeze a player")
-                                .body("Select an online player to freeze.\nIf you don't see someone here, it means he's already frozen.")
-                                .button("<-- Back", "textures/icons/back.png")
-                                .button("Type an offline/online player manually instead", "textures/icons/pencil.png");
-                            for (const player of locPlayers) {
-                                form.button(player.name, "textures/icons/steve_icon.png");
-                            }
+                            freezePlayer();
+                            function freezePlayer() {
+                                const locPlayers = players.filter(player => !isFrozen(player.name));
+                                const form = new ActionFormData()
+                                    .title("Freeze a player")
+                                    .body("Select an online player to freeze.\nIf you don't see someone here, it means he's already frozen.")
+                                    .button("§l<-- Back", "textures/icons/back.png")
+                                    .button("Type an offline/online player manually instead", "textures/icons/pencil.png");
+                                for (const player of locPlayers) {
+                                    form.button(player.name, "textures/icons/steve_icon.png");
+                                }
 
-                            form.show(p).then((response) => {
-                                if (response.selection === 0) {
-                                    freezeUnfreeze();
-                                } else if (response.selection === 1) {
-                                    let form = new ModalFormData()
-                                        .title("Freeze a player")
-                                        .textField("Type below the player you would like to freeze. In case the player is offline, it will get frozen as soon as it joins the world.", "Player's name");
-                                    form.show(p).then(async result => {
-                                        const playerName = result.formValues[0];
-                                        if (!isValidUsername(playerName)) {
-                                            await runTellraw(p, '§cError, the username you entered is invalid.');
-                                        } else if (isFrozen(playerName)) {
-                                            await runTellraw(p, '§cError, the player is already frozen.');
-                                        } else {
-                                            try { //Poner "-au+" en cada coordenada si el jugador no está conectado
-                                                const query = {
-                                                    name: playerName
-                                                };
-                                                const selectedPlayer = [...world.getPlayers(query)][0];
-                                                if (selectedPlayer !== undefined) {
-                                                    await runCmd(p, `scoreboard players set "-auname${playerName} -au${selectedPlayer.location.x} -au${selectedPlayer.location.y} -au${selectedPlayer.location.z}" -auFrozen 0`);
-                                                    await runTellraw(p, `§aThe player §b${playerName}§a has been successfully frozen.`);
-                                                } else {
-                                                    await runCmd(p, `scoreboard players set "-auname${playerName} -au+ -au+ -au+" -auFrozen 0`);
-                                                    await runTellraw(p, `§aThe player §b${playerName}§a has been successfully frozen.`);
+                                form.show(p).then((response) => {
+                                    if (response.selection === 0) {
+                                        freezeUnfreeze();
+                                    } else if (response.selection === 1) {
+                                        const form = new ModalFormData()
+                                            .title("Freeze a player")
+                                            .textField("Type below the player you would like to freeze. In case the player is offline, it will get frozen as soon as it joins the world.", "Player's name");
+                                        form.show(p).then(async result => {
+                                            if (result.canceled === true) return;
+                                            const playerName = result.formValues[0];
+                                            if (!isValidUsername(playerName)) {
+                                                await runTellraw(p, '§cError, the username you entered is invalid.');
+
+                                            } else if (isFrozen(playerName)) {
+                                                await runTellraw(p, '§cError, the player is already frozen.');
+
+                                            } else {
+                                                try {
+                                                    const query = {
+                                                        name: playerName
+                                                    };
+                                                    const selectedPlayer = [...world.getPlayers(query)][0];
+                                                    if (selectedPlayer !== undefined) {
+                                                        await runCmd(p, `scoreboard players set "-auname${playerName} -au${selectedPlayer.location.x} -au${selectedPlayer.location.y} -au${selectedPlayer.location.z}" -auFrozen 0`);
+                                                        await runTellraw(p, `§aThe player §b${playerName}§a has been successfully frozen.`);
+                                                    } else {
+                                                        await runCmd(p, `scoreboard players set "-auname${playerName} -au+ -au+ -au+" -auFrozen 0`);
+                                                        await runTellraw(p, `§aThe player §b${playerName}§a has been successfully frozen.`);
+                                                    }
+                                                } catch (e) {
+                                                    await runTellraw(p, `§cError, the player couldn't be frozen.`);
                                                 }
-                                            } catch (e) {
-                                                await runTellraw(p, `§cError, the player couldn't be frozen.`);
                                             }
-                                        }
-                                    });
-                                } else if (response.selection >= 2) {
-                                    const selectedPlayer = locPlayers[response.selection - 2];
-                                    const form = new MessageFormData()
-                                        .title("Freeze a player")
-                                        .body(`Are you sure you want to freeze §b${selectedPlayer.name}§r?`)
-                                        .button1("No")
-                                        .button2("Yes");
-                                    form.show(p).then(async result => {
-                                        if (result.selection === 1) {
-                                            try {
-                                                await runCmd(selectedPlayer.dimension, `scoreboard players set "-auname${selectedPlayer.name} -au${selectedPlayer.location.x} -au${selectedPlayer.location.y} -au${selectedPlayer.location.z}" -auFrozen 0`);
-                                                await runTellraw(p, `§aThe player §b${selectedPlayer.name}§a has been successfully frozen.`);
-                                            } catch (e) {
-                                                await runTellraw(p, `§cError, the player couldn't be frozen.`);
-                                            }
-                                        }
-                                    });
-                                }
-                            });
-                        } else if (response.selection === 2) {
-                            const frozenPlayers = [...world.scoreboard.getObjective('-auFrozen').getParticipants().map(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1])];
-                            const form = new ActionFormData()
-                                .title("Unfreeze a player")
-                                .body("Select an online/offline frozen player to unfreeze")
-                                .button("<-- Back", "textures/icons/back.png");
-                            for (const player of frozenPlayers) {
-                                form.button(player, "textures/icons/steve_icon.png");
-                            }
+                                        });
+                                    } else if (response.selection >= 2) {
+                                        const selectedPlayer = locPlayers[response.selection - 2];
+                                        const form = new MessageFormData()
+                                            .title("Freeze a player")
+                                            .body(`Are you sure you want to freeze §b${selectedPlayer.name}§r?`)
+                                            .button1("No")
+                                            .button2("Yes");
+                                        form.show(p).then(async result => {
+                                            if (result.selection === 0) {
+                                                freezePlayer();
+                                            } else if (result.selection === 1) {
+                                                if (isFrozen(selectedPlayer.name)) {
+                                                    await runTellraw(p, "§cError, the selected player has recently been frozen by another user.");
 
-                            form.show(p).then((response) => {
-                                if (response.selection === 0) {
-                                    freezeUnfreeze();
-                                } else if (response.selection >= 1) {
-                                    const selectedPlayer = frozenPlayers[response.selection - 1];
-                                    const form = new MessageFormData()
-                                        .title("Unfreeze a player")
-                                        .body(`Are you sure you want to unfreeze §b${selectedPlayer}§r?`)
-                                        .button1("No")
-                                        .button2("Yes");
-                                    form.show(p).then(async result => {
-                                        if (result.selection === 1) {
-                                            try {
-                                                const scoreboard = world.scoreboard.getObjective('-auFrozen').getParticipants().filter(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1] === selectedPlayer)[0].displayName;
-                                                await runCmd(p, `scoreboard players reset "${scoreboard}" -auFrozen`);
-                                                await runTellraw(p, `§aThe player §b${selectedPlayer}§a has been successfully unfrozen.`);
-                                            } catch (e) {
-                                                await runTellraw(p, `§cError, the player couldn't be unfrozen.`);
+                                                } else {
+                                                    try {
+                                                        await runCmd(selectedPlayer.dimension, `scoreboard players set "-auname${selectedPlayer.name} -au${selectedPlayer.location.x} -au${selectedPlayer.location.y} -au${selectedPlayer.location.z}" -auFrozen 0`);
+                                                        await runTellraw(p, `§aThe player §b${selectedPlayer.name}§a has been successfully frozen.`);
+                                                    } catch (e) {
+                                                        await runTellraw(p, `§cError, the player couldn't be frozen.`);
+                                                    }
+                                                }
                                             }
-                                        }
-                                    });
+                                        });
+                                    }
+                                });
+                            }
+                        } else if (response.selection === 2) {
+                            unFreezePlayer();
+                            function unFreezePlayer() {
+                                const frozenPlayers = [...world.scoreboard.getObjective('-auFrozen').getParticipants().map(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1])];
+                                const form = new ActionFormData()
+                                    .title("Unfreeze a player")
+                                    .body("Select an online/offline frozen player to unfreeze")
+                                    .button("§l<-- Back", "textures/icons/back.png");
+                                for (const player of frozenPlayers) {
+                                    form.button(player, "textures/icons/steve_icon.png");
                                 }
-                            });
+
+                                form.show(p).then((response) => {
+                                    if (response.selection === 0) {
+                                        freezeUnfreeze();
+                                    } else if (response.selection >= 1) {
+                                        const selectedPlayer = frozenPlayers[response.selection - 1];
+                                        const form = new MessageFormData()
+                                            .title("Unfreeze a player")
+                                            .body(`Are you sure you want to unfreeze §b${selectedPlayer}§r?`)
+                                            .button1("No")
+                                            .button2("Yes");
+                                        form.show(p).then(async result => {
+                                            if (result.selection === 0) {
+                                                unFreezePlayer();
+                                            } else if (result.selection === 1) {
+                                                if (!isFrozen(selectedPlayer)) {
+                                                    await runTellraw(p, "§cError, the selected player has recently been unfrozen by another user.");
+
+                                                } else {
+                                                    try {
+                                                        const scoreboard = world.scoreboard.getObjective('-auFrozen').getParticipants().filter(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1] === selectedPlayer)[0].displayName;
+                                                        await runCmd(p, `scoreboard players reset "${scoreboard}" -auFrozen`);
+                                                        await runTellraw(p, `§aThe player §b${selectedPlayer}§a has been successfully unfrozen.`);
+                                                    } catch (e) {
+                                                        await runTellraw(p, `§cError, the player couldn't be unfrozen.`);
+                                                    }
+                                                }
+                                            }
+                                        });
+                                    }
+                                });
+                            }
                         }
                     });
                 }
@@ -1007,11 +1259,10 @@ function adminCommands(p) {
             } break;
             case 8: { //Kill a player 
                 const playersArray = players.map(pname => pname.name);
-                const locPlayers = players;
                 const form = new ActionFormData()
                     .title("Kill a player")
                     .body("Select an online player to kill")
-                    .button("<-- Back", "textures/icons/back.png")
+                    .button("§l<-- Back", "textures/icons/back.png")
                     .button("Type an online player instead", "textures/icons/pencil.png");
                 for (const player of playersArray) {
                     form.button(player, "textures/icons/steve_icon.png");
@@ -1019,52 +1270,100 @@ function adminCommands(p) {
 
                 form.show(p).then((response) => {
                     if (response.selection === 0) {
-                        adminCommands(p);
+                        adminUtils(p);
                     } else if (response.selection === 1) {
-                        let form = new ModalFormData()
+                        const form = new ModalFormData()
                             .title("Kill a player")
                             .textField("Type below the player you would like to kill.", "Player's name")
                             .toggle("Force death", true);
                         form.show(p).then(async result => {
-                            let playerName = result.formValues[0];
-                            if (result.formValues[1] === true) {
+                            if (result.canceled === true) return;
+                            const playerName = result.formValues[0];
+
+                            if (!isValidUsername(playerName)) {
+                                await runTellraw(p, `§cError, the username you entered is invalid.`);
+
+                            } else if (result.formValues[1] === true) {
                                 try {
-                                    const query = {
-                                        name: playerName
-                                    };
-                                    let playerEntity = [...world.getPlayers(query)][0];
-                                    playerEntity.kill();
+                                    const { successCount: _successCount } = p.runCommand(`testfor "${playerName}"`);
+                                    if (_successCount === 0) {
+                                        throw '';
+                                    }
+
+                                    p.runCommand(`gamemode survival "${playerName}"`);
+                                    await runCmd(p, `kill "${playerName}"`);
+                                    await delay(2);
+
+                                    const { successCount } = p.runCommand(`testfor "${playerName}"`);
+                                    if (successCount === 1) {
+                                        throw '';
+                                    }
                                     await runTellraw(p, `§aThe player §b${playerName}§a has been killed successfully.`);
                                 } catch (e) {
                                     await runTellraw(p, `§cError, the player couldn't be killed or wasn't found.`);
                                 }
                             } else if (result.formValues[1] === false) {
                                 try {
-                                    await runCmd(overworld, `kill ${playerName}`);
-                                    await runTellraw(p, `§aThe player §b${playerName}§a has been killed successfully.`);
+                                    const { successCount: _successCount } = p.runCommand(`testfor "${playerName}"`);
+                                    if (_successCount === 0) { //If the player is already dead or offline
+                                        throw '';
+                                    }
+
+                                    await runCmd(p, `kill "${playerName}"`);
+
+                                    const { successCount } = p.runCommand(`testfor "${playerName}"`);
+                                    if (successCount === 1) { //If the player is still alive
+                                        throw '';
+                                    } else {
+                                        await runTellraw(p, `§aThe player §b${playerName}§a has been killed successfully.`);
+                                    }
                                 } catch (e) {
                                     await runTellraw(p, `§cError, the player couldn't be killed or wasn't found.`);
                                 }
                             }
                         });
                     } else if (response.selection > 1) {
-                        let selectedPlayer = locPlayers[response.selection - 2];
+                        const selectedPlayersName = playersArray[response.selection - 2];
 
-                        let form = new ModalFormData()
+                        const form = new ModalFormData()
                             .title("Kill a player")
                             .toggle("Force death", true);
                         form.show(p).then(async result => {
+                            if (result.canceled === true) return;
                             if (result.formValues[0] === true) {
                                 try {
-                                    selectedPlayer.kill();
-                                    await runTellraw(p, `§aThe player §b${selectedPlayer.name}§a has been killed successfully.`);
+                                    const { successCount: _successCount } = p.runCommand(`testfor "${selectedPlayersName}"`);
+                                    if (_successCount === 0) {
+                                        throw '';
+                                    }
+
+                                    p.runCommand(`gamemode survival "${selectedPlayersName}"`);
+                                    await runCmd(p, `kill "${selectedPlayersName}"`);
+                                    await delay(2);
+
+                                    const { successCount } = p.runCommand(`testfor "${selectedPlayersName}"`);
+                                    if (successCount === 1) {
+                                        throw '';
+                                    }
+                                    await runTellraw(p, `§aThe player §b${selectedPlayersName}§a has been killed successfully.`);
                                 } catch (e) {
                                     await runTellraw(p, `§cError, the player couldn't be killed or wasn't found.`);
                                 }
                             } else if (result.formValues[0] === false) {
                                 try {
-                                    await runCmd(overworld, `kill ${selectedPlayer.name}`);
-                                    await runTellraw(p, `§aThe player §b${selectedPlayer.name}§a has been killed successfully.`);
+                                    const { successCount: _successCount } = p.runCommand(`testfor "${selectedPlayersName}"`);
+                                    if (_successCount === 0) { //If the player is already dead or offline
+                                        throw '';
+                                    }
+
+                                    await runCmd(p, `kill "${selectedPlayersName}"`);
+
+                                    const { successCount } = p.runCommand(`testfor "${selectedPlayersName}"`);
+                                    if (successCount === 1) { //If the player is still alive
+                                        throw '';
+                                    } else {
+                                        await runTellraw(p, `§aThe player §b${selectedPlayersName}§a has been killed successfully.`);
+                                    }
                                 } catch (e) {
                                     await runTellraw(p, `§cError, the player couldn't be killed or wasn't found.`);
                                 }
@@ -1078,7 +1377,7 @@ function adminCommands(p) {
                 const form = new ActionFormData()
                     .title("Launch a player")
                     .body("Select an online player to launch")
-                    .button("<-- Back", "textures/icons/back.png")
+                    .button("§l<-- Back", "textures/icons/back.png")
                     .button("Type an online player instead", "textures/icons/pencil.png");
                 for (const player of locPlayers) {
                     form.button(player.name, "textures/icons/steve_icon.png");
@@ -1086,13 +1385,13 @@ function adminCommands(p) {
 
                 form.show(p).then((response) => {
                     if (response.selection === 0) {
-                        adminCommands(p);
+                        adminUtils(p);
                     } else if (response.selection === 1) {
-                        let form = new ModalFormData()
+                        const form = new ModalFormData()
                             .title("Launch a player")
                             .textField("Type below the player you would like to launch", "Player's name");
                         form.show(p).then(async result => {
-                            let player = result.formValues[0];
+                            const player = result.formValues[0];
 
                             if (!isValidUsername(player)) {
                                 await runTellraw(p, '§cError, the username you entered is invalid.');
@@ -1129,7 +1428,7 @@ function adminCommands(p) {
                     } else if (response.selection > 1) {
                         const selectedPlayerRaw = locPlayers[response.selection - 2];
 
-                        let form = new MessageFormData()
+                        const form = new MessageFormData()
                             .title("Launch a player")
                             .body(`Are you sure you want to launch §b${selectedPlayerRaw.name}§r?`)
                             .button1("No")
@@ -1167,12 +1466,12 @@ function banUnbanMenu(p) {
     const form = new ActionFormData()
         .title("Ban/unban menu")
         .body("Select an option")
-        .button("<-- Back", "textures/icons/back.png")
-        .button("Ban a player")
-        .button("Unban a player");
+        .button("§l<-- Back", "textures/icons/back.png")
+        .button("Ban a player", "textures/icons/ban.png")
+        .button("Unban a player", "textures/icons/tick.png");
     form.show(p).then((response) => {
         if (response.selection === 0) {
-            adminCommands(p);
+            adminUtils(p);
         } else if (response.selection === 1) {
             banPlayer(p);
         } else if (response.selection === 2) {
@@ -1188,7 +1487,7 @@ function banPlayer(p) {
     const form = new ActionFormData();
     form.title("Ban menu");
     form.body("Select an online player to ban (you cannot ban an admin)");
-    form.button("<-- Back", "textures/icons/back.png");
+    form.button("§l<-- Back", "textures/icons/back.png");
     form.button("Type an offline/online player instead", "textures/icons/pencil.png");
     for (const player of playersArray) {
         if (!isBanned(player) && !isAdmin(player)) {
@@ -1214,7 +1513,7 @@ function banPlayer(p) {
                 .slider("Minutes", 0, 59, 1, 0) //8
                 .slider("Seconds", 0, 59, 1, 0); //9
             form.show(p).then(async result => {
-                if (result.canceled) return;
+                if (result.canceled === true) return;
                 const player = result.formValues[0];
                 const reason = result.formValues[1];
                 const isPermaBanned = result.formValues[2];
@@ -1313,7 +1612,7 @@ function banPlayer(p) {
                 .slider("Minutes", 0, 59, 1, 0) //7
                 .slider("Seconds", 0, 59, 1, 0); //8
             form.show(p).then(async result => {
-                if (result.canceled) return;
+                if (result.canceled === true) return;
                 const reason = result.formValues[0];
                 const isPermaBanned = result.formValues[1];
                 const bannedBy = p.name;
@@ -1395,11 +1694,11 @@ function banPlayer(p) {
 }
 
 function unBanPlayer(p) {
-    const form = new ActionFormData();
-    form.title("Unban menu");
-    form.body("Select an offline/online banned player to unban");
-    form.button("<-- Back", "textures/icons/back.png");
-    form.button("Type an offline/online player instead", "textures/icons/pencil.png");
+    const form = new ActionFormData()
+        .title("Unban menu")
+        .body("Select an offline/online banned player to unban")
+        .button("§l<-- Back", "textures/icons/back.png")
+        .button("Type an offline/online player instead", "textures/icons/pencil.png");
 
     const bannedPlayers = getBannedPlayers();
     for (const player of bannedPlayers) {
@@ -1412,41 +1711,42 @@ function unBanPlayer(p) {
         if (response.selection === 0) {
             banUnbanMenu(p);
         } else if (response.selection === 1) {
-            let form = new ModalFormData();
+            new ModalFormData()
+                .title("Unban menu")
+                .textField("Type below the player you would like to unban.", "Player's name")
+                .show(p).then(async result => {
+                    const player = result.formValues[0];
+                    const reason = getBanReason(player);
+                    const bannedBy = getBannedBy(player);
+                    const banISO = getUnBanISO(player);
 
-            form.title("Unban menu");
-            form.textField("Type below the player you would like to unban.", "Player's name");
-            form.show(p).then(async result => {
-                const player = result.formValues[0];
-                const reason = getBanReason(player);
-                const bannedBy = getBannedBy(player);
-                const banISO = getUnBanISO(player);
+                    if (!isBanned(player)) {
+                        await runTellraw(p, `§cError, the specified player is not banned.`);
 
-                if (!isBanned(player)) {
-                    await runTellraw(p, `§cError, the specified player is not banned.`);
+                    } else if (!isValidUsername(player)) {
+                        await runTellraw(p, `§cError, the username you entered is invalid.`);
 
-                } else if (!isValidUsername(player)) {
-                    await runTellraw(p, `§cError, the username you entered is invalid.`);
-
-                } else if (isBanned(player) && isValidUsername(player)) {
-                    try {
-                        await runCmd(overworld, `scoreboard players reset "${player}-aureason${reason}-auban${bannedBy}-autime${banISO}" -auBan`);
-                        await runTellraw(p, `§aThe player §b${player}§a has been unbanned successfully.`);
-                    } catch (e) {
-                        await runTellraw(p, `§cError, couldn't unban the player, perhaps the ban time is now over.`);
+                    } else if (isBanned(player) && isValidUsername(player)) {
+                        try {
+                            await runCmd(overworld, `scoreboard players reset "${player}-aureason${reason}-auban${bannedBy}-autime${banISO}" -auBan`);
+                            await runTellraw(p, `§aThe player §b${player}§a has been unbanned successfully.`);
+                        } catch (e) {
+                            await runTellraw(p, `§cError, couldn't unban the player, perhaps the ban time is now over.`);
+                        }
                     }
-                }
-            });
+                });
         } else if (response.selection > 1) {
             const selectedPlayer = bannedPlayers[response.selection - 2];
 
-            let form = new MessageFormData();
-            form.title("Unban menu");
-            form.body(`Are you sure you want to unban §b${selectedPlayer}§r?`);
-            form.button1("No");
-            form.button2("Yes");
+            const form = new MessageFormData()
+                .title("Unban menu")
+                .body(`Are you sure you want to unban §b${selectedPlayer}§r?`)
+                .button1("No")
+                .button2("Yes");
             form.show(p).then(async result => {
-                if (result.selection === 1) {
+                if (result.selection === 0) {
+                    unBanPlayer(p);
+                } else if (result.selection === 1) {
                     const reason = getBanReason(selectedPlayer);
                     const bannedBy = getBannedBy(selectedPlayer);
                     const banISO = getUnBanISO(selectedPlayer);
@@ -1466,16 +1766,16 @@ function jailMenu(p) {
     const form = new ActionFormData()
         .title("Jail menu")
         .body("Select an option")
-        .button("<-- Back", "textures/icons/back.png") //0
-        .button("Learn how to use") //1
-        .button("Jail a player") //2
-        .button("Release a player") //3
-        .button("Jail location config") //4
-        .button("Jail exit location config"); //5
+        .button("§l<-- Back", "textures/icons/back.png") //0
+        .button("Learn how to use", "textures/icons/howToUse.png") //1
+        .button("Jail a player", "textures/icons/jail.png") //2
+        .button("Release a player", "textures/icons/jailRelease.png") //3
+        .button("Jail location config", "textures/icons/settings1.png") //4
+        .button("Jail exit location config", "textures/icons/settings2.png"); //5
     form.show(p).then((response) => {
         switch (response.selection) {
             case 0:
-                adminCommands(p);
+                adminUtils(p);
                 break;
             case 1:
                 jailLearn(p);
@@ -1527,7 +1827,7 @@ function jailPlayer(p) {
         } else {
             form.body("Select an online player to jail (you cannot jail an admin)");
         }
-        form.button("<-- Back", "textures/icons/back.png");
+        form.button("§l<-- Back", "textures/icons/back.png");
         form.button("Type an offline/online player instead", "textures/icons/pencil.png");
 
         for (const player of players.map(player => player.name)) {
@@ -1540,10 +1840,11 @@ function jailPlayer(p) {
         }
 
         form.show(p).then(async (response) => {
+            if (response.canceled === true) return;
             if (response.selection === 0) {
                 jailMenu(p);
             } else if (response.selection === 1) {
-                let form = new ModalFormData()
+                const form = new ModalFormData()
                     .title("Jail a player")
                     .textField("Type below the player you would like to jail.", "Player's name") //0
                     .textField("Enter a reason:", "Reason") //1
@@ -1556,7 +1857,7 @@ function jailPlayer(p) {
                     .slider("Minutes", 0, 59, 1, 0) //8
                     .slider("Seconds", 0, 59, 1, 0); //9
                 form.show(p).then(async result => {
-                    if (result.canceled) return;
+                    if (result.canceled === true) return;
                     const player = result.formValues[0];
                     const reason = result.formValues[1];
                     const isPermaJailed = result.formValues[2];
@@ -1716,6 +2017,7 @@ function jailPlayer(p) {
                         .slider("Minutes", 0, 59, 1, 0) //7
                         .slider("Seconds", 0, 59, 1, 0); //8
                     form.show(p).then(async result => {
+                        if (result.canceled === true) return;
                         const reason = result.formValues[0];
                         const isPermaJailed = result.formValues[1];
                         const jailedBy = p.name;
@@ -1874,7 +2176,7 @@ function releasePlayer(p) {
         const form = new ActionFormData()
             .title("Release a player")
             .body("Select an offline/online jailed player to release")
-            .button("<-- Back", "textures/icons/back.png")
+            .button("§l<-- Back", "textures/icons/back.png")
             .button("Type an offline/online player instead", "textures/icons/pencil.png");
         const jailedPlayers = getJailedPlayers();
         for (const player of jailedPlayers) {
@@ -1882,6 +2184,7 @@ function releasePlayer(p) {
         }
 
         form.show(p).then((response) => {
+            if (response.canceled === true) return;
             if (response.selection === 0) {
                 jailMenu(p);
             } else if (response.selection === 1) {
@@ -1889,6 +2192,7 @@ function releasePlayer(p) {
                     .title("Release a player")
                     .textField("Type below the player you would like to release.", "Player's name");
                 form.show(p).then(async result => {
+                    if (result.canceled === true) return;
                     const player = result.formValues[0];
 
                     if (!isValidUsername(player)) {
@@ -1994,7 +2298,7 @@ function releasePlayer(p) {
 function jailLocConfig(p) {
     const form = new ActionFormData()
         .title("Jail location config")
-        .button("<-- Back", "textures/icons/back.png"); //0
+        .button("§l<-- Back", "textures/icons/back.png"); //0
     if (!isJailLocSet()) {
         form.body("You haven't set the location of the jail yet, please select an option. You can go to any dimension.")
             .button("Set jail location to current location"); //1
@@ -2010,9 +2314,9 @@ function jailLocConfig(p) {
         }
 
         form.body(`The location of the jail has already been set at §a${round(getJailLoc()[0].x)} ${round(getJailLoc()[0].y)} ${round(getJailLoc()[0].z)}§r, ${jailDim}§r. Select an option.`)
-            .button("Teleport to jail location") //1
-            .button("Set jail location to current location") //2
-            .button("Remove jail location"); //3
+            .button("Teleport to jail location", "textures/icons/teleport.png") //1
+            .button("Set jail location to current location", "textures/icons/tick.png") //2
+            .button("Remove jail location", "textures/icons/delete.png"); //3
     }
     form.show(p).then((response) => {
         if (response.canceled) return;
@@ -2039,7 +2343,9 @@ function jailLocConfig(p) {
                     .button1("No")
                     .button2("Yes");
                 form.show(p).then(async result => {
-                    if (result.selection === 1) {
+                    if (result.selection === 0) {
+                        jailLocConfig(p);
+                    } else if (result.selection === 1) {
                         if (!isJailLocSet()) { //Test this type of thing in the rest of the code!
                             try {
                                 await runCmd(p, `scoreboard players set "-au${p.dimension.id.replace(/minecraft:/, '')} -au${currentLoc.x} -au${currentLoc.y} -au${currentLoc.z}" -auJailLoc 0`);
@@ -2071,7 +2377,9 @@ function jailLocConfig(p) {
                     .button1("No")
                     .button2("Yes");
                 form.show(p).then(async result => {
-                    if (result.selection === 1) {
+                    if (result.selection === 0) {
+                        jailLocConfig(p);
+                    } else if (result.selection === 1) {
                         try {
                             if (isJailLocSet()) {
                                 await runTellraw(p, `§bTeleporting...`);
@@ -2110,7 +2418,9 @@ function jailLocConfig(p) {
                     .button1("No")
                     .button2("Yes");
                 form.show(p).then(async result => {
-                    if (result.selection === 1) {
+                    if (result.selection === 0) {
+                        jailLocConfig(p);
+                    } else if (result.selection === 1) {
                         try {
                             const scoreboard = world.scoreboard.getObjective('-auJailLoc').getParticipants()[0]?.displayName;
                             if (!scoreboard) { //Prevents an error in case another player already removed the jail location
@@ -2143,7 +2453,9 @@ function jailLocConfig(p) {
                     .button1("No")
                     .button2("Yes");
                 form.show(p).then(async result => {
-                    if (result.selection === 1) {
+                    if (result.selection === 0) {
+                        jailLocConfig(p);
+                    } else if (result.selection === 1) {
                         try {
                             const scoreboard = world.scoreboard.getObjective('-auJailLoc').getParticipants()[0]?.displayName;
                             if (scoreboard) {
@@ -2165,7 +2477,7 @@ function jailLocConfig(p) {
 function jailExitLocConfig(p) {
     const form = new ActionFormData()
         .title("Jail exit location config")
-        .button("<-- Back", "textures/icons/back.png"); //0
+        .button("§l<-- Back", "textures/icons/back.png"); //0
     if (!isJailExitLocSet()) {
         form.body("You haven't set the exit location of the jail yet, please select an option. You can go to any dimension.")
             .button("Set jail exit location to current location"); //1
@@ -2181,9 +2493,9 @@ function jailExitLocConfig(p) {
         }
 
         form.body(`The exit location of the jail has already been set at §a${round(getJailExitLoc()[0].x)} ${round(getJailExitLoc()[0].y)} ${round(getJailExitLoc()[0].z)}§r, ${exitDim}§r. Select an option.`)
-            .button("Teleport to jail exit location") //1
-            .button("Set jail exit location to current location") //2
-            .button("Remove jail exit location"); //3
+            .button("Teleport to jail exit location", "textures/icons/teleport.png") //1
+            .button("Set jail exit location to current location", "textures/icons/tick.png") //2
+            .button("Remove jail exit location", "textures/icons/delete.png"); //3
     }
     form.show(p).then((response) => {
         if (response.canceled) return;
@@ -2210,7 +2522,9 @@ function jailExitLocConfig(p) {
                     .button1("No")
                     .button2("Yes");
                 form.show(p).then(async result => {
-                    if (result.selection === 1) {
+                    if (result.selection === 0) {
+                        jailExitLocConfig(p);
+                    } else if (result.selection === 1) {
                         if (!isJailExitLocSet()) { //Test this type of thing in the rest of the code!
                             try {
                                 await runCmd(p, `scoreboard players set "-au${p.dimension.id.replace(/minecraft:/, '')} -au${currentLoc.x} -au${currentLoc.y} -au${currentLoc.z}" -auJailExitLoc 0`);
@@ -2242,7 +2556,9 @@ function jailExitLocConfig(p) {
                     .button1("No")
                     .button2("Yes");
                 form.show(p).then(async result => {
-                    if (result.selection === 1) {
+                    if (result.selection === 0) {
+                        jailExitLocConfig(p);
+                    } else if (result.selection === 1) {
                         try {
                             await runTellraw(p, `§bTeleporting...`);
                             p.runCommand("camera @s set au:tpanimation ease 4 in_sine pos ~ ~100 ~ rot 90 0");
@@ -2277,7 +2593,9 @@ function jailExitLocConfig(p) {
                     .button1("No")
                     .button2("Yes");
                 form.show(p).then(async result => {
-                    if (result.selection === 1) {
+                    if (result.selection === 0) {
+                        jailExitLocConfig(p);
+                    } else if (result.selection === 1) {
                         try {
                             const scoreboard = world.scoreboard.getObjective('-auJailExitLoc').getParticipants()[0]?.displayName;
                             if (!scoreboard) {
@@ -2310,7 +2628,9 @@ function jailExitLocConfig(p) {
                     .button1("No")
                     .button2("Yes");
                 form.show(p).then(async result => {
-                    if (result.selection === 1) {
+                    if (result.selection === 0) {
+                        jailExitLocConfig(p);
+                    } else if (result.selection === 1) {
                         try {
                             const scoreboard = world.scoreboard.getObjective('-auJailExitLoc').getParticipants()[0]?.displayName;
                             if (scoreboard) {
@@ -2333,43 +2653,53 @@ function projectilePowers(p) {
     const form = new ActionFormData()
         .title("Projectiles powers")
         .body("Select an option")
-        .button("<-- Back", "textures/icons/back.png")
-        .button("Snowball powers")
-        .button("Arrow powers")
-        .button("Egg powers");
+        .button("§l<-- Back", "textures/icons/back.png")
+        .button("Snowball powers", "textures/icons/snowball.png")
+        .button("Arrow powers", "textures/icons/arrow.png")
+        .button("Egg powers", "textures/icons/egg.png");
     form.show(p).then((response) => {
-        if (response.selection === 0) {
-            adminCommands(p);
-        } else if (response.selection >= 1) {
+        if (response.canceled === true) return;
+        const { selection } = response;
+
+        if (selection === 0) {
+            adminUtils(p);
+
+        } else if (selection >= 1) {
             const playersArray = players.map(pname => pname.name);
             const projectiles = ["snowball", "arrow", "egg"];
             const selectedProj = projectiles[response.selection - 1];
             const form = new ActionFormData()
                 .title("Toggle for a player")
                 .body("Select an online player to enable/disable certain powers when throwing a snowball at an entity.\nYou will be able to select those powers later.")
-                .button("<-- Back", "textures/icons/back.png")
+                .button("§l<-- Back", "textures/icons/back.png")
                 .button("Type an offline/online player instead", "textures/icons/pencil.png");
             for (const player of playersArray) {
                 form.button(player, "textures/icons/steve_icon.png");
             }
 
             form.show(p).then((response) => {
-                if (response.selection === 0) {
+                if (response.canceled === true) return;
+                const { selection } = response;
+                if (selection === 0) {
                     projectilePowers(p);
-                } else if (response.selection === 1) {
-                    let form = new ModalFormData()
+
+                } else if (selection === 1) {
+                    const form = new ModalFormData()
                         .title("Toggle for a player")
                         .textField("Type below the player you would like to enable/disable the powers.", "Player's name");
                     form.show(p).then(async result => {
+                        if (result.canceled === true) return;
                         const player = result.formValues[0];
+
                         if (!isValidUsername(player)) {
                             await runTellraw(p, "§Error, the username you entered is invalid.");
+
                         } else {
                             const bolt = isPowerEnabled(player, selectedProj, "bolt");
                             const freeze = isPowerEnabled(player, selectedProj, "freeze");
                             const tnt = isPowerEnabled(player, selectedProj, "tnt");
 
-                            let form = new ModalFormData()
+                            const form = new ModalFormData()
                                 .title(`${player}'s ${selectedProj} powers`)
                                 .toggle("Lightning bolt", bolt)
                                 .toggle("Freeze", freeze)
@@ -2401,18 +2731,20 @@ function projectilePowers(p) {
                             });
                         }
                     });
-                } else if (response.selection > 1) {
+                } else if (selection > 1) {
                     const selectedPlayer = playersArray[response.selection - 2];
                     const bolt = isPowerEnabled(selectedPlayer, selectedProj, "bolt");
                     const freeze = isPowerEnabled(selectedPlayer, selectedProj, "freeze");
                     const tnt = isPowerEnabled(selectedPlayer, selectedProj, "tnt");
 
-                    let form = new ModalFormData()
+                    const form = new ModalFormData()
                         .title(`${selectedPlayer}'s ${selectedProj} powers`)
                         .toggle("Lightning bolt", bolt)
                         .toggle("Freeze", freeze)
                         .toggle("TNT", tnt);
                     form.show(p).then(async result => {
+                        if (result.canceled === true) return;
+
                         const _bolt = result.formValues[0];
                         const boltstate = _bolt === true ? "on" : "off";
 
@@ -2447,13 +2779,13 @@ function vanishMenu(p) {
     const form = new ActionFormData()
         .title("Vanish menu")
         .body("Select an option")
-        .button("<-- Back", "textures/icons/back.png")
-        .button("Enable vanish mode for a player")
-        .button("Disable vanish mode for a player");
+        .button("§l<-- Back", "textures/icons/back.png")
+        .button("Enable vanish mode for a player", "textures/icons/vanish.png")
+        .button("Disable vanish mode for a player", "textures/icons/unVanish.png");
     form.show(p).then((response) => {
         switch (response.selection) {
             case 0:
-                adminCommands(p);
+                adminUtils(p);
                 break;
             case 1:
                 enableVanishGUI(p);
@@ -2473,9 +2805,9 @@ function enableVanishGUI(p) {
     const form = new ActionFormData()
         .title("Enable vanish mode")
         .body("Select an online player to enable vanish mode for")
-        .button("<-- Back", "textures/icons/back.png")
+        .button("§l<-- Back", "textures/icons/back.png")
         .button("Type an offline/online player instead", "textures/icons/pencil.png")
-        .button("Vanish myself");
+        .button("Vanish myself", "textures/icons/vanish.png");
     for (const player of players.map(pname => pname.name)) {
         if (!isVanished(player) && player !== p.name) {
             form.button(player, "textures/icons/steve_icon.png");
@@ -2494,6 +2826,8 @@ function enableVanishGUI(p) {
                 .title("Enable vanish mode")
                 .textField("Type below the player you would like to vanish.", "Player's name");
             form.show(p).then(result => {
+                if (result.canceled === true) return;
+
                 const player = result.formValues[0];
                 if (!isValidUsername(player)) {
                     p.sendMessage("§cError, the username you entered is invalid.");
@@ -2517,6 +2851,7 @@ function enableVanishGUI(p) {
                 .button1("No")
                 .button2("Yes");
             form.show(p).then(result => {
+                if (result.canceled === true) return;
                 if (result.selection === 0) {
                     enableVanishGUI(p);
 
@@ -2543,6 +2878,7 @@ function enableVanishGUI(p) {
                 .button1("No")
                 .button2("Yes");
             form.show(p).then(result => {
+                if (result.canceled === true) return;
                 if (result.selection === 0) {
                     enableVanishGUI(p);
 
@@ -2569,9 +2905,9 @@ function disableVanishGUI(p) {
     const form = new ActionFormData()
         .title("Disable vanish mode")
         .body("Select an offline/online vanished player to disable vanish mode for")
-        .button("<-- Back", "textures/icons/back.png")
+        .button("§l<-- Back", "textures/icons/back.png")
         .button("Type an offline/online player instead", "textures/icons/pencil.png")
-        .button("Disable vanish mode for myself");
+        .button("Disable vanish mode for myself", "textures/icons/unVanish.png");
     for (const player of players.map(pname => pname.name)) {
         if (isVanished(player) && player !== p.name) {
             form.button(player, "textures/icons/steve_icon.png");
@@ -2580,6 +2916,7 @@ function disableVanishGUI(p) {
     }
 
     form.show(p).then((response) => {
+        if (response.canceled === true) return;
         const { selection } = response;
         if (selection === 0) {
             vanishMenu(p);
@@ -2589,6 +2926,8 @@ function disableVanishGUI(p) {
                 .title("Disable vanish mode")
                 .textField("Type below the player you would like to disable vanish mode for.", "Player's name");
             form.show(p).then(result => {
+                if (result.canceled === true) return;
+
                 const player = result.formValues[0];
                 if (!isValidUsername(player)) {
                     p.sendMessage("§cError, the username you entered is invalid.");
@@ -2612,6 +2951,7 @@ function disableVanishGUI(p) {
                 .button1("No")
                 .button2("Yes");
             form.show(p).then(result => {
+                if (result.canceled === true) return;
                 if (result.selection === 0) {
                     disableVanishGUI(p);
 
@@ -2638,6 +2978,7 @@ function disableVanishGUI(p) {
                 .button1("No")
                 .button2("Yes");
             form.show(p).then(result => {
+                if (result.canceled === true) return;
                 if (result.selection === 0) {
                     disableVanishGUI(p);
 
@@ -2673,9 +3014,9 @@ function seeInventoryMenu(p) {
     } else {
         form.body("Select an online player to see his inventory inside a chest");
     }
-    form.button("<-- Back", "textures/icons/back.png")
+    form.button("§l<-- Back", "textures/icons/back.png")
         .button("Type an offline/online player instead", "textures/icons/pencil.png")
-        .button("Manage active chests");
+        .button("Manage active chests", "textures/icons/manageChests.png");
     for (const player of playersArray) {
         form.button(player, "textures/icons/steve_icon.png");
     }
@@ -2684,7 +3025,7 @@ function seeInventoryMenu(p) {
         if (response.canceled === true) return;
         const { selection } = response;
         if (selection === 0) { //Back
-            adminCommands(p);
+            adminUtils(p);
 
         } else if (selection === 1) { //Type manually
             const form = new ModalFormData()
@@ -2700,7 +3041,7 @@ function seeInventoryMenu(p) {
                 } else if (isInvSeen(player)) {
                     const form = new MessageFormData()
                         .title("See an inventory")
-                        .body(`The player §b${player}§r already has a chest with his inventory. Are you sure you want to create another one?`)
+                        .body(`The player §b${player}§r §lalready has a chest§r with his inventory. Are you sure you want to create another one?`)
                         .button1("No")
                         .button2("Yes");
                     form.show(p).then(result => {
@@ -2712,52 +3053,14 @@ function seeInventoryMenu(p) {
                     });
 
                 } else {
-                    createChestInv();
-                }
-
-                function createChestInv() {
-                    try {
-                        if (!isEnoughSpace(p)) {
-                            p.sendMessage("§cError, there isn't enough space in front of you to create the chest. Make some space or move to another place and try again.");
-                        } else {
-                            const YRot = p.getRotation().y;
-                            const loc = p.location;
-                            let frontLoc1;
-                            let frontLoc2;
-                            if (YRot > -45 && YRot < 45) { //Chest & sign placement
-                                frontLoc1 = { x: loc.x, y: loc.y, z: loc.z + 1 };
-                                frontLoc2 = { x: loc.x - 1, y: loc.y, z: loc.z + 1 };
-                                p.runCommand(`structure load invchest ${loc.x - 1} ${loc.y} ${loc.z} 180_degrees`);
-                            } else if (YRot >= 45 && YRot < 135) {
-                                frontLoc1 = { x: loc.x - 1, y: loc.y, z: loc.z };
-                                frontLoc2 = { x: loc.x - 1, y: loc.y, z: loc.z - 1 };
-                                p.runCommand(`structure load invchest ${loc.x - 1} ${loc.y} ${loc.z - 1} 270_degrees`);
-                            } else if ((YRot >= 135 && YRot < 180) || (YRot > -180 && YRot < -135)) { //Also: (YRot + 180 - (180 - YRot) * 2) > -45
-                                frontLoc1 = { x: loc.x, y: loc.y, z: loc.z - 1 };
-                                frontLoc2 = { x: loc.x + 1, y: loc.y, z: loc.z - 1 };
-                                p.runCommand(`structure load invchest ${loc.x} ${loc.y} ${loc.z - 1}`);
-                            } else if (YRot >= -135 && YRot <= -45) {
-                                frontLoc1 = { x: loc.x + 1, y: loc.y, z: loc.z };
-                                frontLoc2 = { x: loc.x + 1, y: loc.y, z: loc.z + 1 };
-                                p.runCommand(`structure load invchest ${loc.x} ${loc.y} ${loc.z} 90_degrees`);
-                            }
-                            const signComponent = p.dimension.getBlock(loc).getComponent("minecraft:sign");
-                            signComponent.setText(`§b${player}'s §qinventory`);
-                            signComponent.setWaxed();
-
-                            world.scoreboard.getObjective('-auInvSees').setScore(`-au${p.dimension.id.replace(/minecraft:/, '')} -au${player} -au${Math.floor(frontLoc1.x)} -au${Math.floor(frontLoc1.y)} -au${Math.floor(frontLoc1.z)} -au${Math.floor(frontLoc2.x)} -au${Math.floor(frontLoc2.y)} -au${Math.floor(frontLoc2.z)} -au${Math.floor(loc.x)} -au${Math.floor(loc.y)} -au${Math.floor(loc.z)}`, 0);
-                            p.sendMessage(`§aThe chest has been created successfully with §b${player}'s §ainventory inside.`);
-                        }
-                    } catch (e) {
-                        p.sendMessage("§cError, couldn't create the chest.");
-                    }
+                    createChestInv(player);
                 }
             });
         } else if (selection === 2) { //Manage active chests
             manageActiveChests();
             function manageActiveChests() { //Handle what happens if there isn't any chest.
-                const repeatedPlayers = getInvSees().map(chest => chest.target);
-                const nonRepeatedPlayers = repeatedPlayers.reduce(function (accumulator, currentValue) {
+                const repeatedPlayers = getInvSees()?.map(chest => chest.target);
+                const nonRepeatedPlayers = repeatedPlayers?.reduce(function (accumulator, currentValue) {
                     if (accumulator.indexOf(currentValue) === -1) {
                         accumulator.push(currentValue)
                     }
@@ -2767,9 +3070,11 @@ function seeInventoryMenu(p) {
                 const form = new ActionFormData()
                     .title("See an inventory: manage active chests")
                     .body("Select an option")
-                    .button("<-- Back", "textures/icons/back.png")
-                for (const player of nonRepeatedPlayers) {
-                    form.button(player, "textures/icons/steve_icon.png");
+                    .button("§l<-- Back", "textures/icons/back.png");
+                if (repeatedPlayers) {
+                    for (const player of nonRepeatedPlayers) {
+                        form.button(player, "textures/icons/steve_icon.png");
+                    }
                 }
                 form.show(p).then((response) => {
                     if (response.canceled === true) return;
@@ -2787,7 +3092,7 @@ function seeInventoryMenu(p) {
                             const form = new ActionFormData()
                                 .title(`Manage active chests: §b${selectedPlayer}`)
                                 .body("Select a chest")
-                                .button("<-- Back", "textures/icons/back.png");
+                                .button("§l<-- Back", "textures/icons/back.png");
                             for (let i = 1; i <= chests.length; i++) {
                                 form.button(`§lChest ${i}`, "textures/icons/chest.png");
                             }
@@ -2822,9 +3127,9 @@ function seeInventoryMenu(p) {
                                             const form = new ActionFormData()
                                                 .title(`§l§b${selectedPlayer}: §6chest ${chestSelection}`)
                                                 .body(`Select an option. This chest is located at §a${selectedChest.signPos[0]}, ${selectedChest.signPos[1]}, ${selectedChest.signPos[2]}§r, ${chestDim}§r.`)
-                                                .button("<-- Back", "textures/icons/back.png")
-                                                .button("Teleport to this chest")
-                                                .button("Delete this chest"); //Spawnear mi entidad y teletransportarla ahí, luego romper el cofre
+                                                .button("§l<-- Back", "textures/icons/back.png")
+                                                .button("Teleport to this chest", "textures/icons/teleport.png")
+                                                .button("Delete this chest", "textures/icons/delete.png"); //Spawnear mi entidad y teletransportarla ahí, luego romper el cofre
                                             form.show(p).then((response) => {
                                                 if (response.canceled === true) return;
                                                 const { selection } = response;
@@ -2886,28 +3191,33 @@ function seeInventoryMenu(p) {
 
                                                             } else {
                                                                 try {
-                                                                    GameTest.register("SimPlayers", `sim_player${simcount}`, (test) => {
-                                                                        const spawnLoc = new Vector(1, 2 ,1);
+                                                                    GameTest.registerAsync("SimPlayers", `sim_player${simcount}`, (test) => {
+                                                                        const spawnLoc = new Vector(1, 2, 1);
                                                                         const player = test.spawnSimulatedPlayer(spawnLoc, "", GameMode.creative);
-                                                                        overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
+                                                                        let begunBreakingBlock = false;
 
                                                                         test
                                                                             .startSequence()
-                                                                            .thenExecute(() => {
-                                                                                player.teleport({ x: selectedChest.signPos[0] + 0.5, y: selectedChest.signPos[1], z: selectedChest.signPos[2] + 0.5 }, { dimension: world.getDimension(selectedChest.dimension) });
-                                                                                
+                                                                            .thenExecuteFor(5 * TicksPerSecond, async () => {
+                                                                                if (player?.isValid() && begunBreakingBlock === false) {
+                                                                                    player.teleport({ x: selectedChest.signPos[0] + 0.5, y: selectedChest.signPos[1], z: selectedChest.signPos[2] + 0.5 }, { dimension: world.getDimension(selectedChest.dimension) });
+                                                                                    await test.idle(10);
+                                                                                    player.breakBlock(test.relativeBlockLocation({ x: selectedChest.signPos[0], y: selectedChest.signPos[1], z: selectedChest.signPos[2] }));
+                                                                                    begunBreakingBlock = true;
+                                                                                    //player.breakBlock({ x: selectedChest.signPos[0] - 1234567, y: selectedChest.signPos[1] - 318, z: selectedChest.signPos[2] - 1234567 });
+                                                                                } else if (begunBreakingBlock === true && world.getDimension(selectedChest.dimension).getBlock({ x: selectedChest.signPos[0], y: selectedChest.signPos[1], z: selectedChest.signPos[2] })?.isAir) {
+                                                                                    test.succeed();
+                                                                                    p.sendMessage("§aThe selected chest has been deleted successfully.");
+                                                                                    overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
+                                                                                }
                                                                             })
-                                                                    });
-
-
-                                                                    const tickingEntity = p.dimension.spawnEntity("au:tickingarea", { x: p.location.x, y: 319, z: p.location.z });
-                                                                    tickingEntity.teleport({ x: selectedChest.signPos[0] + 0.5, y: selectedChest.signPos[1], z: selectedChest.signPos[2] + 0.5 }, { dimension: world.getDimension(selectedChest.dimension) });
-                                                                    await delay(60);
-                                                                    const dimension = world.getDimension(selectedChest.dimension);
-                                                                    const sign = dimension.getBlock({ x: selectedChest.signPos[0], y: selectedChest.signPos[1], z: selectedChest.signPos[2] });
-                                                                    sign.setType(MinecraftBlockTypes.air);
-                                                                    tickingEntity.kill();
-                                                                    p.sendMessage("§aThe selected chest has been deleted successfully.");
+                                                                    })
+                                                                        .maxTicks(5 * TicksPerSecond)
+                                                                        .setupTicks(0)
+                                                                        .structureName("AdminUtils:simplayer")
+                                                                        .tag(GameTest.Tags.suiteDefault);
+                                                                    overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simplayers:sim_player${simcount} false 1`);
+                                                                    simcount++;
                                                                 } catch (e) {
                                                                     p.sendMessage("§cError, couldn't delete the chest.");
                                                                     console.warn(e);
@@ -2929,17 +3239,69 @@ function seeInventoryMenu(p) {
             const selectedPlayer = playersArray[selection - 3];
             const form = new MessageFormData()
                 .title("See an inventory")
-                .body(`Are you sure you want to create a chest to see the inventory of §b${selectedPlayer}§r?`)
+                .body(`Are you sure you want to create a chest to see the inventory of §b${selectedPlayer}§r?\nThis will place a large chest in front of you, so make sure there's enough space.`)
                 .button1("No")
                 .button2("Yes");
             form.show(p).then(result => {
                 if (result.canceled === true) return;
                 if (result.selection === 0) {
-
+                    seeInventoryMenu(p);
                 } else if (result.selection === 1) {
-
+                    if (isInvSeen(selectedPlayer)) {
+                        const form = new MessageFormData()
+                            .title("See an inventory")
+                            .body(`The player §b${selectedPlayer}§r §lalready has a chest§r with his inventory. Are you sure you want to create another one?`)
+                            .button1("No")
+                            .button2("Yes");
+                        form.show(p).then(result => {
+                            if (result.selection === 0) {
+                                seeInventoryMenu(p);
+                            } else if (result.selection === 1) {
+                                createChestInv(selectedPlayer);
+                            }
+                        });
+                    } else {
+                        createChestInv(selectedPlayer);
+                    }
                 }
             });
+        }
+        function createChestInv(player) {
+            try {
+                if (!isEnoughSpace(p)) {
+                    p.sendMessage("§cError, there isn't enough space in front of you to create the chest. Make some space or move to another place and try again.");
+                } else {
+                    const YRot = p.getRotation().y;
+                    const loc = p.location;
+                    let frontLoc1;
+                    let frontLoc2;
+                    if (YRot > -45 && YRot < 45) { //Chest & sign placement
+                        frontLoc1 = { x: loc.x, y: loc.y, z: loc.z + 1 };
+                        frontLoc2 = { x: loc.x - 1, y: loc.y, z: loc.z + 1 };
+                        p.runCommand(`structure load invchest ${loc.x - 1} ${loc.y} ${loc.z} 180_degrees`);
+                    } else if (YRot >= 45 && YRot < 135) {
+                        frontLoc1 = { x: loc.x - 1, y: loc.y, z: loc.z };
+                        frontLoc2 = { x: loc.x - 1, y: loc.y, z: loc.z - 1 };
+                        p.runCommand(`structure load invchest ${loc.x - 1} ${loc.y} ${loc.z - 1} 270_degrees`);
+                    } else if ((YRot >= 135 && YRot < 180) || (YRot > -180 && YRot < -135)) { //Also: (YRot + 180 - (180 - YRot) * 2) > -45
+                        frontLoc1 = { x: loc.x, y: loc.y, z: loc.z - 1 };
+                        frontLoc2 = { x: loc.x + 1, y: loc.y, z: loc.z - 1 };
+                        p.runCommand(`structure load invchest ${loc.x} ${loc.y} ${loc.z - 1}`);
+                    } else if (YRot >= -135 && YRot <= -45) {
+                        frontLoc1 = { x: loc.x + 1, y: loc.y, z: loc.z };
+                        frontLoc2 = { x: loc.x + 1, y: loc.y, z: loc.z + 1 };
+                        p.runCommand(`structure load invchest ${loc.x} ${loc.y} ${loc.z} 90_degrees`);
+                    }
+                    const signComponent = p.dimension.getBlock(loc).getComponent("minecraft:sign");
+                    signComponent.setText(`§b${player}'s §qinventory`);
+                    signComponent.setWaxed();
+
+                    world.scoreboard.getObjective('-auInvSees').setScore(`-au${p.dimension.id.replace(/minecraft:/, '')} -au${player} -au${Math.floor(frontLoc1.x)} -au${Math.floor(frontLoc1.y)} -au${Math.floor(frontLoc1.z)} -au${Math.floor(frontLoc2.x)} -au${Math.floor(frontLoc2.y)} -au${Math.floor(frontLoc2.z)} -au${Math.floor(loc.x)} -au${Math.floor(loc.y)} -au${Math.floor(loc.z)}`, 0);
+                    p.sendMessage(`§aThe chest has been created successfully with §b${player}'s §ainventory inside.`);
+                }
+            } catch (e) {
+                p.sendMessage("§cError, couldn't create the chest.");
+            }
         }
     });
 }
@@ -2948,14 +3310,14 @@ function simPlayer(p) {
     const form = new ActionFormData()
         .title("Create a simulated player")
         .body("What would you like the simulated player to do?")
-        .button("<-- Back", "textures/icons/back.png")
-        .button("Attack and follow a player")
-        .button("Follow a player")
-        .button("Idle")
+        .button("§l<-- Back", "textures/icons/back.png")
+        .button("Attack and follow a player", "textures/icons/simAttack.png")
+        .button("Follow a player", "textures/icons/simFollow.png")
+        .button("Idle", "textures/icons/simIdle.png")
     form.show(p).then((response) => {
         switch (response.selection) {
             case 0: { //Back
-                adminCommands(p);
+                adminUtils(p);
             } break;
             case 1: { //Attack and follow a player 
                 let playersArray = players.map(pname => pname.name);
@@ -2963,7 +3325,7 @@ function simPlayer(p) {
                 const form = new ActionFormData()
                     .title("Attack and follow a player")
                     .body("Select an online player to attack and follow")
-                    .button("<-- Back", "textures/icons/back.png")
+                    .button("§l<-- Back", "textures/icons/back.png")
                     .button("Type an online player instead", "textures/icons/pencil.png");
                 for (const player of playersArray) {
                     form.button(player, "textures/icons/steve_icon.png");
@@ -2980,6 +3342,7 @@ function simPlayer(p) {
                             .slider("Time in seconds the simulated player should attack", 2, 600, 1, 15);
 
                         form.show(p).then(async result => {
+                            if (result.canceled === true) return;
                             let victim = result.formValues[0];
                             const query = {
                                 name: victim
@@ -3037,6 +3400,7 @@ function simPlayer(p) {
                             .textField("Type below the name of the simulated player", "Simulated player's name")
                             .slider("Time in seconds the simulated player should attack", 2, 600, 1, 15);
                         form.show(p).then(async result => {
+                            if (result.canceled === true) return;
                             let simName = result.formValues[0];
                             let timeInTicks = result.formValues[1] * 20;
                             let selectedPlayerRaw = locPlayers[response.selection - 2];
@@ -3083,7 +3447,7 @@ function simPlayer(p) {
                 const form = new ActionFormData()
                     .title("Follow a player")
                     .body("Select an online player to follow")
-                    .button("<-- Back", "textures/icons/back.png")
+                    .button("§l<-- Back", "textures/icons/back.png")
                     .button("Type an online player instead", "textures/icons/pencil.png");
                 for (const player of playersArray) {
                     form.button(player, "textures/icons/steve_icon.png");
@@ -3100,6 +3464,7 @@ function simPlayer(p) {
                             .slider("Time in seconds the simulated player should follow the target", 2, 600, 1, 15);
 
                         form.show(p).then(async result => {
+                            if (result.canceled === true) return;
                             let victim = result.formValues[0];
                             const query = {
                                 name: victim
@@ -3151,6 +3516,7 @@ function simPlayer(p) {
                             .slider("Time in seconds the simulated player should follow the target", 2, 600, 1, 15);
 
                         form.show(p).then(async result => {
+                            if (result.canceled === true) return;
                             let simName = result.formValues[0];
                             let timeInTicks = result.formValues[1] * 20;
                             let selectedPlayerRaw = locPlayers[response.selection - 2];
@@ -3197,49 +3563,50 @@ function simPlayer(p) {
                     .toggle("Look at close players", true);
 
                 form.show(p).then(async result => {
-                    if (result.canceled === false) {
-                        let simName = result.formValues[0];
-                        let timeInTicks = result.formValues[1] * 20;
-                        let lookClosePlayer = result.formValues[2];
-                        let tpped = false;
+                    if (result.canceled === true) return;
+                    let simName = result.formValues[0];
+                    let timeInTicks = result.formValues[1] * 20;
+                    let lookClosePlayer = result.formValues[2];
+                    let tpped = false;
 
-                        GameTest.register("SimPlayers", `sim_player${simcount}`, (test) => {
-                            const spawnLoc = new Vector(1, 2, 1);
-                            const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
-                            overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
+                    GameTest.register("SimPlayers", `sim_player${simcount}`, (test) => {
+                        const spawnLoc = new Vector(1, 2, 1);
+                        const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
+                        overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
 
-                            test
-                                .startSequence()
-                                .thenExecuteFor(timeInTicks, async () => {
-                                    if (lookClosePlayer === true) {
-                                        let closestP = [];
-                                        let playerLoc = new Vector(player.location.x, player.location.y, player.location.z);
-                                        const query = {
-                                            closest: 1,
-                                            maxDistance: 15,
-                                            excludeNames: [player.name],
-                                            location: playerLoc
-                                        };
-                                        try { closestP = [...player.dimension.getPlayers(query)][0] } catch (e) { }
-                                        try { player.lookAtEntity(closestP) } catch (e) { }
-                                    }
-                                    if (!tpped) {
-                                        try {
-                                            await runCmd(player, `tp "${p.name}"`);
-                                            tpped = true;
-                                        } catch (e) { }
-                                    }
-                                })
-                        })
-                            .maxTicks(timeInTicks)
-                            .setupTicks(0)
-                            .structureName("AdminUtils:simplayer")
-                            .tag(GameTest.Tags.suiteDefault);
-                        overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simplayers:sim_player${simcount} false 1`);
-                        simcount++;
-                    }
+                        test
+                            .startSequence()
+                            .thenExecuteFor(timeInTicks, async () => {
+                                if (lookClosePlayer === true) {
+                                    let closestP = [];
+                                    let playerLoc = new Vector(player.location.x, player.location.y, player.location.z);
+                                    const query = {
+                                        closest: 1,
+                                        maxDistance: 15,
+                                        excludeNames: [player.name],
+                                        location: playerLoc
+                                    };
+                                    try { closestP = [...player.dimension.getPlayers(query)][0] } catch (e) { }
+                                    try { player.lookAtEntity(closestP) } catch (e) { }
+                                }
+                                if (!tpped) {
+                                    try {
+                                        await runCmd(player, `tp "${p.name}"`);
+                                        tpped = true;
+                                    } catch (e) { }
+                                }
+                            })
+                    })
+                        .maxTicks(timeInTicks)
+                        .setupTicks(0)
+                        .structureName("AdminUtils:simplayer")
+                        .tag(GameTest.Tags.suiteDefault);
+                    overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simplayers:sim_player${simcount} false 1`);
+                    simcount++;
                 });
-            }
+            } break;
+            default:
+                break;
         }
     });
 }
@@ -3542,14 +3909,14 @@ function isEnoughSpace(rawPlayer) {
     const loc = rawPlayer.location;
     try {
         const currentBlock = rawPlayer.dimension.getBlock(loc);
-        if (!currentBlock.isAir()) return false;
+        if (!currentBlock.isAir) return false;
 
         if (YRot > -45 && YRot < 45) {
             const frontLoc1 = { x: loc.x, y: loc.y, z: loc.z + 1 };
             const frontLoc2 = { x: loc.x - 1, y: loc.y, z: loc.z + 1 };
             const block1 = rawPlayer.dimension.getBlock(frontLoc1);
             const block2 = rawPlayer.dimension.getBlock(frontLoc2);
-            if (block1.isAir() && block2.isAir()) return true
+            if (block1.isAir && block2.isAir) return true
             else return false;
 
         } else if (YRot > 45 && YRot < 135) {
@@ -3557,7 +3924,7 @@ function isEnoughSpace(rawPlayer) {
             const frontLoc2 = { x: loc.x - 1, y: loc.y, z: loc.z - 1 };
             const block1 = rawPlayer.dimension.getBlock(frontLoc1);
             const block2 = rawPlayer.dimension.getBlock(frontLoc2);
-            if (block1.isAir() && block2.isAir()) return true
+            if (block1.isAir && block2.isAir) return true
             else return false;
 
         } else if ((YRot > 135 && YRot < 180) || (YRot > -180 && YRot < -135)) { //Also: (YRot + 180 - (180 - YRot) * 2) > -45
@@ -3565,7 +3932,7 @@ function isEnoughSpace(rawPlayer) {
             const frontLoc2 = { x: loc.x + 1, y: loc.y, z: loc.z - 1 };
             const block1 = rawPlayer.dimension.getBlock(frontLoc1);
             const block2 = rawPlayer.dimension.getBlock(frontLoc2);
-            if (block1.isAir() && block2.isAir()) return true
+            if (block1.isAir && block2.isAir) return true
             else return false;
 
         } else if (YRot > -135 && YRot < -45) {
@@ -3573,10 +3940,11 @@ function isEnoughSpace(rawPlayer) {
             const frontLoc2 = { x: loc.x + 1, y: loc.y, z: loc.z + 1 };
             const block1 = rawPlayer.dimension.getBlock(frontLoc1);
             const block2 = rawPlayer.dimension.getBlock(frontLoc2);
-            if (block1.isAir() && block2.isAir()) return true
+            if (block1.isAir && block2.isAir) return true
             else return false;
         }
     } catch (e) {
+        console.warn(e);
         return false;
     }
 }
@@ -3624,7 +3992,7 @@ async function handleInventories(chestObject, lastTargetData, lastChestData, rec
 
     const chestContainer = chest1.getComponent("minecraft:inventory").container;
     const targetInventory = rawTarget.getComponent("minecraft:inventory").container;
-    const targetEquipments = rawTarget.getComponent("minecraft:equipment_inventory");
+    const targetEquipments = rawTarget.getComponent("minecraft:equippable");
 
     let changedSlots = {
         inv: [],
@@ -3635,7 +4003,7 @@ async function handleInventories(chestObject, lastTargetData, lastChestData, rec
     let oldChestEquip = [];
     let oldTargetEquip = [];
     const chestEquipSlots = [0, 1, 2, 3, 8];
-    const targetEquipSlots = ["head", "chest", "legs", "feet", "offhand"];
+    const targetEquipSlots = ["Head", "Chest", "Legs", "Feet", "Offhand"];
 
     if (forceReplace === false) {
         for (let slot = 18; slot < 54; slot++) { //Save chest inventory (without incluing the top part with the equipment)
@@ -3718,7 +4086,7 @@ async function handleInventories(chestObject, lastTargetData, lastChestData, rec
                 }
                 changedSlots.inv.push(i);
             } else if (!recentChangedSlots.inv.includes(i) && areItemsEqual(lastChestData[0].invItems[i], oldChestInv[i]) === false && areItemsEqual(lastChestData[0].invItems[i], lastChestData[1].invItems[i]) === true) {
-                world.sendMessage('Update §binventory'); //A veces te devuelve el item cuando lo tiras
+                world.sendMessage('Update §binventory');
                 if (i >= 27) { //Translate the slot from the array to the slot in the inventory
                     const translatedSlot = i - 27;
                     targetInventory.setItem(translatedSlot, newChestInv[i]);
@@ -3833,8 +4201,8 @@ function areObjectsEqual(obj1, obj2) {
  */
 function areItemsEqual(itemStack1, itemStack2) {
     if (itemStack1 && itemStack2) {
-        const itemProperties = ['amount', 'isStackable', 'keepOnDeath', 'maxAmount', 'nameTag', 'typeId'];
-        const itemMethods = ['getLore', 'getTags'];
+        const itemProperties = ['amount', 'isStackable', 'keepOnDeath', 'lockMode', 'maxAmount', 'nameTag', 'typeId'];
+        const itemMethods = ['getCanDestroy', 'getCanPlaceOn', 'getLore', 'getTags'];
 
         let itemData1 = getItemData(itemStack1);
         let itemData2 = getItemData(itemStack2);

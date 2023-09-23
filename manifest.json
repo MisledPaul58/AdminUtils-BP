@@ -4,7 +4,7 @@
         "name": "AdminUtils BP",
         "description": "AdminUtils, made by MisledPaul58.",
         "min_engine_version": [1, 19, 0],
-        "version": [0, 0, 1],
+        "version": [1, 0, 0],
         "uuid": "9bf627d5-d1e0-4195-b581-897a2a34f372"
     },
     "modules": [
@@ -12,14 +12,14 @@
             "description": "Data de AdminUtils",
             "type": "data",
             "uuid": "fa6e90c8-c925-460f-8155-c8a60b753caa",
-            "version": [0, 0, 1]
+            "version": [1, 0, 0]
         },
         {
             "description": "Script de AdminUtils",
             "type": "script",
             "language": "javascript",
             "uuid": "8aebd580-f205-4697-bcc4-dcdb6ed67015",
-            "version": [0, 0, 1],
+            "version": [1, 0, 0],
             "entry": "scripts/main.js"
         }
     ],
@@ -27,11 +27,11 @@
     "dependencies": [
         {
             "uuid": "7477870a-d721-44a1-beb6-5b39f9049e27",
-            "version": [0, 0, 1]
+            "version": [1, 0, 0]
         },
         {
             "module_name": "@minecraft/server",
-            "version": "1.4.0-beta"
+            "version": "1.6.0-beta"
           },
           {
             "module_name": "@minecraft/server-gametest",
