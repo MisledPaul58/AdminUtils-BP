@@ -56,7 +56,7 @@ system.runInterval(async tick => {
         world.sendMessage(`${container.size}`);
     }
     */
-    if (firstPlayer === true) { //Cambiar fistPlayer por una variable que sea true cuando se pueda hacer testfor sobre el primer jugador
+    if (firstPlayer === true) {
         if (getInvSees()) {
             for (const invChest of getInvSees()) {
                 if (!invChests.includes(invChest.scoreboard)) {
@@ -118,12 +118,10 @@ system.runInterval(async tick => {
                                 const chestContainer = chest1.getComponent("minecraft:inventory").container;
                                 if (!world.getPlayers({ name: invChest.target })[0]) { //Waits until the player joins
                                     //hasChestInit = false;
-                                    world.sendMessage(`${invChest.target}`)
                                     replaceInvWhenJoin = true;
                                     await delay(3);
 
                                 } else if (initChest === true) {
-                                    world.sendMessage('chest init!')
                                     //Initialize the chest
                                     const rawTarget = world.getPlayers({ name: invChest.target })[0];
                                     if (rawTarget) { //Double check
@@ -526,7 +524,7 @@ world.beforeEvents.itemUse.subscribe(data => {
 
     if (isJailed(player.name)) {
         data.cancel = true;
-    } else if (data.itemStack.typeId === "minecraft:stick" && isAdmin(player.name)) {
+    } else if (data.itemStack.typeId === "au:wand" && isAdmin(player.name)) {
         /*const query = {
             maxDistance: 10
         };
@@ -536,214 +534,9 @@ world.beforeEvents.itemUse.subscribe(data => {
         */
         system.run(async () => {
             adminUtilsGui(player);
-            const lockMode = "none";
-            for (let slot = 0; slot < player.getComponent("minecraft:inventory").inventorySize; slot++) {
-                try { player.getComponent("minecraft:inventory").container.getSlot(slot).lockMode = lockMode; } catch (e) { }
-            }
-            const slots = ["Head", "Chest", "Legs", "Feet", "Offhand"];
-            for (const slot of slots) {
-                try { player.getComponent("minecraft:equippable").getEquipmentSlot(slot).lockMode = lockMode } catch (e) { }
-            }
-            world.sendMessage(`${world.scoreboard.getObjective('-auInvSees').getParticipants()}`);
-            world.sendMessage(`${world.getPlayers({ name: 'Paul58' })[0]}`);
-            world.sendMessage(`${player.getRotation().y}`);
-            const YRot = player.getRotation().y;
-            let block;
-            if (YRot > -45 && YRot < 45) {
-                block = overworld.getBlock({ x: -171, y: 77, z: -99 });
-                block.setType("minecraft:chest");
-                block.setPermutation(BlockPermutation.resolve("minecraft:chest", { facing_direction: 2 }));
-            } else if (YRot >= 45 && YRot < 135) {
-                block = overworld.getBlock({ x: -171, y: 77, z: -99 });
-                block.setType("minecraft:chest");
-                block.setPermutation(BlockPermutation.resolve("minecraft:chest", { facing_direction: 5 }));
-            } else if ((YRot >= 135 && YRot < 180) || (YRot > -180 && YRot < -135)) { //O usar: (YRot + 180 - (180 - YRot) * 2) > -45
-                block = overworld.getBlock({ x: -171, y: 77, z: -99 });
-                block.setType("minecraft:chest");
-                block.setPermutation(BlockPermutation.resolve("minecraft:chest", { facing_direction: 3 }));
-            } else if (YRot >= -135 && YRot <= -45) {
-                block = overworld.getBlock({ x: -171, y: 77, z: -99 });
-                block.setType("minecraft:chest");
-                block.setPermutation(BlockPermutation.resolve("minecraft:chest", { facing_direction: 4 }));
-            }
-            const a = overworld.getBlock({ x: -191, y: 77, z: -96 });
-            const chestLockSlots = [4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17];
-            for (const slot of chestLockSlots) {
-                a.getComponent("minecraft:inventory").container.getSlot(slot).lockMode = "none";
-            }
-            world.sendMessage(`§b${player.getComponent("minecraft:inventory").container.getSlot(27).typeId}`);
-            /*const foobar = player.getComponent("minecraft:equippable");
-            world.sendMessage(`§b${foobar.getEquipment("chest").typeId}`);
-            await delay(5 * TicksPerSecond);
-            world.sendMessage(`§b${foobar.getEquipment("chest").typeId}`);
-            foobar.setEquipment("head", new ItemStack("minecraft:grass", 1));
-            world.sendMessage(`§b${overworld.getBlock({ x: -171, y: 77, z: -99 }).location}`);
-            */
-
-            /*foobar();
-            async function foobar() {
-                const sign = overworld.getBlock({ x: -191, y: 77, z: -95 });
-                while (true === true) {
-                    const _sign = overworld.getBlock({ x: -191, y: 77, z: -95 });
-                    if (sign === _sign ) {
-                        world.sendMessage('Sign is still the same!');
-                    }
-                    await delay(1);
-                }
-            }
-            */
         });
     }
 });
-
-/*world.afterEvents.projectileHit.subscribe(event => {
-    const { dimension, source } = event;
-    const projTypeId = event.projectile.typeId;
-    const HitEntity = event.getEntityHit().entity;
-    if (source.typeId === "minecraft:player" && HitEntity.typeId !== "minecraft:tnt") {
-        RunProjectilePowers();
-        async function RunProjectilePowers() {
-            const proj = projTypeId.replace(/minecraft:/, '');
-            if (isPowerEnabled(source.nameTag, proj, "bolt")) {
-                await runCmd(dimension, `summon lightning_bolt ${HitEntity.location.x} ${HitEntity.location.y} ${HitEntity.location.z}`);
-            }
-            if (isPowerEnabled(source.nameTag, proj, "freeze")) { //Centrarlos, quitando los decimales y sustituyendolos por ".5", o quitando los decimales y sumando 1 (minecraft resta 0.5 a los números sin decimales para encajar en el centro del bloque), con Math floor es mejor (listo)
-                const entityLoc = HitEntity.location;
-                await runCmd(HitEntity, `tp ${Math.floor(entityLoc.x)} ${Math.floor(entityLoc.y)} ${Math.floor(entityLoc.z)}`);
-                await runCmd(dimension, `fill ${entityLoc.x - 1} ${entityLoc.y - 1} ${entityLoc.z - 1} ${entityLoc.x + 1} ${entityLoc.y + 2} ${entityLoc.z + 1} ice [] replace air`);
-                await runCmd(dimension, `playsound random.glass @a ${entityLoc.x} ${entityLoc.y} ${entityLoc.z} 100`);
-            }
-            if (isPowerEnabled(source.nameTag, proj, "tnt")) {
-                try {
-                    await runCmd(HitEntity, `summon tnt`);
-                    const query = {
-                        closest: 1,
-                        type: "tnt",
-                        excludeTags: ["-autnt"],
-                        location: HitEntity.location
-                    };
-                    const tnt = [...HitEntity.dimension.getEntities(query)][0];
-                    const _tntFlag = tntFlag;
-                    tnt.addTag(_tntFlag);
-                    tnt.addTag("-autnt");
-                    tntFlag = `-autnt${tntFlag.match(/[0-9]+/)[0] * 1 + 1}`; //Va sumando 1 cada vez
-                    asyncTntTp();
-                    async function asyncTntTp() {
-                        while (function () {
-                            const { successCount } = tnt.dimension.runCommand(`testfor @e[type=tnt, tag=${_tntFlag}]`);
-                            if (successCount === 0) return false
-                            else return true;
-                        }()) {
-                            await runCmd(HitEntity, `tp @e[type=tnt, tag="${_tntFlag}"] @s`);
-                        }
-                    }
-                } catch (e) { }
-            }
-        }
-    }
-});
-*/
-
-/*world.afterEvents.projectileHit.subscribe(async event => {
-    const block = event.getBlockHit()?.block;
-    world.sendMessage(`${event.getEntityHit()?.entity?.typeId}`);
-    world.sendMessage(`${system.currentTick}`);
-    const { source } = event;
-    source.addTag(`-au${system.currentTick}-au`);
-
-    await delay(0.2);
-    world.sendMessage(`xd1${source.getTags()}`)
-    if (block || parseInt(source.getTags().find(tag => /(?<=-au)\d+$/.test(tag))?.match(/(?<=-au)\d+/)[0]) === system.currentTick) { //Looks for another tag with the same number (tick) so that it makes sure the projectile has hit an entity and the entity has been hurt as well (sometimes you don't hurt an entity but the projectileHit event fires)
-        system.run(() => {
-            try {
-                source.removeTag(source.getTags().find(tag => /(?<=-au)snowball|arrow|egg/.test(tag)));
-                projNum--;
-            } catch (e) { }
-        });
-    }
-    source.removeTag(source.getTags().find(tag => /(?<=-au)\d+(?=-au)/.test(tag)));
-});
-
-world.afterEvents.projectileHitBlock.subscribe(async event => {
-    const block = event.getBlockHit().block;
-    world.senddMessage(`${system.currentTick}`);
-    const { source } = event;
-    source.addTag(`-au${system.currentTick}-au`);
-
-    await delay(0.2);
-    world.sendMessage(`xd1${source.getTags()}`);
-    if (parseInt(source.getTags().find(tag => /(?<=-au)\d+$/.test(tag))?.match(/(?<=-au)\d+/)[0]) === system.currentTick) {
-        system.run(() => {
-            try {
-                source.removeTag(source.getTags().find(tag => /(?<=-au)snowball|arrow|egg/.test(tag)));
-                projNum--;
-            } catch (e) { }
-        });
-    }
-    source.removeTag(source.getTags().find(tag => /(?<=-au)\d+(?=-au)/.test(tag)));
-});
-*/
-
-/*world.afterEvents.entityHurt.subscribe(async event => {
-    try {
-        const damagingEntity = event.damageSource?.damagingEntity;
-        damagingEntity.addTag(`-au${system.currentTick}`);
-        // const projTypeId = event.damageSource?.damagingProjectile;
-        const { hurtEntity } = event;
-        if (damagingEntity?.typeId === "minecraft:player" && hurtEntity?.typeId !== "minecraft:tnt" && event.damageSource?.damagingProjectile) {
-            world.sendMessage(`${system.currentTick}`);
-            world.sendMessage(`xd${damagingEntity.getTags()}`);
-            if (parseInt(damagingEntity.getTags().find(tag => /(?<=-au)\d+(?=-au)/.test(tag)).match(/(?<=-au)\d+/)[0]) === system.currentTick) {
-                RunProjectilePowers();
-                async function RunProjectilePowers() {
-                    const _proj = damagingEntity.getTags().filter(tag => /(?<=-au)snowball|arrow|egg/.test(tag));
-                    const proj = _proj[_proj.length - 1].match(/(?<=-au)snowball|arrow|egg(?=\d+)/)[0]; //Gets the last projectile tag
-                    damagingEntity.removeTag(damagingEntity.getTags().find(tag => /(?<=-au)snowball|arrow|egg/.test(tag)));
-                    if (isPowerEnabled(damagingEntity.nameTag, proj, "bolt")) {
-                        hurtEntity.runCommand(`summon lightning_bolt`);
-                    }
-                    if (isPowerEnabled(damagingEntity.nameTag, proj, "freeze")) {
-                        const entityLoc = hurtEntity.location;
-                        hurtEntity.runCommand(`tp ${Math.floor(entityLoc.x)} ${Math.floor(entityLoc.y)} ${Math.floor(entityLoc.z)}`);
-                        hurtEntity.dimension.runCommand(`fill ${entityLoc.x - 1} ${entityLoc.y - 1} ${entityLoc.z - 1} ${entityLoc.x + 1} ${entityLoc.y + 2} ${entityLoc.z + 1} ice [] replace air`);
-                        hurtEntity.dimension.runCommand(`playsound random.glass @a ${entityLoc.x} ${entityLoc.y} ${entityLoc.z} 100`);
-                    }
-                    if (isPowerEnabled(damagingEntity.nameTag, proj, "tnt")) {
-                        try {
-                            await runCmd(hurtEntity, `summon tnt`);
-                            const query = {
-                                closest: 1,
-                                type: "tnt",
-                                excludeTags: ["-autnt"],
-                                location: hurtEntity.location
-                            };
-                            const tnt = [...hurtEntity.dimension.getEntities(query)][0];
-                            const _tntFlag = tntFlag;
-                            tnt.addTag(_tntFlag);
-                            tnt.addTag("-autnt");
-                            tntFlag = `-autnt${tntFlag.match(/[0-9]+/)[0] * 1 + 1}`; //Va sumando 1 cada vez
-                            asyncTntTp();
-                            async function asyncTntTp() {
-                                try {
-                                    while (function () {
-                                        const { successCount } = tnt.dimension.runCommand(`testfor @e[type=tnt, tag=${_tntFlag}]`);
-                                        if (successCount === 0) return false
-                                        else return true;
-                                    }()) {
-                                        await runCmd(hurtEntity, `tp @e[type=tnt, tag="${_tntFlag}"] @s`);
-                                    }
-                                } catch (e) { }
-                            }
-                        } catch (e) { }
-                    }
-                }
-            }
-        }
-        await delay(0.2);
-        damagingEntity.removeTag(damagingEntity.getTags().find(tag => /(?<=-au)\d+$/.test(tag)));
-    } catch (e) { console.warn(e) }
-});
-*/
 
 world.afterEvents.projectileHitEntity.subscribe(event => {
     try {
@@ -774,7 +567,7 @@ world.afterEvents.projectileHitEntity.subscribe(event => {
                     const _tntFlag = tntFlag;
                     tnt.addTag(_tntFlag);
                     tnt.addTag("-autnt");
-                    tntFlag = `-autnt${tntFlag.match(/[0-9]+/)[0] * 1 + 1}`; //Va sumando 1 cada vez
+                    tntFlag = `-autnt${tntFlag.match(/[0-9]+/)[0] * 1 + 1}`; //Adds 1 each time
                     asyncTntTp();
                     async function asyncTntTp() {
                         try {
@@ -797,7 +590,7 @@ world.afterEvents.projectileHitEntity.subscribe(event => {
 
 function adminUtilsGui(p) {
     const form = new ActionFormData()
-        .title("AdminUtils GUI")
+        .title("§l§4§kkdk§r§l§cAdmin§aUtils §bGUI§4§kkdk")
         .body("Select an option")
         .button("Admin settings", "textures/icons/settings1.png")
         .button("Admin utils", "textures/icons/adminUtils.png");
@@ -817,7 +610,7 @@ function adminUtilsGui(p) {
 
 function adminSettings(p) {
     const form = new ActionFormData()
-        .title("Admin settings")
+        .title("§l§b§kkdk§r§l§cAdmin §asettings§b§kkdk")
         .body("Select an option")
         .button("§l<-- Back", "textures/icons/back.png")
         .button("Set an admin", "textures/icons/tick.png")
@@ -1001,7 +794,7 @@ function adminSettings(p) {
                         .button("§l<-- Back", "textures/icons/back.png")
                         .button("Type an offline/online admin instead", "textures/icons/pencil.png");
                     for (const admin of locAdmins) {
-                        form.button(admin, "texture/icons/steve_icon.png");
+                        form.button(admin, "textures/icons/steve_icon.png");
                     }
                     form.show(p).then((response) => {
                         if (response.canceled === true) return;
@@ -1089,7 +882,7 @@ function adminSettings(p) {
 
 function adminUtils(p) {
     const form = new ActionFormData()
-        .title("Admin utils")
+        .title("§l§b§kkdk§r§l§cAdmin §autils§b§kkdk")
         .body("Select an option")
         .button("§l<-- Back", "textures/icons/back.png") //0
         .button("Ban or unban menu", "textures/icons/ban.png") //1
@@ -1811,7 +1604,7 @@ function jailPlayer(p) {
             .button1("No")
             .button2("Yes");
         form.show(p).then(result => {
-            if (result.selection === 0) { //Hacer que también vaya atrás en el resto del código?
+            if (result.selection === 0) {
                 jailMenu(p);
             } else if (result.selection === 1) {
                 jailLocConfig(p);
@@ -3058,7 +2851,7 @@ function seeInventoryMenu(p) {
             });
         } else if (selection === 2) { //Manage active chests
             manageActiveChests();
-            function manageActiveChests() { //Handle what happens if there isn't any chest.
+            function manageActiveChests() {
                 const repeatedPlayers = getInvSees()?.map(chest => chest.target);
                 const nonRepeatedPlayers = repeatedPlayers?.reduce(function (accumulator, currentValue) {
                     if (accumulator.indexOf(currentValue) === -1) {
@@ -4006,7 +3799,7 @@ async function handleInventories(chestObject, lastTargetData, lastChestData, rec
     const targetEquipSlots = ["Head", "Chest", "Legs", "Feet", "Offhand"];
 
     if (forceReplace === false) {
-        for (let slot = 18; slot < 54; slot++) { //Save chest inventory (without incluing the top part with the equipment)
+        for (let slot = 18; slot < 54; slot++) { //Save chest inventory (without including the top part with the equipment)
             oldChestInv.push(chestContainer.getItem(slot));
         }
         for (let slot = 9; slot < 36; slot++) { //Save inventory (without including the hotbar yet)
@@ -4036,14 +3829,14 @@ async function handleInventories(chestObject, lastTargetData, lastChestData, rec
             dimension.spawnItem(items[index], { x: chestObject.pos1[0], y: chestObject.pos1[1] + 1, z: chestObject.pos1[2] });
         }
     }
-    await delay(10); //Tratar de sincronizar para que espere a que esté lista de nueva esta función por la parte de let oldChestInv y luego justo cuando termine de reemplazar los items que de paso a esa función?
+    await delay(10);
 
     let newChestInv = [];
     let newTargetInv = [];
     let newChestEquip = [];
     let newTargetEquip = [];
 
-    for (let slot = 18; slot < 54; slot++) { //Save chest inventory (without incluing the top part with the equipment)
+    for (let slot = 18; slot < 54; slot++) { //Save chest inventory (without including the top part with the equipment)
         newChestInv.push(chestContainer.getItem(slot));
     }
     for (let slot = 9; slot < 36; slot++) { //Save inventory (without including the hotbar yet)
@@ -4065,18 +3858,14 @@ async function handleInventories(chestObject, lastTargetData, lastChestData, rec
         for (let i = 0; i < oldChestInv.length; i++) {
             if (areItemsEqual(oldTargetInv[i], newTargetInv[i]) === false && areItemsEqual(newChestInv[i], newTargetInv[i]) === false) {
                 //Means the item of the inventory at 'i' has changed, update chest
-                world.sendMessage(`Update chest`);
-                world.sendMessage(`${areItemsEqual(oldTargetInv[i], newTargetInv[i])}`);
                 chestContainer.setItem(i + 18, newTargetInv[i]);
                 changedSlots.inv.push(i);
             } else if (!recentChangedSlots.inv.includes(i) && areItemsEqual(lastTargetData[0].invItems[i], oldTargetInv[i]) === false && areItemsEqual(lastTargetData[0].invItems[i], lastTargetData[1].invItems[i]) === true) {
-                world.sendMessage(`Update §bchest`);
-                world.sendMessage(`${areItemsEqual(lastTargetData[0].invItems[i], newTargetInv[i])}`);
+                //Means the item of the inventory at 'i' changed last time this function was called but when the variables where already filled, so no change was detected
                 chestContainer.setItem(i + 18, newTargetInv[i]);
                 changedSlots.inv.push(i);
             } else if (areItemsEqual(oldChestInv[i], newChestInv[i]) === false && areItemsEqual(newChestInv[i], newTargetInv[i]) === false) {
                 //Means the item of the chest at 'i' has changed, update inventory
-                world.sendMessage('Update inventory');
                 if (i >= 27) { //Translate the slot from the array to the slot in the inventory
                     const translatedSlot = i - 27;
                     targetInventory.setItem(translatedSlot, newChestInv[i]);
@@ -4086,7 +3875,7 @@ async function handleInventories(chestObject, lastTargetData, lastChestData, rec
                 }
                 changedSlots.inv.push(i);
             } else if (!recentChangedSlots.inv.includes(i) && areItemsEqual(lastChestData[0].invItems[i], oldChestInv[i]) === false && areItemsEqual(lastChestData[0].invItems[i], lastChestData[1].invItems[i]) === true) {
-                world.sendMessage('Update §binventory');
+                //Means the item of the chest at 'i' changed last time this function was called but when the variables where already filled, so no change was detected
                 if (i >= 27) { //Translate the slot from the array to the slot in the inventory
                     const translatedSlot = i - 27;
                     targetInventory.setItem(translatedSlot, newChestInv[i]);
@@ -4105,6 +3894,7 @@ async function handleInventories(chestObject, lastTargetData, lastChestData, rec
                 chestContainer.setItem(chestEquipSlots[i], newTargetEquip[i]);
                 changedSlots.equip.push(i);
             } else if (!recentChangedSlots.equip.includes(i) && areItemsEqual(lastTargetData[0].equipments[i], oldTargetEquip[i]) === false && areItemsEqual(lastTargetData[0].equipments[i], lastTargetData[1].equipments[i]) === true) {
+                //Means the equipment item of the inventory at 'i' changed last time this function was called but when the variables where already filled, so no change was detected
                 chestContainer.setItem(chestEquipSlots[i], newTargetEquip[i]);
                 changedSlots.equip.push(i);
             } else if (areItemsEqual(oldChestEquip[i], newChestEquip[i]) === false && areItemsEqual(newChestEquip[i], newTargetEquip[i]) === false) {
@@ -4112,6 +3902,7 @@ async function handleInventories(chestObject, lastTargetData, lastChestData, rec
                 targetEquipments.setEquipment(targetEquipSlots[i], newChestEquip[i]);
                 changedSlots.equip.push(i);
             } else if (!recentChangedSlots.equip.includes(i) && areItemsEqual(lastChestData[0].equipments[i], oldChestEquip[i]) === false && areItemsEqual(lastChestData[0].equipments[i], lastChestData[1].equipments[i]) === true) {
+                //Means the equipment item of the chest at 'i' changed last time this function was called but when the variables where already filled, so no change was detected
                 targetEquipments.setEquipment(targetEquipSlots[i], newChestEquip[i]);
                 changedSlots.equip.push(i);
             }
