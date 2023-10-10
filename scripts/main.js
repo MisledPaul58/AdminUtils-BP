@@ -5,7 +5,8 @@ import moment from "./moment/src/moment.js";
 
 const overworld = world.getDimension("overworld"); //Hacer una cárcel con tiempo y un vanish, sendcommandfeedback?, cambiar los /camera para que se apliquen los efectos de poción?, cancelar ItemUse con beforeEvents para los encarcelados?, invSee?!
 const delay = ticks => new Promise(res => system.runTimeout(res, ticks));
-let firstPlayer = false;
+let worldLoaded = false;
+let scoreboardsLoaded = false;
 let players = []; //Hacer que vuelva a la lista de jugadores en projectilePowers después de darle a submit?, recordarte el jugador que has seleccionado en el ModalFormData?
 let admins = []; //Usar una entidad para el invsee en vez de cofres?
 let simcount = 0;
@@ -17,25 +18,36 @@ system.beforeEvents.watchdogTerminate.subscribe(watchdog => {
     watchdog.cancel = true;
 });
 
-system.runInterval(async tick => {
-    let { currentTick } = system;
+system.runInterval(async () => {
     players = [...world.getPlayers()];
 
     try { admins = [...world.scoreboard.getObjective('-au').getParticipants().map(admin => admin.displayName)] } catch (e) { }
-    if (players.length === 1 && firstPlayer === false) {
-        try { await runCmd(overworld, 'scoreboard objectives add -au dummy') } catch (e) { }
-        try { await runCmd(overworld, 'scoreboard objectives add -auBan dummy') } catch (e) { }
-        try { await runCmd(overworld, 'scoreboard objectives add -auProj dummy') } catch (e) { }
-        try { await runCmd(overworld, 'scoreboard objectives add -auFrozen dummy') } catch (e) { }
-        try { await runCmd(overworld, 'scoreboard objectives add -auJailed dummy') } catch (e) { }
-        try { await runCmd(overworld, 'scoreboard objectives add -auTempUnjailed dummy') } catch (e) { }
-        try { await runCmd(overworld, 'scoreboard objectives add -auJailLoc dummy') } catch (e) { }
-        try { await runCmd(overworld, 'scoreboard objectives add -auJailExitLoc dummy') } catch (e) { }
-        try { await runCmd(overworld, 'scoreboard objectives add -auVanished dummy') } catch (e) { }
-        try { await runCmd(overworld, 'scoreboard objectives add -auInvSees dummy') } catch (e) { }
-        if (currentTick % 200 === 0) {
-            await runCmd(overworld, `execute @a ~~~ tellraw @s {"rawtext":[{"text":"§l§4§kqww§r§l§bThanks for using Admin Utils! §aMade by §6MisledPaul58§4§kqww§r"}]}`);
-            firstPlayer = true;
+
+    if (scoreboardsLoaded === false) {
+        try { world.scoreboard.addObjective('-au', '-au') } catch (e) { }
+        try { world.scoreboard.addObjective('-auBan', '-auBan') } catch (e) { }
+        try { world.scoreboard.addObjective('-auProj', '-auProj') } catch (e) { }
+        try { world.scoreboard.addObjective('-auFrozen', '-auFrozen') } catch (e) { }
+        try { world.scoreboard.addObjective('-auJailed', '-auJailed') } catch (e) { }
+        try { world.scoreboard.addObjective('-auTempUnjailed', '-auTempUnjailed') } catch (e) { }
+        try { world.scoreboard.addObjective('-auJailLoc', '-auJailLoc') } catch (e) { }
+        try { world.scoreboard.addObjective('-auJailExitLoc', '-auJailExitLoc') } catch (e) { }
+        try { world.scoreboard.addObjective('-auVanished', '-auVanished') } catch (e) { }
+        try { world.scoreboard.addObjective('-auInvSees', '-auInvSees') } catch (e) { }
+        try { world.scoreboard.addObjective('-auTempKilled', '-auTempKilled') } catch (e) { }
+        scoreboardsLoaded = true;
+        asyncText();
+        async function asyncText() {
+            while (function () {
+                const { successCount } = overworld.runCommand('testfor @a');
+                if (successCount === 1) return false
+                else return true;
+            }()) {
+                await delay(3);
+            }
+            await delay(6 * TicksPerSecond);
+            world.sendMessage("§l§4§kqww§r§l§bThanks for using Admin Utils! §aMade by §6MisledPaul58§4§kqww");
+            worldLoaded = true;
         }
     }
 
@@ -56,7 +68,7 @@ system.runInterval(async tick => {
         world.sendMessage(`${container.size}`);
     }
     */
-    if (firstPlayer === true) {
+    if (worldLoaded === true) {
         if (getInvSees()) {
             for (const invChest of getInvSees()) {
                 if (!invChests.includes(invChest.scoreboard)) {
@@ -185,6 +197,14 @@ system.runInterval(async tick => {
             }
         }
 
+        const tags = player.getTags();
+        if (tags.some(tag => /-aukill(?:creative|spectator)/.test(tag))) {
+            const gamemode = tags.find(tag => /(?<=^-aukill)\w+/.test(tag)).match(/(?<=^-aukill)\w+/)[0];
+            player.runCommand(`gamemode ${gamemode}`);
+
+            player.removeTag(tags.find(tag => /^-aukill\w+/.test(tag)));
+        }
+
         if (isFrozen(player.name)) {
             try {
                 const positions = world.scoreboard.getObjective('-auFrozen').getParticipants().filter(participant => participant.displayName.match(/-auname([^]*) -au-?[0-9]+[^]* -au-?[0-9]+[^]* -au-?[0-9]+[^]*/)[1] === player.name)[0].displayName.match(/-au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*)/).slice(1).map(pos => pos * 1); //Gets the positions where the player was frozen and converts it to integer or float
@@ -239,13 +259,20 @@ system.runInterval(async tick => {
                 } else {
                     const releaseISO = getReleaseISO(jailedPlayer);
                     world.scoreboard.getObjective('-auJailed').removeParticipant(`${jailedPlayer}-aureason${reason}-aujailedby${jailedBy}-autime${releaseISO}-auhasjoined${hasJailedPlJoined(jailedPlayer)}`);
-                    jailedPlayerRaw.runCommand("camera @s fade time 3 1 1 color 0 0 0");
-                    await delay(60);
-                    jailedPlayerRaw.teleport(getJailExitLoc()[0], getJailExitLoc()[1]);
-                    jailedPlayerRaw.runCommand('gamemode survival')
-                    await delay(20);
-                    jailedPlayerRaw.onScreenDisplay.setTitle('§l§bYou have been released', { fadeInDuration: 2 * TicksPerSecond, stayDuration: 1.5 * TicksPerSecond, fadeOutDuration: 2 * TicksPerSecond });
-                    await runCmd(jailedPlayerRaw, "playsound beacon.activate @s ~ ~ ~ 100");
+                    try {
+                        jailedPlayerRaw.runCommand("camera @s fade time 3 1 1 color 0 0 0");
+                        await delay(60);
+                        jailedPlayerRaw.teleport(getJailExitLoc()[0], getJailExitLoc()[1]);
+                        jailedPlayerRaw.runCommand('gamemode survival')
+                        await delay(20);
+                        jailedPlayerRaw.onScreenDisplay.setTitle('§l§bYou have been released', { fadeInDuration: 2 * TicksPerSecond, stayDuration: 1.5 * TicksPerSecond, fadeOutDuration: 2 * TicksPerSecond });
+                        await runCmd(jailedPlayerRaw, "playsound beacon.activate @s ~ ~ ~ 100");
+                    } catch (e) {
+                        //Lo que pasaría si se desconecta el jugador mientras está siendo liberado
+                        if (!world.scoreboard.getObjective('-auTempUnjailed').hasParticipant('/' + jailedPlayer)) {
+                            world.scoreboard.getObjective('-auTempUnjailed').setScore('/' + jailedPlayer, 0);
+                        }
+                    }
                 }
             }
         } else if (jailedPlayerRaw) {
@@ -466,7 +493,7 @@ world.afterEvents.playerJoin.subscribe(async event => {
                             }
                         }
                     } else { //If the jail location IS set
-                        if (getReleaseMillisecondsLeft(playerName > 6100) || isPermaJailed(playerName)) {
+                        if (getReleaseMillisecondsLeft(playerName) > 6100 || isPermaJailed(playerName)) {
                             playerRaw.runCommand("camera @s set au:tpanimation ease 5 in_sine pos ~ ~100 ~ rot 90 0");
                             await delay(40);
                             playerRaw.runCommand("camera @s fade time 3 1 1 color 0 0 0");
@@ -498,23 +525,6 @@ world.afterEvents.playerJoin.subscribe(async event => {
                     }
                 }
             } catch (e) { }
-        }
-    } else {
-        waitForTestFor();
-        async function waitForTestFor() {
-            while (async function () {
-                const { successCount } = await runCmd(overworld, `testfor "${playerName}"`);
-                if (successCount === 1) return false
-                else return true;
-            }()) {
-                await delay(10);
-            }
-
-            await delay(20);
-            const playerRaw = world.getPlayers({ name: playerName })[0];
-            for (const tag of playerRaw.getTags().filter(tag => /(?<=-au)snowball|arrow|egg/.test(tag))) {
-                playerRaw.removeTag(tag);
-            }
         }
     }
 });
@@ -1076,15 +1086,27 @@ function adminUtils(p) {
                             if (!isValidUsername(playerName)) {
                                 await runTellraw(p, `§cError, the username you entered is invalid.`);
 
-                            } else if (result.formValues[1] === true) {
+                            } else if (result.formValues[1] === true) { //Force death true
                                 try {
                                     const { successCount: _successCount } = p.runCommand(`testfor "${playerName}"`);
                                     if (_successCount === 0) {
                                         throw '';
                                     }
 
-                                    p.runCommand(`gamemode survival "${playerName}"`);
-                                    await runCmd(p, `kill "${playerName}"`);
+                                    const rawPlayer = world.getPlayers({ name: playerName, gameMode: GameMode.survival })[0];
+                                    const rawPlayer2 = world.getPlayers({ name: playerName, gameMode: GameMode.adventure })[0];
+                                    if (!rawPlayer && !rawPlayer2) {
+                                        let gamemode = "survival";
+                                        if (world.getPlayers({ name: playerName, gameMode: GameMode.creative })[0]) {
+                                            gamemode = "creative";
+                                        } else if (world.getPlayers({ name: playerName, gameMode: GameMode.spectator })[0]) {
+                                            gamemode = "spectator;"
+                                        }
+
+                                        p.runCommand(`tag "${playerName}" add "-aukill${gamemode}"`);
+                                        p.runCommand(`gamemode survival "${playerName}"`);
+                                    }
+                                    p.runCommand(`kill "${playerName}"`);
                                     await delay(2);
 
                                     const { successCount } = p.runCommand(`testfor "${playerName}"`);
@@ -1095,7 +1117,7 @@ function adminUtils(p) {
                                 } catch (e) {
                                     await runTellraw(p, `§cError, the player couldn't be killed or wasn't found.`);
                                 }
-                            } else if (result.formValues[1] === false) {
+                            } else if (result.formValues[1] === false) { //Force death false
                                 try {
                                     const { successCount: _successCount } = p.runCommand(`testfor "${playerName}"`);
                                     if (_successCount === 0) { //If the player is already dead or offline
@@ -1123,15 +1145,28 @@ function adminUtils(p) {
                             .toggle("Force death", true);
                         form.show(p).then(async result => {
                             if (result.canceled === true) return;
-                            if (result.formValues[0] === true) {
+                            if (result.formValues[0] === true) { //Force death true
                                 try {
                                     const { successCount: _successCount } = p.runCommand(`testfor "${selectedPlayersName}"`);
                                     if (_successCount === 0) {
                                         throw '';
                                     }
 
-                                    p.runCommand(`gamemode survival "${selectedPlayersName}"`);
-                                    await runCmd(p, `kill "${selectedPlayersName}"`);
+                                    const rawPlayer = world.getPlayers({ name: selectedPlayersName, gameMode: GameMode.survival })[0];
+                                    const rawPlayer2 = world.getPlayers({ name: selectedPlayersName, gameMode: GameMode.adventure })[0];
+                                    if (!rawPlayer && !rawPlayer2) {
+                                        let gamemode = "survival";
+                                        if (world.getPlayers({ name: selectedPlayersName, gameMode: GameMode.creative })[0]) {
+                                            gamemode = "creative";
+                                        } else if (world.getPlayers({ name: selectedPlayersName, gameMode: GameMode.spectator })[0]) {
+                                            gamemode = "spectator;"
+                                        }
+
+                                        p.runCommand(`tag "${selectedPlayersName}" add "-aukill${gamemode}"`);
+                                        p.runCommand(`gamemode survival "${selectedPlayersName}"`);
+                                    }
+
+                                    p.runCommand(`kill "${selectedPlayersName}"`);
                                     await delay(2);
 
                                     const { successCount } = p.runCommand(`testfor "${selectedPlayersName}"`);
@@ -1142,7 +1177,7 @@ function adminUtils(p) {
                                 } catch (e) {
                                     await runTellraw(p, `§cError, the player couldn't be killed or wasn't found.`);
                                 }
-                            } else if (result.formValues[0] === false) {
+                            } else if (result.formValues[0] === false) { //Force death false
                                 try {
                                     const { successCount: _successCount } = p.runCommand(`testfor "${selectedPlayersName}"`);
                                     if (_successCount === 0) { //If the player is already dead or offline
@@ -1681,20 +1716,29 @@ function jailPlayer(p) {
 
                                 const playerRaw = world.getPlayers({ name: player })[0];
                                 if (playerRaw) {
-                                    playerRaw.runCommand("camera @s set au:tpanimation ease 5 in_sine pos ~ ~100 ~ rot 90 0");
-                                    await delay(40);
-                                    playerRaw.runCommand("camera @s fade time 3 1 1 color 0 0 0");
-                                    await delay(60);
-                                    playerRaw.teleport(getJailLoc()[0], getJailLoc()[1]);
-                                    playerRaw.runCommand("camera @s clear");
-                                    await delay(20);
-                                    playerRaw.onScreenDisplay.setTitle('§l§cYou have been jailed', { fadeInDuration: 2 * TicksPerSecond, stayDuration: 1.5 * TicksPerSecond, fadeOutDuration: 2 * TicksPerSecond });
-                                    runCmd(playerRaw, 'playsound random.anvil_land @s ~ ~ ~ 100 0.5');
-
                                     try {
-                                        world.scoreboard.getObjective('-auTempUnjailed').removeParticipant('/' + player);
-                                    } catch (e) { }
-                                    await runCmd(overworld, `scoreboard players set "${player}-aureason${reason}-aujailedby${jailedBy}-autime-aupermajailed-au-auhasjoinedtrue" -auJailed 0`);
+                                        playerRaw.runCommand("camera @s set au:tpanimation ease 5 in_sine pos ~ ~100 ~ rot 90 0");
+                                        await delay(40);
+                                        playerRaw.runCommand("camera @s fade time 3 1 1 color 0 0 0");
+                                        await delay(60);
+                                        playerRaw.teleport(getJailLoc()[0], getJailLoc()[1]);
+                                        playerRaw.runCommand("camera @s clear");
+                                        await delay(20);
+                                        playerRaw.onScreenDisplay.setTitle('§l§cYou have been jailed', { fadeInDuration: 2 * TicksPerSecond, stayDuration: 1.5 * TicksPerSecond, fadeOutDuration: 2 * TicksPerSecond });
+                                        runCmd(playerRaw, 'playsound random.anvil_land @s ~ ~ ~ 100 0.5');
+
+                                        try {
+                                            world.scoreboard.getObjective('-auTempUnjailed').removeParticipant('/' + player);
+                                        } catch (e) { }
+                                        await runCmd(overworld, `scoreboard players set "${player}-aureason${reason}-aujailedby${jailedBy}-autime-aupermajailed-au-auhasjoinedtrue" -auJailed 0`);
+                                    } catch (e) {
+                                        //Handles what happens if the player leaves while it's being jailed
+                                        try {
+                                            world.scoreboard.getObjective('-auTempUnjailed').removeParticipant('/' + player);
+                                        } catch (e) { }
+                                        await runCmd(overworld, `scoreboard players set "${player}-aureason${reason}-aujailedby${jailedBy}-autime-aupermajailed-au-auhasjoinedfalse" -auJailed 0`);
+                                        await delay(20);
+                                    }
                                 } else {
                                     try {
                                         world.scoreboard.getObjective('-auTempUnjailed').removeParticipant('/' + player);
@@ -1763,20 +1807,29 @@ function jailPlayer(p) {
 
                                 const playerRaw = world.getPlayers({ name: player })[0];
                                 if (playerRaw) {
-                                    playerRaw.runCommand("camera @s set au:tpanimation ease 5 in_sine pos ~ ~100 ~ rot 90 0");
-                                    await delay(40);
-                                    playerRaw.runCommand("camera @s fade time 3 1 1 color 0 0 0");
-                                    await delay(60);
-                                    playerRaw.teleport(getJailLoc()[0], getJailLoc()[1]);
-                                    playerRaw.runCommand("camera @s clear");
-                                    await delay(20);
-                                    playerRaw.onScreenDisplay.setTitle('§l§cYou have been jailed', { fadeInDuration: 2 * TicksPerSecond, stayDuration: 1.5 * TicksPerSecond, fadeOutDuration: 2 * TicksPerSecond });
-                                    runCmd(playerRaw, 'playsound random.anvil_land @s ~ ~ ~ 100 0.5');
-
                                     try {
-                                        world.scoreboard.getObjective('-auTempUnjailed').removeParticipant('/' + player);
-                                    } catch (e) { }
-                                    await runCmd(overworld, `scoreboard players set "${player}-aureason${reason}-aujailedby${jailedBy}-autime${releaseISO}-auhasjoinedtrue" -auJailed 0`);
+                                        playerRaw.runCommand("camera @s set au:tpanimation ease 5 in_sine pos ~ ~100 ~ rot 90 0");
+                                        await delay(40);
+                                        playerRaw.runCommand("camera @s fade time 3 1 1 color 0 0 0");
+                                        await delay(60);
+                                        playerRaw.teleport(getJailLoc()[0], getJailLoc()[1]);
+                                        playerRaw.runCommand("camera @s clear");
+                                        await delay(20);
+                                        playerRaw.onScreenDisplay.setTitle('§l§cYou have been jailed', { fadeInDuration: 2 * TicksPerSecond, stayDuration: 1.5 * TicksPerSecond, fadeOutDuration: 2 * TicksPerSecond });
+                                        runCmd(playerRaw, 'playsound random.anvil_land @s ~ ~ ~ 100 0.5');
+
+                                        try {
+                                            world.scoreboard.getObjective('-auTempUnjailed').removeParticipant('/' + player);
+                                        } catch (e) { }
+                                        await runCmd(overworld, `scoreboard players set "${player}-aureason${reason}-aujailedby${jailedBy}-autime${releaseISO}-auhasjoinedtrue" -auJailed 0`);
+                                    } catch (e) {
+                                        //Handles what happens if the player leaves while it's being jailed
+                                        try {
+                                            world.scoreboard.getObjective('-auTempUnjailed').removeParticipant('/' + player);
+                                        } catch (e) { }
+                                        await runCmd(overworld, `scoreboard players set "${player}-aureason${reason}-aujailedby${jailedBy}-autime${releaseISO}-auhasjoinedfalse" -auJailed 0`);
+                                        await delay(20);
+                                    }
                                 } else {
                                     try {
                                         world.scoreboard.getObjective('-auTempUnjailed').removeParticipant('/' + player);
@@ -1837,20 +1890,29 @@ function jailPlayer(p) {
 
                                     const playerRaw = world.getPlayers({ name: selectedPlayer })[0];
                                     if (playerRaw) {
-                                        playerRaw.runCommand("camera @s set au:tpanimation ease 5 in_sine pos ~ ~100 ~ rot 90 0");
-                                        await delay(40);
-                                        playerRaw.runCommand("camera @s fade time 3 1 1 color 0 0 0");
-                                        await delay(60);
-                                        playerRaw.teleport(getJailLoc()[0], getJailLoc()[1]);
-                                        playerRaw.runCommand("camera @s clear");
-                                        await delay(20);
-                                        playerRaw.onScreenDisplay.setTitle('§l§cYou have been jailed', { fadeInDuration: 2 * TicksPerSecond, stayDuration: 1.5 * TicksPerSecond, fadeOutDuration: 2 * TicksPerSecond });
-                                        runCmd(playerRaw, 'playsound random.anvil_land @s ~ ~ ~ 100 0.5');
-
                                         try {
-                                            world.scoreboard.getObjective('-auTempUnjailed').removeParticipant('/' + selectedPlayer);
-                                        } catch (e) { }
-                                        await runCmd(overworld, `scoreboard players set "${selectedPlayer}-aureason${reason}-aujailedby${jailedBy}-autime-aupermajailed-au-auhasjoinedtrue" -auJailed 0`);
+                                            playerRaw.runCommand("camera @s set au:tpanimation ease 5 in_sine pos ~ ~100 ~ rot 90 0");
+                                            await delay(40);
+                                            playerRaw.runCommand("camera @s fade time 3 1 1 color 0 0 0");
+                                            await delay(60);
+                                            playerRaw.teleport(getJailLoc()[0], getJailLoc()[1]);
+                                            playerRaw.runCommand("camera @s clear");
+                                            await delay(20);
+                                            playerRaw.onScreenDisplay.setTitle('§l§cYou have been jailed', { fadeInDuration: 2 * TicksPerSecond, stayDuration: 1.5 * TicksPerSecond, fadeOutDuration: 2 * TicksPerSecond });
+                                            runCmd(playerRaw, 'playsound random.anvil_land @s ~ ~ ~ 100 0.5');
+
+                                            try {
+                                                world.scoreboard.getObjective('-auTempUnjailed').removeParticipant('/' + selectedPlayer);
+                                            } catch (e) { }
+                                            await runCmd(overworld, `scoreboard players set "${selectedPlayer}-aureason${reason}-aujailedby${jailedBy}-autime-aupermajailed-au-auhasjoinedtrue" -auJailed 0`);
+                                        } catch (e) {
+                                            //Handles what happens if the player leaves while it's being jailed
+                                            try {
+                                                world.scoreboard.getObjective('-auTempUnjailed').removeParticipant('/' + selectedPlayer);
+                                            } catch (e) { }
+                                            await runCmd(overworld, `scoreboard players set "${selectedPlayer}-aureason${reason}-aujailedby${jailedBy}-autime-aupermajailed-au-auhasjoinedfalse" -auJailed 0`);
+                                            await delay(20);
+                                        }
                                     } else {
                                         try {
                                             world.scoreboard.getObjective('-auTempUnjailed').removeParticipant('/' + selectedPlayer);
@@ -1916,20 +1978,30 @@ function jailPlayer(p) {
 
                                     const playerRaw = world.getPlayers({ name: selectedPlayer })[0];
                                     if (playerRaw) {
-                                        playerRaw.runCommand("camera @s set au:tpanimation ease 5 in_sine pos ~ ~100 ~ rot 90 0");
-                                        await delay(40);
-                                        playerRaw.runCommand("camera @s fade time 3 1 1 color 0 0 0");
-                                        await delay(60);
-                                        playerRaw.teleport(getJailLoc()[0], getJailLoc()[1]);
-                                        playerRaw.runCommand("camera @s clear");
-                                        await delay(20);
-                                        playerRaw.onScreenDisplay.setTitle('§l§cYou have been jailed', { fadeInDuration: 2 * TicksPerSecond, stayDuration: 1.5 * TicksPerSecond, fadeOutDuration: 2 * TicksPerSecond });
-                                        runCmd(playerRaw, 'playsound random.anvil_land @s ~ ~ ~ 100 0.5');
-
                                         try {
-                                            world.scoreboard.getObjective('-auTempUnjailed').removeParticipant('/' + selectedPlayer);
-                                        } catch (e) { }
-                                        await runCmd(overworld, `scoreboard players set "${selectedPlayer}-aureason${reason}-aujailedby${jailedBy}-autime${releaseISO}-auhasjoinedtrue" -auJailed 0`);
+                                            playerRaw.runCommand("camera @s set au:tpanimation ease 5 in_sine pos ~ ~100 ~ rot 90 0");
+                                            await delay(40);
+                                            playerRaw.runCommand("camera @s fade time 3 1 1 color 0 0 0");
+                                            await delay(60);
+                                            playerRaw.teleport(getJailLoc()[0], getJailLoc()[1]);
+                                            playerRaw.runCommand("camera @s clear");
+                                            await delay(20);
+                                            playerRaw.onScreenDisplay.setTitle('§l§cYou have been jailed', { fadeInDuration: 2 * TicksPerSecond, stayDuration: 1.5 * TicksPerSecond, fadeOutDuration: 2 * TicksPerSecond });
+                                            runCmd(playerRaw, 'playsound random.anvil_land @s ~ ~ ~ 100 0.5');
+
+                                            try {
+                                                world.scoreboard.getObjective('-auTempUnjailed').removeParticipant('/' + selectedPlayer);
+                                            } catch (e) { }
+                                            await runCmd(overworld, `scoreboard players set "${selectedPlayer}-aureason${reason}-aujailedby${jailedBy}-autime${releaseISO}-auhasjoinedtrue" -auJailed 0`);
+                                        } catch (e) {
+                                            //Handles what happens if the player leaves while it's being jailed
+                                            //También hacer que al usar Kill a player después de matar al jugador con force death que se le devuelva al modo de juego que tenía antes (listo)
+                                            try {
+                                                world.scoreboard.getObjective('-auTempUnjailed').removeParticipant('/' + selectedPlayer);
+                                            } catch (e) { }
+                                            await runCmd(overworld, `scoreboard players set "${selectedPlayer}-aureason${reason}-aujailedby${jailedBy}-autime${releaseISO}-auhasjoinedfalse" -auJailed 0`);
+                                            await delay(20);
+                                        }
                                     } else {
                                         try {
                                             world.scoreboard.getObjective('-auTempUnjailed').removeParticipant('/' + selectedPlayer);
@@ -2007,17 +2079,24 @@ function releasePlayer(p) {
                             const playerRaw = world.getPlayers({ name: player })[0];
 
                             if (playerRaw) {
-                                if (getReleaseMillisecondsLeft(player) > 3100) {
-                                    playerRaw.runCommand("camera @s fade time 3 1 1 color 0 0 0");
-                                    await delay(60);
-                                    playerRaw.teleport(getJailExitLoc()[0], getJailExitLoc()[1]);
-                                    playerRaw.runCommand('gamemode survival');
+                                try {
+                                    if (getReleaseMillisecondsLeft(player) > 3100) {
+                                        playerRaw.runCommand("camera @s fade time 3 1 1 color 0 0 0");
+                                        await delay(60);
+                                        playerRaw.teleport(getJailExitLoc()[0], getJailExitLoc()[1]);
+                                        playerRaw.runCommand('gamemode survival');
+                                        world.scoreboard.getObjective('-auJailed').removeParticipant(`${player}-aureason${reason}-aujailedby${jailedBy}-autime${releaseISO}-auhasjoined${hasJailedPlJoined(player)}`);
+                                        await delay(20);
+                                        playerRaw.onScreenDisplay.setTitle('§l§bYou have been released', { fadeInDuration: 2 * TicksPerSecond, stayDuration: 1.5 * TicksPerSecond, fadeOutDuration: 2 * TicksPerSecond });
+                                        runCmd(playerRaw, "playsound beacon.activate @s ~ ~ ~ 100");
+                                    } else {
+                                        await delay(62);
+                                    }
+                                } catch (e) {
+                                    //Handles what happens if the player leaves while it's being released
                                     world.scoreboard.getObjective('-auJailed').removeParticipant(`${player}-aureason${reason}-aujailedby${jailedBy}-autime${releaseISO}-auhasjoined${hasJailedPlJoined(player)}`);
+                                    world.scoreboard.getObjective('-auTempUnjailed').setScore('/' + player, 0);
                                     await delay(20);
-                                    playerRaw.onScreenDisplay.setTitle('§l§bYou have been released', { fadeInDuration: 2 * TicksPerSecond, stayDuration: 1.5 * TicksPerSecond, fadeOutDuration: 2 * TicksPerSecond });
-                                    runCmd(playerRaw, "playsound beacon.activate @s ~ ~ ~ 100");
-                                } else {
-                                    await delay(62);
                                 }
                             } else {
                                 world.scoreboard.getObjective('-auJailed').removeParticipant(`${player}-aureason${reason}-aujailedby${jailedBy}-autime${releaseISO}-auhasjoined${hasJailedPlJoined(player)}`);
@@ -2059,17 +2138,24 @@ function releasePlayer(p) {
                                 const playerRaw = world.getPlayers({ name: selectedPlayer })[0];
 
                                 if (playerRaw) {
-                                    if (getReleaseMillisecondsLeft(selectedPlayer) > 3100) {
-                                        playerRaw.runCommand("camera @s fade time 3 1 1 color 0 0 0");
-                                        await delay(60);
-                                        playerRaw.teleport(getJailExitLoc()[0], getJailExitLoc()[1]);
-                                        playerRaw.runCommand('gamemode survival');
+                                    try {
+                                        if (getReleaseMillisecondsLeft(selectedPlayer) > 3100) {
+                                            playerRaw.runCommand("camera @s fade time 3 1 1 color 0 0 0");
+                                            await delay(60);
+                                            playerRaw.teleport(getJailExitLoc()[0], getJailExitLoc()[1]);
+                                            playerRaw.runCommand('gamemode survival');
+                                            world.scoreboard.getObjective('-auJailed').removeParticipant(`${selectedPlayer}-aureason${reason}-aujailedby${jailedBy}-autime${releaseISO}-auhasjoined${hasJailedPlJoined(selectedPlayer)}`);
+                                            await delay(20);
+                                            playerRaw.onScreenDisplay.setTitle('§l§bYou have been released', { fadeInDuration: 2 * TicksPerSecond, stayDuration: 1.5 * TicksPerSecond, fadeOutDuration: 2 * TicksPerSecond });
+                                            runCmd(playerRaw, "playsound beacon.activate @s ~ ~ ~ 100");
+                                        } else {
+                                            await delay(62);
+                                        }
+                                    } catch (e) {
+                                        //Handles what happens if the player leaves while it's being jailed
                                         world.scoreboard.getObjective('-auJailed').removeParticipant(`${selectedPlayer}-aureason${reason}-aujailedby${jailedBy}-autime${releaseISO}-auhasjoined${hasJailedPlJoined(selectedPlayer)}`);
+                                        world.scoreboard.getObjective('-auTempUnjailed').setScore('/' + selectedPlayer, 0);
                                         await delay(20);
-                                        playerRaw.onScreenDisplay.setTitle('§l§bYou have been released', { fadeInDuration: 2 * TicksPerSecond, stayDuration: 1.5 * TicksPerSecond, fadeOutDuration: 2 * TicksPerSecond });
-                                        runCmd(playerRaw, "playsound beacon.activate @s ~ ~ ~ 100");
-                                    } else {
-                                        await delay(62);
                                     }
                                 } else {
                                     world.scoreboard.getObjective('-auJailed').removeParticipant(`${selectedPlayer}-aureason${reason}-aujailedby${jailedBy}-autime${releaseISO}-auhasjoined${hasJailedPlJoined(selectedPlayer)}`);
