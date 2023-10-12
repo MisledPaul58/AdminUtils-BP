@@ -25,6 +25,7 @@ system.runInterval(async () => {
 
     if (scoreboardsLoaded === false) {
         try { world.scoreboard.addObjective('-au', '-au') } catch (e) { }
+        try { world.scoreboard.addObjective('-auOwner', '-auOwner') } catch (e) { }
         try { world.scoreboard.addObjective('-auBan', '-auBan') } catch (e) { }
         try { world.scoreboard.addObjective('-auProj', '-auProj') } catch (e) { }
         try { world.scoreboard.addObjective('-auFrozen', '-auFrozen') } catch (e) { }
@@ -187,6 +188,23 @@ system.runInterval(async () => {
     // overworld.getEntities({ type: "au:nopvp" })[0].teleport(players[0].location)
 
     for (const player of players) {
+        if (player.hasTag("owner")) {
+            if (world.scoreboard.getObjective('-auOwner').getParticipants()[0]) {
+                player.removeTag("owner");
+                world.sendMessage(`§cError, §4${world.scoreboard.getObjective('-auOwner').getParticipants()[0].displayName.match(/(?<=^-au)[^]+(?=-au$)/)[0]}§c is already the owner.`);
+
+            } else if (!world.scoreboard.getObjective('-auOwner').getParticipants()[0]) {
+                player.removeTag("owner");
+                try {
+                    world.scoreboard.getObjective('-auOwner').setScore(`-au${player.name}-au`, 0);
+                    world.sendMessage(`§aThe player §b${player.name}§a has been set successfully as the owner.`);
+                } catch (e) {
+                    world.sendMessage(`§Error, couldn't set §4${player.name}§c as the owner.`);
+                }
+            }
+
+        }
+
         if (player.hasTag("admin")) {
             player.removeTag("admin");
             try {
@@ -670,7 +688,9 @@ function adminSettings(p) {
                                 } else {
                                     try { //Quizás intentar añadir alguna forma para poder asignar a varios admins a la vez 
                                         for (const admin of admins) {
-                                            world.scoreboard.getObjective('-au').removeParticipant(admin);
+                                            if (isOwner(p.name) || !isOwner(admin)) {
+                                                world.scoreboard.getObjective('-au').removeParticipant(admin);
+                                            }
                                         }
                                         world.scoreboard.getObjective('-au').setScore(`-au${player}-au`, 0);
                                         p.sendMessage(`§aAll the previous admins have been deleted, the current admin is: §b${player}§a.`);
@@ -701,7 +721,9 @@ function adminSettings(p) {
                                             } else {
                                                 try {
                                                     for (const admin of admins) {
-                                                        world.scoreboard.getObjective('-au').removeParticipant(admin);
+                                                        if (isOwner(p.name) || !isOwner(admin)) {
+                                                            world.scoreboard.getObjective('-au').removeParticipant(admin);
+                                                        }
                                                     }
                                                     world.scoreboard.getObjective('-au').setScore(`-au${selectedPlayer}-au`, 0);
                                                     p.sendMessage(`§aAll the previous admins have been deleted, the current admin is: §b${selectedPlayer}§a.`);
@@ -797,10 +819,10 @@ function adminSettings(p) {
             case 3: { //Remove an admin
                 removeAnAdmin();
                 function removeAnAdmin() {
-                    const locAdmins = admins.map(admin => admin.match(/(?<=^-au)[^]+(?=-au$)/)[0]);
+                    const locAdmins = admins.map(admin => admin.match(/(?<=^-au)[^]+(?=-au$)/)[0]).filter(admin => isOwner(p.name) || !isOwner(admin));
                     const form = new ActionFormData()
                         .title("Admin settings: remove an admin")
-                        .body("Select an offline/onlibe admin to remove")
+                        .body("Select an offline/online admin to remove")
                         .button("§l<-- Back", "textures/icons/back.png")
                         .button("Type an offline/online admin instead", "textures/icons/pencil.png");
                     for (const admin of locAdmins) {
@@ -829,6 +851,9 @@ function adminSettings(p) {
                                     } else if (!isAdmin(admin)) {
                                         p.sendMessage("§cError, the specified player is not an admin.");
 
+                                    } else if (isOwner(admin) && !isOwner(p.name)) {
+                                        p.sendMessage("§cError, the specified player is the owner.");
+
                                     } else {
                                         try {
                                             world.scoreboard.getObjective('-au').removeParticipant(`-au${admin}-au`);
@@ -844,6 +869,9 @@ function adminSettings(p) {
                             if (!isAdmin(selectedAdmin)) {
                                 p.sendMessage("§cError, the selected admin has recently been removed by another user.");
 
+                            } else if (isOwner(selectedAdmin) && !isOwner(p.name)) {
+                                p.sendMessage("§cError, the selected admin has recently been set as the owner.");
+
                             } else {
                                 new MessageFormData()
                                     .title("Admin settings: remove an admin")
@@ -856,6 +884,9 @@ function adminSettings(p) {
                                         } else if (result.selection === 1) {
                                             if (!isAdmin(selectedAdmin)) {
                                                 p.sendMessage("§cError, the selected admin has recently been removed by another user.");
+
+                                            } else if (isOwner(selectedAdmin) && !isOwner(p.name)) {
+                                                p.sendMessage("§cError, the selected admin has recently been set as the owner.");
 
                                             } else {
                                                 try {
@@ -1318,7 +1349,7 @@ function banPlayer(p) {
     form.button("§l<-- Back", "textures/icons/back.png");
     form.button("Type an offline/online player instead", "textures/icons/pencil.png");
     for (const player of playersArray) {
-        if (!isBanned(player) && !isAdmin(player)) {
+        if (!isBanned(player) && !isAdmin(player) && !isOwner(player)) {
             form.button(player, "textures/icons/steve_icon.png");
             notBannedPlayers.push(player);
         }
@@ -1358,6 +1389,9 @@ function banPlayer(p) {
 
                     } else if (isAdmin(player)) {
                         await runTellraw(p, `§cError, the specified player is an admin, cannot ban.`);
+
+                    } else if (isOwner(player)) {
+                        await runTellraw(p, `§cError, the specified player is the owner, cannot ban.`);
 
                     } else {
                         try {
@@ -1404,6 +1438,9 @@ function banPlayer(p) {
 
                     } else if (isAdmin(player)) {
                         await runTellraw(p, `§cError, the specified player is an admin, cannot ban.`);
+
+                    } else if (isOwner(player)) {
+                        await runTellraw(p, `§cError, the specified player is the owner, cannot ban.`);
 
                     } else {
                         try {
@@ -1454,6 +1491,9 @@ function banPlayer(p) {
                     } else if (isAdmin(selectedPlayer)) {
                         await runTellraw(p, `§cError, the selected player has recently been set as an admin, cannot ban.`);
 
+                    } else if (isOwner(selectedPlayer)) {
+                        await runTellraw(p, `§cError, the selected player has recently been set as the owner, cannot ban.`);
+
                     } else {
                         try {
                             await runCmd(overworld, `scoreboard players set "${selectedPlayer}-aureason${reason}-auban${bannedBy}-autime-aupermabanned-au" -auBan 0`);
@@ -1497,6 +1537,9 @@ function banPlayer(p) {
                     } else if (isAdmin(selectedPlayer)) {
                         await runTellraw(p, `§cError, the selected player has recently been set as an admin, cannot ban.`);
 
+                    } else if (isOwner(selectedPlayer)) {
+                        await runTellraw(p, `§cError, the selected player has recently been set as the owner, cannot ban.`);
+
                     } else {
                         try {
                             await runCmd(overworld, `scoreboard players set "${selectedPlayer}-aureason${reason}-auban${bannedBy}-autime${unBanISO}" -auBan 0`);
@@ -1530,9 +1573,7 @@ function unBanPlayer(p) {
 
     const bannedPlayers = getBannedPlayers();
     for (const player of bannedPlayers) {
-        if (!isAdmin(player)) {
-            form.button(player, "textures/icons/steve_icon.png");
-        }
+        form.button(player, "textures/icons/steve_icon.png");
     }
 
     form.show(p).then((response) => {
@@ -1660,7 +1701,7 @@ function jailPlayer(p) {
 
         for (const player of players.map(player => player.name)) {
             if (!isJailed(player)) {
-                if (!isAdmin(player)) {
+                if (!isAdmin(player) && !isOwner(player)) {
                     form.button(player, "textures/icons/steve_icon.png");
                     availablePlayers.push(player);
                 }
@@ -1703,6 +1744,9 @@ function jailPlayer(p) {
 
                         } else if (isAdmin(player)) {
                             await runTellraw(p, `§cError, the specified player is an admin, cannot jail.`);
+
+                        } else if (isOwner(player)) {
+                            await runTellraw(p, `§cError, the specified player is the owner, cannot jail.`);
 
                         } else if (isJailed(player)) {
                             await runTellraw(p, `§cError, the specified player is already in jail.`);
@@ -1749,7 +1793,7 @@ function jailPlayer(p) {
 
                                 await runTellraw(p, `§aThe player §b${player}§a has been jailed successfully with reason: §c${reason}\n§7* §2Time: §3Permanently`);
                             } catch (e) {
-                                await runTellraw(p, `§cError, couldn't jail the player.`);
+                                await runTellraw(p, `§cError, couldn't jail §4${player}§c.`);
                             }
                         }
                     } else {
@@ -1786,6 +1830,9 @@ function jailPlayer(p) {
 
                         } else if (isAdmin(player)) {
                             await runTellraw(p, `§cError, the specified player is an admin, cannot jail.`);
+
+                        } else if (isOwner(player)) {
+                            await runTellraw(p, `§cError, the specified player is the owner, cannot jail.`);
 
                         } else if (isJailed(player)) {
                             await runTellraw(p, `§cError, the specified player is already in jail.`);
@@ -1840,7 +1887,7 @@ function jailPlayer(p) {
 
                                 await runTellraw(p, `§aThe player §b${player}§a has been jailed successfully with reason: §c${reason}\n§7* §2Time: §3${years}${months}${weeks}${days}${hours}${minutes}${seconds}`);
                             } catch (e) {
-                                await runTellraw(p, `§cError, couldn't jail the player.`);
+                                await runTellraw(p, `§cError, couldn't jail §4${player}§c.`);
                             }
                         }
                     }
@@ -1877,6 +1924,9 @@ function jailPlayer(p) {
 
                             } else if (isAdmin(selectedPlayer)) {
                                 await runTellraw(p, `§cError, the selected player has recently been set as an admin, cannot jail.`);
+
+                            } else if (isOwner(selectedPlayer)) {
+                                await runTellraw(p, `§cError, the selected player has recently been set as the owner, cannot jail.`);
 
                             } else if (isJailed(selectedPlayer)) {
                                 await runTellraw(p, `§cError, the selected player has recently been jailed by another user.`);
@@ -1923,7 +1973,7 @@ function jailPlayer(p) {
 
                                     await runTellraw(p, `§aThe player §b${selectedPlayer}§a has been jailed successfully with reason: §c${reason}\n§7* §2Time: §3Permanently`);
                                 } catch (e) {
-                                    await runTellraw(p, `§cError, couldn't jail the player.`);
+                                    await runTellraw(p, `§cError, couldn't jail §4${selectedPlayer}§c.`);
                                 }
                             }
                         } else {
@@ -1957,6 +2007,9 @@ function jailPlayer(p) {
 
                             } else if (isAdmin(selectedPlayer)) {
                                 await runTellraw(p, `§cError, the selected player has recently been set as an admin, cannot jail.`);
+
+                            } else if (isOwner(selectedPlayer)) {
+                                await runTellraw(p, `§cError, the selected player has recently been set as the owner, cannot jail.`);
 
                             } else if (isJailed(selectedPlayer)) {
                                 await runTellraw(p, `§cError, the selected player has recently been jailed by another user.`);
@@ -2012,7 +2065,7 @@ function jailPlayer(p) {
 
                                     await runTellraw(p, `§aThe player §b${selectedPlayer}§a has been jailed successfully with reason: §c${reason}\n§7* §2Time: §3${years}${months}${weeks}${days}${hours}${minutes}${seconds}`);
                                 } catch (e) {
-                                    await runTellraw(p, `§cError, couldn't jail the player.`);
+                                    await runTellraw(p, `§cError, couldn't jail §4${selectedPlayer}§c.`);
                                 }
                             }
                         }
@@ -2106,7 +2159,7 @@ function releasePlayer(p) {
 
                             await runTellraw(p, `§aThe player §b${player}§a has been released successfully.`);
                         } catch (e) {
-                            await runTellraw(p, `§cError, couldn't release the player, perhaps the jail time is now over.`); //Comprobar que realmente funciona
+                            await runTellraw(p, `§cError, couldn't release §4${player}§c, perhaps the jail time is now over.`); //Comprobar que realmente funciona
                         }
                     }
                 });
@@ -2164,7 +2217,7 @@ function releasePlayer(p) {
                                 }
                                 await runTellraw(p, `§aThe player §b${selectedPlayer}§a has been released successfully.`);
                             } catch (e) {
-                                await runTellraw(p, `§cError, couldn't release the player, perhaps the jail time is now over.`);
+                                await runTellraw(p, `§cError, couldn't release §4${selectedPlayer}§c, perhaps the jail time is now over.`);
                             }
                         }
                     }
@@ -2180,7 +2233,7 @@ function jailLocConfig(p) {
         .button("§l<-- Back", "textures/icons/back.png"); //0
     if (!isJailLocSet()) {
         form.body("You haven't set the location of the jail yet, please select an option. You can go to any dimension.")
-            .button("Set jail location to current location"); //1
+            .button("Set jail location to current location", "textures/icons/tick.png"); //1
     } else {
         const _jailDim = getJailLoc()[1].dimension.id;
         let jailDim = '';
@@ -2359,7 +2412,7 @@ function jailExitLocConfig(p) {
         .button("§l<-- Back", "textures/icons/back.png"); //0
     if (!isJailExitLocSet()) {
         form.body("You haven't set the exit location of the jail yet, please select an option. You can go to any dimension.")
-            .button("Set jail exit location to current location"); //1
+            .button("Set jail exit location to current location", "textures/icons/tick.png"); //1
     } else {
         const _exitDim = getJailExitLoc()[1].dimension.id;
         let exitDim = '';
@@ -3508,6 +3561,11 @@ function isValidUsername(username) {
 
 function isAdmin(username) {
     if (admins.includes(`-au${username}-au`)) return true
+    else return false;
+}
+
+function isOwner(username) {
+    if (world.scoreboard.getObjective('-auOwner').getParticipants()[0]?.displayName === `-au${username}-au`) return true
     else return false;
 }
 
