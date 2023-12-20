@@ -1232,90 +1232,96 @@ function adminUtils(p) {
                 });
             } break;
             case 9: { //Launch a player
-                const locPlayers = players;
-                const form = new ActionFormData()
-                    .title("Launch a player")
-                    .body("Select an online player to launch")
-                    .button("§l<-- Back", "textures/icons/back.png")
-                    .button("Type an online player instead", "textures/icons/pencil.png");
-                for (const player of locPlayers) {
-                    form.button(player.name, "textures/icons/steve_icon.png");
-                }
+                launchPlayer();
+                function launchPlayer() {
+                    const locPlayers = players;
+                    const form = new ActionFormData()
+                        .title("Launch a player")
+                        .body("Select an online player to launch")
+                        .button("§l<-- Back", "textures/icons/back.png")
+                        .button("Type an online player instead", "textures/icons/pencil.png");
+                    for (const player of locPlayers) {
+                        form.button(player.name, "textures/icons/steve_icon.png");
+                    }
 
-                form.show(p).then((response) => {
-                    if (response.selection === 0) {
-                        adminUtils(p);
-                    } else if (response.selection === 1) {
-                        const form = new ModalFormData()
-                            .title("Launch a player")
-                            .textField("Type below the player you would like to launch", "Player's name");
-                        form.show(p).then(async result => {
-                            const player = result.formValues[0];
+                    form.show(p).then((response) => {
+                        if (response.selection === 0) {
+                            adminUtils(p);
+                        } else if (response.selection === 1) {
+                            const form = new ModalFormData()
+                                .title("Launch a player")
+                                .textField("Type below the player you would like to launch", "Player's name");
+                            form.show(p).then(async result => {
+                                const player = result.formValues[0];
 
-                            if (!isValidUsername(player)) {
-                                await runTellraw(p, '§cError, the username you entered is invalid.');
-                            } else {
-                                const { successCount } = await runCmd(p, `testfor "${player}"`);
-                                if (successCount === 0) {
-                                    await runTellraw(p, '§cError, the player you entered is not online.');
+                                if (!isValidUsername(player)) {
+                                    await runTellraw(p, '§cError, the username you entered is invalid.');
                                 } else {
+                                    const { successCount } = await runCmd(p, `testfor "${player}"`);
+                                    if (successCount === 0) {
+                                        await runTellraw(p, '§cError, the player you entered is not online.');
+                                    } else {
+                                        try {
+                                            const query = {
+                                                name: player
+                                            };
+                                            const playerRaw = [...world.getPlayers(query)][0];
+                                            playerRaw.runCommand('playsound player_launch @a ~ ~ ~ 100');
+                                            await runCmd(playerRaw, `execute @s ~~~ summon fireworks_rocket`);
+                                            for (let i = 0; i < 5; i++) {
+                                                runCmd(playerRaw, `execute @s ~~~ particle minecraft:cauldron_explosion_emitter`);
+                                            }
+                                            particles();
+                                            async function particles() {
+                                                for (let i = 0; i < 23; i++) {
+                                                    await delay(0.05);
+                                                    playerRaw.runCommand(`execute @s ~~~ particle minecraft:explosion_manual`);
+                                                }
+                                            }
+                                            await runCmd(playerRaw, `effect @s levitation 3 150 true`);
+                                            await runTellraw(p, `§aThe player §b${player}§a has been launched successfully.`);
+                                        } catch (e) {
+                                            await runTellraw(p, `§cError, the player §4${player}§c couldn't be launched.`);
+                                        }
+                                    }
+                                }
+                            });
+                        } else if (response.selection > 1) {
+                            const selectedPlayerRaw = locPlayers[response.selection - 2];
+
+                            const form = new MessageFormData()
+                                .title("Launch a player")
+                                .body(`Are you sure you want to launch §b${selectedPlayerRaw.name}§r?`)
+                                .button1("No")
+                                .button2("Yes");
+                            form.show(p).then(async result => {
+                                if (result.canceled === true) return;
+                                if (result.selection === 0) {
+                                    launchPlayer();
+                                } else if (result.selection === 1) {
                                     try {
-                                        const query = {
-                                            name: player
-                                        };
-                                        const playerRaw = [...world.getPlayers(query)][0];
-                                        playerRaw.runCommand('playsound player_launch @a ~ ~ ~ 100');
-                                        await runCmd(playerRaw, `execute @s ~~~ summon fireworks_rocket`);
+                                        selectedPlayerRaw.runCommand('playsound player_launch @a ~ ~ ~ 100');
+                                        await runCmd(selectedPlayerRaw, `execute @s ~~~ summon fireworks_rocket`);
                                         for (let i = 0; i < 5; i++) {
-                                            runCmd(playerRaw, `execute @s ~~~ particle minecraft:cauldron_explosion_emitter`);
+                                            runCmd(selectedPlayerRaw, `execute @s ~~~ particle minecraft:cauldron_explosion_emitter`);
                                         }
                                         particles();
                                         async function particles() {
                                             for (let i = 0; i < 23; i++) {
                                                 await delay(0.05);
-                                                playerRaw.runCommand(`execute @s ~~~ particle minecraft:explosion_manual`);
+                                                selectedPlayerRaw.runCommand(`execute @s ~~~ particle minecraft:explosion_manual`);
                                             }
                                         }
-                                        await runCmd(playerRaw, `effect @s levitation 3 150 true`);
-                                        await runTellraw(p, `§aThe player §b${player}§a has been launched successfully.`);
+                                        await runCmd(selectedPlayerRaw, `effect @s levitation 3 150 true`);
+                                        await runTellraw(p, `§aThe player §b${selectedPlayerRaw.name}§a has been launched successfully.`);
                                     } catch (e) {
-                                        await runTellraw(p, `§cError, the player §4${player}§c couldn't be launched.`);
+                                        await runTellraw(p, `§cError, the player §4${selectedPlayerRaw.name}§c couldn't be launched.`);
                                     }
                                 }
-                            }
-                        });
-                    } else if (response.selection > 1) {
-                        const selectedPlayerRaw = locPlayers[response.selection - 2];
-
-                        const form = new MessageFormData()
-                            .title("Launch a player")
-                            .body(`Are you sure you want to launch §b${selectedPlayerRaw.name}§r?`)
-                            .button1("No")
-                            .button2("Yes");
-                        form.show(p).then(async result => {
-                            if (result.selection === 1) {
-                                try {
-                                    selectedPlayerRaw.runCommand('playsound player_launch @a ~ ~ ~ 100');
-                                    await runCmd(selectedPlayerRaw, `execute @s ~~~ summon fireworks_rocket`);
-                                    for (let i = 0; i < 5; i++) {
-                                        runCmd(selectedPlayerRaw, `execute @s ~~~ particle minecraft:cauldron_explosion_emitter`);
-                                    }
-                                    particles();
-                                    async function particles() {
-                                        for (let i = 0; i < 23; i++) {
-                                            await delay(0.05);
-                                            selectedPlayerRaw.runCommand(`execute @s ~~~ particle minecraft:explosion_manual`);
-                                        }
-                                    }
-                                    await runCmd(selectedPlayerRaw, `effect @s levitation 3 150 true`);
-                                    await runTellraw(p, `§aThe player §b${selectedPlayerRaw.name}§a has been launched successfully.`);
-                                } catch (e) {
-                                    await runTellraw(p, `§cError, the player §4${selectedPlayerRaw.name}§c couldn't be launched.`);
-                                }
-                            }
-                        });
-                    }
-                });
+                            });
+                        }
+                    });
+                }
             } break;
         }
     });
@@ -2656,7 +2662,7 @@ function projectilePowers(p) {
                                     if (_tnt !== tnt) {
                                         await setPower(player, selectedProj, "tnt", tntstate);
                                     }
-                                    await runTellraw(p, `§aThe powers have been set correctly. Showing current state of all the powers for §b${player}§a:\n§7* §bLightning bolt: ${boltstate === "on" ? "§a" : "§c"}${boltstate}\n§7* §bFreeze: ${freezestate === "on" ? "§a" : "§c"}${freezestate}\n§7* §bTnt: ${tntstate === "on" ? "§a" : "§c"}${tntstate}`);
+                                    await runTellraw(p, `§aThe powers have been set correctly. Showing current state of all the powers for §b${player}§a:\n§7* §bLightning bolt: ${boltstate === "on" ? "§a" : "§c"}${boltstate}\n§7* §bFreeze: ${freezestate === "on" ? "§a" : "§c"}${freezestate}\n§7* §bTNT: ${tntstate === "on" ? "§a" : "§c"}${tntstate}`);
                                 } catch (e) {
                                     await runTellraw(p, `§cError, one or more powers couldn't be enabled/disabled.`);
                                 }
@@ -2696,7 +2702,7 @@ function projectilePowers(p) {
                             if (_tnt !== tnt) {
                                 await setPower(selectedPlayer, selectedProj, "tnt", tntstate);
                             }
-                            await runTellraw(p, `§aThe powers have been set correctly. Showing current state of all the powers for §b${selectedPlayer}§a:\n§7* §bLightning bolt: ${boltstate === "on" ? "§a" : "§c"}${boltstate}\n§7* §bFreeze: ${freezestate === "on" ? "§a" : "§c"}${freezestate}\n§7* §bTnt: ${tntstate === "on" ? "§a" : "§c"}${tntstate}`);
+                            await runTellraw(p, `§aThe powers have been set correctly. Showing current state of all the powers for §b${selectedPlayer}§a:\n§7* §bLightning bolt: ${boltstate === "on" ? "§a" : "§c"}${boltstate}\n§7* §bFreeze: ${freezestate === "on" ? "§a" : "§c"}${freezestate}\n§7* §bTNT: ${tntstate === "on" ? "§a" : "§c"}${tntstate}`);
                         } catch (e) {
                             await runTellraw(p, `§cError, one or more powers couldn't be enabled/disabled.`);
                         }
@@ -3210,19 +3216,19 @@ function seeInventoryMenu(p) {
                     if (YRot > -45 && YRot < 45) { //Chest & sign placement
                         frontLoc1 = { x: loc.x, y: loc.y, z: loc.z + 1 };
                         frontLoc2 = { x: loc.x - 1, y: loc.y, z: loc.z + 1 };
-                        p.runCommand(`structure load invchest ${loc.x - 1} ${loc.y} ${loc.z} 180_degrees`);
+                        p.runCommand(`structure load AdminUtils:invchest ${loc.x - 1} ${loc.y} ${loc.z} 180_degrees`);
                     } else if (YRot >= 45 && YRot < 135) {
                         frontLoc1 = { x: loc.x - 1, y: loc.y, z: loc.z };
                         frontLoc2 = { x: loc.x - 1, y: loc.y, z: loc.z - 1 };
-                        p.runCommand(`structure load invchest ${loc.x - 1} ${loc.y} ${loc.z - 1} 270_degrees`);
+                        p.runCommand(`structure load AdminUtils:invchest ${loc.x - 1} ${loc.y} ${loc.z - 1} 270_degrees`);
                     } else if ((YRot >= 135 && YRot < 180) || (YRot > -180 && YRot < -135)) { //Also: (YRot + 180 - (180 - YRot) * 2) > -45
                         frontLoc1 = { x: loc.x, y: loc.y, z: loc.z - 1 };
                         frontLoc2 = { x: loc.x + 1, y: loc.y, z: loc.z - 1 };
-                        p.runCommand(`structure load invchest ${loc.x} ${loc.y} ${loc.z - 1}`);
+                        p.runCommand(`structure load AdminUtils:invchest ${loc.x} ${loc.y} ${loc.z - 1}`);
                     } else if (YRot >= -135 && YRot <= -45) {
                         frontLoc1 = { x: loc.x + 1, y: loc.y, z: loc.z };
                         frontLoc2 = { x: loc.x + 1, y: loc.y, z: loc.z + 1 };
-                        p.runCommand(`structure load invchest ${loc.x} ${loc.y} ${loc.z} 90_degrees`);
+                        p.runCommand(`structure load AdminUtils:invchest ${loc.x} ${loc.y} ${loc.z} 90_degrees`);
                     }
                     const signComponent = p.dimension.getBlock(loc).getComponent("minecraft:sign");
                     signComponent.setText(`§b${player}'s §qinventory`);
@@ -3233,6 +3239,7 @@ function seeInventoryMenu(p) {
                 }
             } catch (e) {
                 p.sendMessage("§cError, couldn't create the chest.");
+                console.warn(e);
             }
         }
     });
@@ -4043,11 +4050,11 @@ async function handleInventories(chestObject, lastTargetData, lastChestData, rec
                 changedSlots.equip.push(i);
             } else if (areItemsEqual(oldChestEquip[i], newChestEquip[i]) === false && areItemsEqual(newChestEquip[i], newTargetEquip[i]) === false) {
                 //Means the equipment item of the chest at 'i' has changed, update inventory
-                targetEquipments.setEquipment(targetEquipSlots[i], newChestEquip[i]);
+                console.warn(targetEquipments.setEquipment(targetEquipSlots[i], newChestEquip[i]));
                 changedSlots.equip.push(i);
             } else if (!recentChangedSlots.equip.includes(i) && areItemsEqual(lastChestData[0].equipments[i], oldChestEquip[i]) === false && areItemsEqual(lastChestData[0].equipments[i], lastChestData[1].equipments[i]) === true) {
                 //Means the equipment item of the chest at 'i' changed last time this function was called but when the variables where already filled, so no change was detected
-                targetEquipments.setEquipment(targetEquipSlots[i], newChestEquip[i]);
+                console.warn(targetEquipments.setEquipment(targetEquipSlots[i], newChestEquip[i]));
                 changedSlots.equip.push(i);
             }
         }

@@ -1,10 +1,13 @@
 {
     "format_version": 2,
+    "metadata": {
+		"authors": ["MisledPaul58"]
+	},
     "header": {
-        "name": "AdminUtils BP",
-        "description": "AdminUtils, made by MisledPaul58.",
+        "name": "§l§o§cAdmin§aUtils §b[1.20.50]",
+        "description": "§l§sAdminUtils offers a wide range of tools to help you control and improve your world/server.\n§l§cYou can also troll your friends with some tools!\n§l§o§6Enjoy!",
         "min_engine_version": [1, 19, 0],
-        "version": [1, 0, 0],
+        "version": [1, 0, 1],
         "uuid": "9bf627d5-d1e0-4195-b581-897a2a34f372"
     },
     "modules": [
@@ -27,11 +30,11 @@
     "dependencies": [
         {
             "uuid": "7477870a-d721-44a1-beb6-5b39f9049e27",
-            "version": [1, 0, 0]
+            "version": [1, 0, 1]
         },
         {
             "module_name": "@minecraft/server",
-            "version": "1.6.0-beta"
+            "version": "1.8.0-beta"
           },
           {
             "module_name": "@minecraft/server-gametest",
