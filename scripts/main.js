@@ -13,6 +13,7 @@ let simcount = 0;
 let tntFlag = "-autnt0";
 let stuckJailedPlayers = [];
 let invChests = [];
+let pendingMenuPlayers = [];
 
 system.beforeEvents.watchdogTerminate.subscribe(watchdog => {
     watchdog.cancel = true;
@@ -338,6 +339,49 @@ system.runInterval(async () => {
         }
     }
 }, 1);
+
+world.beforeEvents.chatSend.subscribe(event => {
+    if (isAdmin(event.sender.name) && event.message.toLowerCase() === "-au") {
+        event.cancel = true;
+        const { sender } = event;
+
+        system.run(async () => {
+            sender.playSound("random.levelup", { volume: 100, location: { x: sender.location.x, y: sender.location.y + 1, z: sender.location.z } });
+            const form = new ActionFormData()
+                .title("§l§4§kkdk§r§l§cAdmin§aUtils §bGUI§4§kkdk")
+                .body("Select an option")
+                .button("Admin settings", "textures/icons/settings1.png")
+                .button("Admin utils", "textures/icons/adminUtils.png");
+
+            if (!pendingMenuPlayers.includes(sender.name)) waitForUser();
+
+            async function waitForUser() {
+                pendingMenuPlayers.push(sender.name);
+
+                while (pendingMenuPlayers.includes(sender.name)) {
+                    const response = await form.show(sender);
+                    
+                    if (response?.cancelationReason !== "UserBusy") {
+                        pendingMenuPlayers.splice(pendingMenuPlayers.indexOf(sender.name), 1);
+
+                        switch (response.selection) {
+                            case 0: {
+                                adminSettings(sender);
+                                break;
+                            }
+                            case 1: {
+                                adminUtils(sender);
+                                break;
+                            }
+                        }
+                    } else {
+                        await delay(4);
+                    }
+                }
+            }
+        });
+    }
+});
 
 world.afterEvents.playerJoin.subscribe(async event => {
     const { playerName } = event;
