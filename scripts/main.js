@@ -4136,11 +4136,9 @@ async function handleInventories(chestObject, lastTargetData, lastChestData, rec
                 changedSlots.equip.push(i);
             } else if (areItemsEqual(oldChestEquip[i], newChestEquip[i]) === false && areItemsEqual(newChestEquip[i], newTargetEquip[i]) === false) {
                 //Means the equipment item of the chest at 'i' has changed, update inventory
-                console.warn(targetEquipments.setEquipment(targetEquipSlots[i], newChestEquip[i]));
                 changedSlots.equip.push(i);
             } else if (!recentChangedSlots.equip.includes(i) && areItemsEqual(lastChestData[0].equipments[i], oldChestEquip[i]) === false && areItemsEqual(lastChestData[0].equipments[i], lastChestData[1].equipments[i]) === true) {
                 //Means the equipment item of the chest at 'i' changed last time this function was called but when the variables where already filled, so no change was detected
-                console.warn(targetEquipments.setEquipment(targetEquipSlots[i], newChestEquip[i]));
                 changedSlots.equip.push(i);
             }
         }
