@@ -1,4 +1,4 @@
-import { world, GameMode, system, Vector, TicksPerSecond, EffectTypes, Player, Entity, BlockType, BlockPermutation, Container, EntityEquippableComponent, ItemStack } from "@minecraft/server";
+import { world, GameMode, system, Vector, TicksPerSecond, EffectTypes, Player, Entity, BlockType, BlockPermutation, Container, EntityEquippableComponent, ItemStack, EasingType } from "@minecraft/server";
 import * as GameTest from "@minecraft/server-gametest";
 import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/server-ui";
 import moment from "./moment/src/moment.js";
@@ -360,7 +360,7 @@ world.beforeEvents.chatSend.subscribe(event => {
 
                 while (pendingMenuPlayers.includes(sender.name)) {
                     const response = await form.show(sender);
-                    
+
                     if (response?.cancelationReason !== "UserBusy") {
                         pendingMenuPlayers.splice(pendingMenuPlayers.indexOf(sender.name), 1);
 
@@ -607,6 +607,48 @@ world.beforeEvents.itemUse.subscribe(data => {
         system.run(async () => {
             adminUtilsGui(player);
         });
+
+        let currentLoc = { x: -165.5, y: 69.00, z: 245.5 };
+        const startLoc = { x: -165.5, y: 67.00, z: 245.5 };
+        let lastVelocity = { x: 0.00, y: 0.00, z: 0.00 };
+        let lastVelCount = 0;
+        system.runInterval(() => {
+            const pVelocity = player.getVelocity();
+            const pRot = player.getRotation();
+            currentLoc = { x: currentLoc.x + (lastVelocity.x !== 0.00 && !player.isSneaking ? lastVelocity.x : pVelocity.x) / 0.7 / (player.isSneaking ? 0.4 : 1), y: currentLoc.y, z: currentLoc.z + (lastVelocity.z !== 0.00 && !player.isSneaking ? lastVelocity.z : pVelocity.z) / 0.7 / (player.isSneaking ? 0.4 : 1)};
+            if (player.isJumping) {
+                world.sendMessage("jumping");
+                Object.assign(currentLoc, { y: currentLoc.y + 0.35 });
+
+            } else if (player.isSneaking) {
+                world.sendMessage("sneaking");
+                Object.assign(currentLoc, { y: currentLoc.y - 0.35 });
+            }
+
+            player.camera.setCamera("au:tpanimation", { location: currentLoc, easeOptions: { easeTime: 0.05, easeType: EasingType.InOutSine }, rotation: pRot });
+
+            if (player.location.x > startLoc.x + 1.25 || player.location.x < startLoc.x - 1.25 || player.location.y > startLoc.y + 1.5 || player.location.y < startLoc.y - 1.5 || player.location.z > startLoc.z + 1.25 || player.location.z < startLoc.z - 1.25) {
+                if (lastVelCount === 0) {
+                    lastVelocity = pVelocity;
+                }
+                player.teleport(startLoc);
+            } else if (lastVelCount >= 3) {
+                lastVelCount = 0;
+                lastVelocity = { x: 0.00, y: 0.00, z: 0.00 };
+            }
+            if ((lastVelCount >= 2 && areObjectsEqual(pVelocity, { x: 0.00, y: 0.00, z: 0.00 })) || (lastVelocity.x > 0.05 && pVelocity.x < -0.05) || (lastVelocity.x < -0.05 && pVelocity.x > 0.05) || (lastVelocity.z > 0.05 && pVelocity.z < -0.05) || (lastVelocity.z < -0.05 && pVelocity.z > 0.05)) {
+                lastVelCount = 0;
+                lastVelocity = { x: 0.00, y: 0.00, z: 0.00 };
+
+            } else if (!areObjectsEqual(lastVelocity, { x: 0.00, y: 0.00, z: 0.00 })) {
+                lastVelCount++;
+            }
+            player.onScreenDisplay.setActionBar(`${pVelocity.x.toFixed(2)} ${pVelocity.y.toFixed(2)} ${pVelocity.z.toFixed(2)}`);
+        }, 1);
+
+        // system.runInterval(() => {
+        //     player.teleport(startLoc);
+        // }, 12);
     }
 });
 
@@ -976,7 +1018,7 @@ function adminUtils(p) {
         .button("Freeze or unfreeze a player", "textures/icons/freeze.png") //4
         .button("See an inventory", "textures/icons/chest.png") //5
         .button("Simulated player", "textures/icons/simPlayers.png") //6
-        .button("Projectiles powers", "textures/icons/projPowers.png") //7
+        .button("Projectile powers", "textures/icons/projPowers.png") //7
         .button("Kill a player", "textures/icons/simAttack.png") //8
         .button("Launch a player", "textures/icons/launch.png") //9
     form.show(p).then((response) => {
@@ -1132,7 +1174,7 @@ function adminUtils(p) {
             case 6: { //Make a sim player menu 
                 simPlayer(p);
             } break;
-            case 7: { //Projectiles powers
+            case 7: { //Projectile powers
                 projectilePowers(p);
             } break;
             case 8: { //Kill a player 
@@ -2183,7 +2225,7 @@ function releasePlayer(p) {
 
                             if (playerRaw) {
                                 try {
-                                    if (getReleaseMillisecondsLeft(player) > 3100) {
+                                    if (getReleaseMillisecondsLeft(player) > 3200 || isPermaJailed(player)) {
                                         playerRaw.runCommand("camera @s fade time 3 1 1 color 0 0 0");
                                         await delay(60);
                                         playerRaw.teleport(getJailExitLoc()[0], getJailExitLoc()[1]);
@@ -2242,7 +2284,7 @@ function releasePlayer(p) {
 
                                 if (playerRaw) {
                                     try {
-                                        if (getReleaseMillisecondsLeft(selectedPlayer) > 3100) {
+                                        if (getReleaseMillisecondsLeft(selectedPlayer) > 3200 || isPermaJailed(selectedPlayer)) {
                                             playerRaw.runCommand("camera @s fade time 3 1 1 color 0 0 0");
                                             await delay(60);
                                             playerRaw.teleport(getJailExitLoc()[0], getJailExitLoc()[1]);
@@ -2255,7 +2297,7 @@ function releasePlayer(p) {
                                             await delay(62);
                                         }
                                     } catch (e) {
-                                        //Handles what happens if the player leaves while it's being jailed
+                                        //Handles what happens if the player leaves while it's being released
                                         world.scoreboard.getObjective('-auJailed').removeParticipant(`${selectedPlayer}-aureason${reason}-aujailedby${jailedBy}-autime${releaseISO}-auhasjoined${hasJailedPlJoined(selectedPlayer)}`);
                                         world.scoreboard.getObjective('-auTempUnjailed').setScore('/' + selectedPlayer, 0);
                                         await delay(20);
@@ -2633,7 +2675,7 @@ function jailExitLocConfig(p) {
 
 function projectilePowers(p) {
     const form = new ActionFormData()
-        .title("Projectiles powers")
+        .title("Projectile powers")
         .body("Select an option")
         .button("§l<-- Back", "textures/icons/back.png")
         .button("Snowball powers", "textures/icons/snowball.png")
