@@ -3118,7 +3118,7 @@ function seeInventoryMenu(p) {
                                                 if (selection === 0) { //Back
                                                     selectChest();
 
-                                                } else if (selection === 1) {
+                                                } else if (selection === 1) { //Teleport to the chest
                                                     if (!getInvSees().some(chest => chest.scoreboard === selectedChest.scoreboard)) {
                                                         p.sendMessage('§cError, the selected chest has recently been removed by another user.');
 
@@ -3157,13 +3157,13 @@ function seeInventoryMenu(p) {
                                                         });
                                                     }
 
-                                                } else if (selection === 2) {
+                                                } else if (selection === 2) { //Delete the chest
                                                     const form = new MessageFormData()
                                                         .title(`§l§b${selectedPlayer}: §6chest ${chestSelection}`)
                                                         .body(`Are you sure you want to delete the chest located at §a${selectedChest.signPos[0]}, ${selectedChest.signPos[1]}, ${selectedChest.signPos[2]}§r, ${chestDim}§r?\nA simulated player will be spawned in order to load the chest's chunk and delete it.\nIf you don't want this, you can teleport to the chest and manually break it.`)
                                                         .button1("No")
                                                         .button2("Yes");
-                                                    form.show(p).then(async result => { //Usar un simulated player para que rompa el bloque del cartel?!!
+                                                    form.show(p).then(async result => {
                                                         if (result.canceled === true) return;
                                                         if (result.selection === 0) {
                                                             chestOptions();
