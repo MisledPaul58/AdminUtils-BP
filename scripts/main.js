@@ -1,4 +1,4 @@
-import { world, GameMode, system, Vector, TicksPerSecond, EffectTypes, Player, Entity, BlockType, BlockPermutation, Container, EntityEquippableComponent, ItemStack, EasingType } from "@minecraft/server";
+import { world, GameMode, system, Vector, TicksPerSecond, EffectTypes, Player, Entity, BlockType, BlockPermutation, Container, EntityEquippableComponent, ItemStack, EasingType, ItemComponentTypes } from "@minecraft/server";
 import * as GameTest from "@minecraft/server-gametest";
 import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/server-ui";
 import moment from "./moment/src/moment.js";
@@ -615,7 +615,7 @@ world.beforeEvents.itemUse.subscribe(data => {
         system.runInterval(() => {
             const pVelocity = player.getVelocity();
             const pRot = player.getRotation();
-            currentLoc = { x: currentLoc.x + (lastVelocity.x !== 0.00 && !player.isSneaking ? lastVelocity.x : pVelocity.x) / 0.7 / (player.isSneaking ? 0.4 : 1), y: currentLoc.y, z: currentLoc.z + (lastVelocity.z !== 0.00 && !player.isSneaking ? lastVelocity.z : pVelocity.z) / 0.7 / (player.isSneaking ? 0.4 : 1)};
+            currentLoc = { x: currentLoc.x + (lastVelocity.x !== 0.00 && !player.isSneaking ? lastVelocity.x : pVelocity.x) / 0.7 / (player.isSneaking ? 0.4 : 1), y: currentLoc.y, z: currentLoc.z + (lastVelocity.z !== 0.00 && !player.isSneaking ? lastVelocity.z : pVelocity.z) / 0.7 / (player.isSneaking ? 0.4 : 1) };
             if (player.isJumping) {
                 world.sendMessage("jumping");
                 Object.assign(currentLoc, { y: currentLoc.y + 0.35 });
@@ -3318,7 +3318,7 @@ function seeInventoryMenu(p) {
                     }
                     const signComponent = p.dimension.getBlock(loc).getComponent("minecraft:sign");
                     signComponent.setText(`§b${player}'s §qinventory`);
-                    signComponent.setWaxed();
+                    signComponent.setWaxed(true);
 
                     world.scoreboard.getObjective('-auInvSees').setScore(`-au${p.dimension.id.replace(/minecraft:/, '')} -au${player} -au${Math.floor(frontLoc1.x)} -au${Math.floor(frontLoc1.y)} -au${Math.floor(frontLoc1.z)} -au${Math.floor(frontLoc2.x)} -au${Math.floor(frontLoc2.y)} -au${Math.floor(frontLoc2.z)} -au${Math.floor(loc.x)} -au${Math.floor(loc.y)} -au${Math.floor(loc.z)}`, 0);
                     p.sendMessage(`§aThe chest has been created successfully with §b${player}'s §ainventory inside.`);
@@ -4136,9 +4136,11 @@ async function handleInventories(chestObject, lastTargetData, lastChestData, rec
                 changedSlots.equip.push(i);
             } else if (areItemsEqual(oldChestEquip[i], newChestEquip[i]) === false && areItemsEqual(newChestEquip[i], newTargetEquip[i]) === false) {
                 //Means the equipment item of the chest at 'i' has changed, update inventory
+                targetEquipments.setEquipment(targetEquipSlots[i], newChestEquip[i]);
                 changedSlots.equip.push(i);
             } else if (!recentChangedSlots.equip.includes(i) && areItemsEqual(lastChestData[0].equipments[i], oldChestEquip[i]) === false && areItemsEqual(lastChestData[0].equipments[i], lastChestData[1].equipments[i]) === true) {
                 //Means the equipment item of the chest at 'i' changed last time this function was called but when the variables where already filled, so no change was detected
+                targetEquipments.setEquipment(targetEquipSlots[i], newChestEquip[i]);
                 changedSlots.equip.push(i);
             }
         }
@@ -4241,13 +4243,15 @@ function areItemsEqual(itemStack1, itemStack2) {
                 itemData.push(itemStack[property]);
             }
 
-            itemData.push(itemStack.getComponent("minecraft:durability")?.damage);
-            itemData.push(itemStack.getComponent("minecraft:durability")?.maxDurability);
-            const enchantments = itemStack.getComponent("minecraft:enchantments")?.enchantments;
-            for (const enchantment of enchantments) {
-                itemData.push(enchantment.level);
-                itemData.push(enchantment.type.id);
-                itemData.push(enchantment.type.maxLevel);
+            itemData.push(itemStack.getComponent(ItemComponentTypes.Durability)?.damage);
+            itemData.push(itemStack.getComponent(ItemComponentTypes.Durability)?.maxDurability);
+            const enchantments = itemStack.getComponent(ItemComponentTypes.Enchantable)?.getEnchantments();
+            if (enchantments) {
+                for (const enchantment of enchantments) {
+                    itemData.push(enchantment.level);
+                    itemData.push(enchantment.type.id);
+                    itemData.push(enchantment.type.maxLevel);
+                }
             }
 
             for (const method of itemMethods) {
