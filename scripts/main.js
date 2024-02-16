@@ -206,13 +206,13 @@ system.runInterval(async () => {
 
         }
 
-        if (player.hasTag("admin")) {
-            player.removeTag("admin");
+        if (player.hasTag("-auadmin")) {
+            player.removeTag("-auadmin");
             try {
                 await runCmd(overworld, `scoreboard players set "-au${player.name}-au" -au 0`);
                 await runCmd(overworld, `execute @a ~~~ tellraw @s {"rawtext": [{ "text": "§aThe player §b${player.name}§a has been added successfully as an admin." }]}`);
             } catch (e) {
-                await runCmd(overworld, `execute @a ~~~ tellraw @s {"rawtext": [{ "text": "§cError, couldn't add ${player.name} as an admin, probably it already is." }]}`);
+                await runCmd(overworld, `execute @a ~~~ tellraw @s {"rawtext": [{ "text": "§cError, couldn't add ${player.name} as an admin, probably they already are." }]}`);
             }
         }
 
@@ -607,48 +607,6 @@ world.beforeEvents.itemUse.subscribe(data => {
         system.run(async () => {
             adminUtilsGui(player);
         });
-
-        let currentLoc = { x: -165.5, y: 69.00, z: 245.5 };
-        const startLoc = { x: -165.5, y: 67.00, z: 245.5 };
-        let lastVelocity = { x: 0.00, y: 0.00, z: 0.00 };
-        let lastVelCount = 0;
-        system.runInterval(() => {
-            const pVelocity = player.getVelocity();
-            const pRot = player.getRotation();
-            currentLoc = { x: currentLoc.x + (lastVelocity.x !== 0.00 && !player.isSneaking ? lastVelocity.x : pVelocity.x) / 0.7 / (player.isSneaking ? 0.4 : 1), y: currentLoc.y, z: currentLoc.z + (lastVelocity.z !== 0.00 && !player.isSneaking ? lastVelocity.z : pVelocity.z) / 0.7 / (player.isSneaking ? 0.4 : 1) };
-            if (player.isJumping) {
-                world.sendMessage("jumping");
-                Object.assign(currentLoc, { y: currentLoc.y + 0.35 });
-
-            } else if (player.isSneaking) {
-                world.sendMessage("sneaking");
-                Object.assign(currentLoc, { y: currentLoc.y - 0.35 });
-            }
-
-            player.camera.setCamera("au:tpanimation", { location: currentLoc, easeOptions: { easeTime: 0.05, easeType: EasingType.InOutSine }, rotation: pRot });
-
-            if (player.location.x > startLoc.x + 1.25 || player.location.x < startLoc.x - 1.25 || player.location.y > startLoc.y + 1.5 || player.location.y < startLoc.y - 1.5 || player.location.z > startLoc.z + 1.25 || player.location.z < startLoc.z - 1.25) {
-                if (lastVelCount === 0) {
-                    lastVelocity = pVelocity;
-                }
-                player.teleport(startLoc);
-            } else if (lastVelCount >= 3) {
-                lastVelCount = 0;
-                lastVelocity = { x: 0.00, y: 0.00, z: 0.00 };
-            }
-            if ((lastVelCount >= 2 && areObjectsEqual(pVelocity, { x: 0.00, y: 0.00, z: 0.00 })) || (lastVelocity.x > 0.05 && pVelocity.x < -0.05) || (lastVelocity.x < -0.05 && pVelocity.x > 0.05) || (lastVelocity.z > 0.05 && pVelocity.z < -0.05) || (lastVelocity.z < -0.05 && pVelocity.z > 0.05)) {
-                lastVelCount = 0;
-                lastVelocity = { x: 0.00, y: 0.00, z: 0.00 };
-
-            } else if (!areObjectsEqual(lastVelocity, { x: 0.00, y: 0.00, z: 0.00 })) {
-                lastVelCount++;
-            }
-            player.onScreenDisplay.setActionBar(`${pVelocity.x.toFixed(2)} ${pVelocity.y.toFixed(2)} ${pVelocity.z.toFixed(2)}`);
-        }, 1);
-
-        // system.runInterval(() => {
-        //     player.teleport(startLoc);
-        // }, 12);
     }
 });
 
