@@ -2,6 +2,7 @@ import { world, GameMode, system, Vector, TicksPerSecond, EffectTypes, Player, E
 import * as GameTest from "@minecraft/server-gametest";
 import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/server-ui";
 import moment from "./moment/src/moment.js";
+import { freeCam } from "./systems/freeCam.js";
 
 const overworld = world.getDimension("overworld"); //Hacer una cárcel con tiempo y un vanish, sendcommandfeedback?, cambiar los /camera para que se apliquen los efectos de poción?, cancelar ItemUse con beforeEvents para los encarcelados?, invSee?!
 const delay = ticks => new Promise(res => system.runTimeout(res, ticks));
@@ -36,6 +37,7 @@ system.runInterval(async () => {
         try { world.scoreboard.addObjective('-auJailExitLoc', '-auJailExitLoc') } catch (e) { }
         try { world.scoreboard.addObjective('-auVanished', '-auVanished') } catch (e) { }
         try { world.scoreboard.addObjective('-auInvSees', '-auInvSees') } catch (e) { }
+        try { world.scoreboard.addObjective('-auFreecam', '-auFreecam') } catch (e) { }
         try { world.scoreboard.addObjective('-auTempKilled', '-auTempKilled') } catch (e) { }
         scoreboardsLoaded = true;
         asyncText();
@@ -346,7 +348,7 @@ world.beforeEvents.chatSend.subscribe(event => {
         const { sender } = event;
 
         system.run(async () => {
-            sender.playSound("random.levelup", { volume: 100, location: { x: sender.location.x, y: sender.location.y + 1, z: sender.location.z } });
+            sender.playSound("au.menuOpen", { location: { x: sender.location.x, y: sender.location.y + 1, z: sender.location.z } });
             const form = new ActionFormData()
                 .title("§l§4§kkdk§r§l§cAdmin§aUtils §bGUI§4§kkdk")
                 .body("Select an option")
@@ -606,7 +608,50 @@ world.beforeEvents.itemUse.subscribe(data => {
         */
         system.run(async () => {
             adminUtilsGui(player);
+            player.playSound("au.menuOpen", { location: { x: player.location.x, y: player.location.y + 1, z: player.location.z } });
         });
+
+        let currentLoc = { x: -165.5, y: 69.00, z: 245.5 };
+        const startLoc = { x: -165.5, y: 67.00, z: 245.5 };
+        let lastVelocity = { x: 0.00, y: 0.00, z: 0.00 };
+        let lastVelCount = 0;
+        system.runInterval(() => {
+            const pVelocity = player.getVelocity();
+            const pRot = player.getRotation();
+            currentLoc = { x: currentLoc.x + (lastVelocity.x !== 0.00 ? lastVelocity.x : pVelocity.x) / 0.7 / (player.isSneaking ? 0.4 : 1), y: currentLoc.y, z: currentLoc.z + (lastVelocity.z !== 0.00 ? lastVelocity.z : pVelocity.z) / 0.7 / (player.isSneaking ? 0.4 : 1) };
+            if (player.isJumping) {
+                world.sendMessage("jumping");
+                Object.assign(currentLoc, { y: currentLoc.y + 0.35 });
+
+            } else if (player.isSneaking) {
+                world.sendMessage("sneaking");
+                Object.assign(currentLoc, { y: currentLoc.y - 0.35 });
+            }
+
+            player.camera.setCamera("au:tpanimation", { location: currentLoc, easeOptions: { easeTime: 0.05, easeType: EasingType.InOutSine }, rotation: pRot });
+
+            if (player.location.x > startLoc.x + 1.25 || player.location.x < startLoc.x - 1.25 || player.location.y > startLoc.y + 1.5 || player.location.y < startLoc.y - 1.5 || player.location.z > startLoc.z + 1.25 || player.location.z < startLoc.z - 1.25) {
+                if (lastVelCount === 0) {
+                    lastVelocity = pVelocity;
+                }
+                player.teleport(startLoc);
+            } else if (lastVelCount >= 3) {
+                lastVelCount = 0;
+                lastVelocity = { x: 0.00, y: 0.00, z: 0.00 };
+            }
+            if ((lastVelCount >= 2 && areObjectsEqual(pVelocity, { x: 0.00, y: 0.00, z: 0.00 })) || (lastVelocity.x > 0.05 && pVelocity.x < -0.05) || (lastVelocity.x < -0.05 && pVelocity.x > 0.05) || (lastVelocity.z > 0.05 && pVelocity.z < -0.05) || (lastVelocity.z < -0.05 && pVelocity.z > 0.05)) {
+                lastVelCount = 0;
+                lastVelocity = { x: 0.00, y: 0.00, z: 0.00 };
+
+            } else if (!areObjectsEqual(lastVelocity, { x: 0.00, y: 0.00, z: 0.00 })) {
+                lastVelCount++;
+            }
+            player.onScreenDisplay.setActionBar(`${pVelocity.x.toFixed(2)} ${pVelocity.y.toFixed(2)} ${pVelocity.z.toFixed(2)} §b${lastVelocity.x}`);
+        }, 1);
+
+        // system.runInterval(() => {
+        //     player.teleport(startLoc);
+        // }, 12);
     }
 });
 
@@ -965,20 +1010,21 @@ function adminSettings(p) {
     });
 }
 
-function adminUtils(p) {
+export function adminUtils(p) {
     const form = new ActionFormData()
         .title("§l§b§kkdk§r§l§cAdmin §autils§b§kkdk")
         .body("Select an option")
-        .button("§l<-- Back", "textures/icons/back.png") //0
-        .button("Ban or unban menu", "textures/icons/ban.png") //1
-        .button("Jail menu", "textures/icons/jail.png") //2
-        .button("Vanish menu", "textures/icons/vanish.png") //3
-        .button("Freeze or unfreeze a player", "textures/icons/freeze.png") //4
-        .button("See an inventory", "textures/icons/chest.png") //5
-        .button("Simulated player", "textures/icons/simPlayers.png") //6
-        .button("Projectile powers", "textures/icons/projPowers.png") //7
-        .button("Kill a player", "textures/icons/simAttack.png") //8
-        .button("Launch a player", "textures/icons/launch.png") //9
+        .button("<-- Back", "textures/icons/back.png") //0
+        .button("§lBan or unban menu", "textures/icons/ban.png") //1
+        .button("§lJail menu", "textures/icons/jail.png") //2
+        .button("§lVanish menu", "textures/icons/vanish.png") //3
+        .button("§lFreeze menu", "textures/icons/freeze.png") //4
+        .button("§lSee an inventory", "textures/icons/chest.png") //5
+        .button("§lFreecam menu") //6
+        .button("§lSimulated player", "textures/icons/simPlayers.png") //7
+        .button("§lProjectile powers", "textures/icons/projPowers.png") //8
+        .button("§lKill a player", "textures/icons/simAttack.png") //9
+        .button("§lLaunch a player", "textures/icons/launch.png") //10
     form.show(p).then((response) => {
         switch (response.selection) {
             case 0: { //Back 
@@ -1011,7 +1057,7 @@ function adminUtils(p) {
                                 const locPlayers = players.filter(player => !isFrozen(player.name));
                                 const form = new ActionFormData()
                                     .title("Freeze a player")
-                                    .body("Select an online player to freeze.\nIf you don't see someone here, it means he's already frozen.")
+                                    .body("Select an online player to freeze.\nIf you don't see someone here, it means they're already frozen.")
                                     .button("§l<-- Back", "textures/icons/back.png")
                                     .button("Type an offline/online player manually instead", "textures/icons/pencil.png");
                                 for (const player of locPlayers) {
@@ -1024,7 +1070,7 @@ function adminUtils(p) {
                                     } else if (response.selection === 1) {
                                         const form = new ModalFormData()
                                             .title("Freeze a player")
-                                            .textField("Type below the player you would like to freeze. In case the player is offline, it will get frozen as soon as it joins the world.", "Player's name");
+                                            .textField("Type below the player you would like to freeze. In case the player is offline, they will get frozen as soon as they join the world.", "Player's name");
                                         form.show(p).then(async result => {
                                             if (result.canceled === true) return;
                                             const playerName = result.formValues[0];
@@ -1129,13 +1175,16 @@ function adminUtils(p) {
             case 5: { //See an inventory
                 seeInventoryMenu(p);
             } break;
-            case 6: { //Make a sim player menu 
+            case 6: { //Freecam
+                freeCam.init(p);
+            } break;
+            case 7: { //Make a sim player menu 
                 simPlayer(p);
             } break;
-            case 7: { //Projectile powers
+            case 8: { //Projectile powers
                 projectilePowers(p);
             } break;
-            case 8: { //Kill a player 
+            case 9: { //Kill a player 
                 const playersArray = players.map(pname => pname.name);
                 const form = new ActionFormData()
                     .title("Kill a player")
@@ -1275,7 +1324,7 @@ function adminUtils(p) {
                     }
                 });
             } break;
-            case 9: { //Launch a player
+            case 10: { //Launch a player
                 launchPlayer();
                 function launchPlayer() {
                     const locPlayers = players;
@@ -1478,7 +1527,7 @@ function banPlayer(p) {
                         await runTellraw(p, `§cError, you must enter a reason.`);
 
                     } else if (result.formValues.slice(3).every(value => value === 0)) { //If all time values are 0
-                        await runTellraw(p, `§cError, you must must specify a ban time.`);
+                        await runTellraw(p, `§cError, you must specify a ban time.`);
 
                     } else if (!isValidUsername(player)) {
                         await runTellraw(p, `§cError, the username you entered is invalid.`);
@@ -1579,7 +1628,7 @@ function banPlayer(p) {
                         await runTellraw(p, `§cError, you must enter a reason.`);
 
                     } else if (result.formValues.slice(2).every(value => value === 0)) { //If all time values are 0
-                        await runTellraw(p, `§cError, you must must specify a ban time.`);
+                        await runTellraw(p, `§cError, you must specify a ban time.`);
 
                     } else if (isBanned(selectedPlayer)) {
                         await runTellraw(p, `§cError, the selected player has recently been banned by another user.`);
@@ -1718,7 +1767,7 @@ function jailMenu(p) {
 }
 
 function jailLearn(p) {
-    p.sendMessage("§l§o§6§k====§r§l§o§6============================§k====§r\n§aWith this system you can jail any player §b(except admins)§a as a punishment for anything bad they've done. You can jail them for a certain period of time or permanently, they won't be able to hurt other players or break blocks.\nThere are §b3 main things§a you need in order to imprison someone properly:\n  §7* §3A jail location.\n  §7* §3A jail exit location.\n  §7* §3A safe place where they cannot escape.\n\n§a§oA player is §bteleported§a to the jail exit location when his §bjail time is over§a or an admin §breleases§a him, but it's not compulsory to be set, §bcontrary to the jail location.§a If the jail exit location is removed while a player is in prison, he §bwill be forced to stay§a until a new location is set.\n§l§6§k====§r§l§o§6============================§k====§r");
+    p.sendMessage("§l§o§6§k====§r§l§o§6============================§k====§r\n§aWith this system you can jail any player §b(except admins)§a as a punishment for anything bad they've done. You can jail them for a certain period of time or permanently, they won't be able to hurt other players or break blocks.\nThere are §b3 main things§a you need in order to imprison someone properly:\n  §7* §3A jail location.\n  §7* §3A jail exit location.\n  §7* §3A safe place where they cannot escape.\n\n§a§oA player is §bteleported§a to the jail exit location when his §bjail time is over§a or an admin §breleases§a him, but it's not compulsory to be set, §bcontrary to the jail location.§a If the jail exit location is removed while a player is in prison, they §bwill be forced to stay§a until a new location is set.\n§l§6§k====§r§l§o§6============================§k====§r");
     p.playSound("random.levelup", { volume: 0.6 });
 }
 
@@ -1870,7 +1919,7 @@ function jailPlayer(p) {
                             await runTellraw(p, `§cError, you must enter a reason.`);
 
                         } else if (result.formValues.slice(3).every(value => value === 0)) {
-                            await runTellraw(p, `§cError, you must must specify a jail time.`);
+                            await runTellraw(p, `§cError, you must specify a jail time.`);
 
                         } else if (!isValidUsername(player)) {
                             await runTellraw(p, `§cError, the username you entered is invalid.`);
@@ -2050,7 +2099,7 @@ function jailPlayer(p) {
                                 await runTellraw(p, `§cError, you must enter a reason.`);
 
                             } else if (result.formValues.slice(3).every(value => value === 0)) {
-                                await runTellraw(p, `§cError, you must must specify a jail time.`);
+                                await runTellraw(p, `§cError, you must specify a jail time.`);
 
                             } else if (isBanned(selectedPlayer)) {
                                 await runTellraw(p, `§cError, the selected player has recently been banned by another user.`);
@@ -2992,9 +3041,9 @@ function seeInventoryMenu(p) {
     const form = new ActionFormData()
         .title("See an inventory");
     if (!isEnoughSpace(p)) {
-        form.body("Select an online player to see his inventory inside a chest.\n§4WARNING§c, there isn't enough space in front of you, you won't be able to create a chest to see the inventory of a player. Make some space and try again.")
+        form.body("Select an online player to see their inventory inside a chest.\n§4WARNING§c, there isn't enough space in front of you, you won't be able to create a chest to see the inventory of a player. Make some space and try again.")
     } else {
-        form.body("Select an online player to see his inventory inside a chest");
+        form.body("Select an online player to see their inventory inside a chest");
     }
     form.button("§l<-- Back", "textures/icons/back.png")
         .button("Type an offline/online player instead", "textures/icons/pencil.png")
@@ -3044,7 +3093,7 @@ function seeInventoryMenu(p) {
                 const repeatedPlayers = getInvSees()?.map(chest => chest.target);
                 const nonRepeatedPlayers = repeatedPlayers?.reduce(function (accumulator, currentValue) {
                     if (accumulator.indexOf(currentValue) === -1) {
-                        accumulator.push(currentValue)
+                        accumulator.push(currentValue);
                     }
                     return accumulator;
                 }, []);
@@ -4140,7 +4189,7 @@ async function handleInventories(chestObject, lastTargetData, lastChestData, rec
     Object.assign(recentChangedSlots, changedSlots);
 }
 
-function convertToRegExpFriendly(str) {
+export function convertToRegExpFriendly(str) {
     return str.replace(/[|\\{}()[\]^$+*?.]/g, '\\$&');
 }
 
