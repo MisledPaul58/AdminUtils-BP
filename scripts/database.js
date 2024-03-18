@@ -12,12 +12,13 @@ class Database {
     }
 
     /**
-     * 
+     * Sets a value in the table with a certain key. Creates the table if it doesn't exist.
      * @param { String } table
      * @param { String } key
      * @param { String} value
      */
     set(table, key, value) {
+        this.createTable(table);
         let object = this.getTable(table);
         object[key] = value;
         
@@ -27,8 +28,12 @@ class Database {
         }
     }
 
-    deleteTable(name) {
-
+    deleteTable(table) {
+        const regexp = new RegExp(`^\\d+_${convertToRegExpFriendly(table)}$`);
+        const properties = world.getDynamicPropertyIds().filter(property => regexp.test(property));
+        for (const property of properties) {
+            world.setDynamicProperty(property, undefined);
+        }
     }
 
     /**
@@ -55,7 +60,11 @@ class Database {
     getTable(table) {
         const regexp = new RegExp(`^\\d+_${convertToRegExpFriendly(table)}$`);
         const properties = world.getDynamicPropertyIds().filter(property => regexp.test(property));
-        return JSON.parse(properties.join(''));
+        let table = "";
+        for (const property of properties) {
+            table += world.getDynamicProperty(property);
+        }
+        return JSON.parse(table);
     }
 
     /**

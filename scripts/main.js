@@ -37,7 +37,6 @@ system.runInterval(async () => {
         try { world.scoreboard.addObjective('-auJailExitLoc', '-auJailExitLoc') } catch (e) { }
         try { world.scoreboard.addObjective('-auVanished', '-auVanished') } catch (e) { }
         try { world.scoreboard.addObjective('-auInvSees', '-auInvSees') } catch (e) { }
-        try { world.scoreboard.addObjective('-auFreecam', '-auFreecam') } catch (e) { }
         try { world.scoreboard.addObjective('-auTempKilled', '-auTempKilled') } catch (e) { }
         scoreboardsLoaded = true;
         asyncText();

@@ -60,13 +60,7 @@ class FreeCam {
     }
 
     isInFreecam() {
-
-    }
-
-    getFreecams() {
-        const JSON = world.scoreboard.getObjective('-auFreecam').getParticipants()[0]?.displayName;
-        if (JSON === undefined || JSON === "[]") return;
-
+        
     }
 }
 
