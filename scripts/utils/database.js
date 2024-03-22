@@ -109,6 +109,15 @@ class Database {
     tableExists(table) {
         return this.getTables().includes(table);
     }
+
+    /**
+     * 
+     * @param { String } table 
+     * @param { String } key 
+     */
+    keyExists(table, key) {
+        return Object.keys(database.getTable(table)).includes(key);
+    }
 }
 
 export const database = new Database();

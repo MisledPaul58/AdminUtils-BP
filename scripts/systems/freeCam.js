@@ -1,5 +1,5 @@
 import { Player, system, world } from "@minecraft/server";
-import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
+import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
 import { adminUtils, areObjectsEqual, isValidUsername } from "../main";
 import { database } from "../utils/database";
 
@@ -60,48 +60,57 @@ class FreeCam {
 
 
     /**
-     * @param { Player } player 
+     * @param { Player } p 
      */
-    #enableSpecFreeCamGUI(player) {
+    #enableSpecFreeCamGUI(p) {
+        let availablePlayers = [];
         const form = new ActionFormData()
             .title("Enable spectator freecam")
             .body("Select an option")
             .button("§l<-- Back", "textures/icons/back.png")
-            .button("Type an online player instead", "textures/icons/pencil.png")
-            .button("Enable for myself");
+            .button("Type an online player instead", "textures/icons/pencil.png");
+        if (!this.isInFreecam(p.name)) form.button("Enable for myself");
 
-        // for (const player of )
-        form.show(player).then((response) => {
+        for (const player of world.getPlayers().map(player => player.name)) {
+            if (!this.isInFreecam(player) && player !== p.name) {
+                form.button(player);
+                availablePlayers.push(player);
+            }
+        }
+
+        form.show(p).then((response) => {
             if (response.canceled === true) return;
             const { selection } = response;
 
             if (selection === 0) { //Back
-                this.init(player);
+                this.init(p);
 
             } else if (selection === 1) { //Type manually
                 new ModalFormData()
-                    .title("Spectator freecam")
+                    .title("Enable spectator freecam")
                     .textField("Type below the player you would like to enable the spectator freecam for.", "Player's name")
-                    .show(player).then(result => {
-                        if (result.canceled === true) return;
+                    .show(p).then(result => {
+                        if (result.canceled === true) return this.#enableSpecFreeCamGUI(p);
 
                         const specifiedPlayer = result.formValues[0];
                         if (!isValidUsername(specifiedPlayer)) {
-                            player.sendMessage("§cError, the username you entered is invalid.");
+                            p.sendMessage("§cError, the username you entered is invalid.");
+                            p.playSound("au.error");
 
                         } else if (this.isInFreecam(specifiedPlayer)) {
-                            player.sendMessage("§cError, the specified player is already in spectator freecam.");
+                            p.sendMessage("§cError, the specified player is already in spectator freecam.");
+                            p.playSound("au.error");
 
                         } else {
                             try {
-                                const playerRaw = world.getPlayers({ name: specifiedPlayer })[0];
+                                const rawPlayer = world.getPlayers({ name: specifiedPlayer })[0];
                                 let data = {};
-                                if (playerRaw) {
+                                if (rawPlayer) {
                                     data = {
                                         mode: "spectatorFreeCam",
-                                        lastDimension: player.dimension.id,
-                                        lastLoc: player.location,
-                                        lastGameMode: player.getGameMode()
+                                        lastDimension: rawPlayer.dimension.id,
+                                        lastLoc: rawPlayer.location,
+                                        lastGameMode: rawPlayer.getGameMode()
                                     };
                                 } else {
                                     data = {
@@ -112,21 +121,100 @@ class FreeCam {
                                     };
                                 }
                                 database.set("Freecam", specifiedPlayer, data);
-                                player.sendMessage(`§aSpectator freecam has been enabled successfully for §b${specifiedPlayer}§a.`);
-                                player.playSound("au.success");
+                                p.sendMessage(`§aSpectator freecam has been enabled successfully for §b${specifiedPlayer}§a.`);
+                                p.playSound("au.success");
                             } catch (e) {
-                                player.sendMessage(`§cError, couldn't enable spectator freecam for §4${specifiedPlayer}§c.`);
                                 console.warn(e);
+                                p.sendMessage(`§cError, couldn't enable spectator freecam for §4${specifiedPlayer}§c.`);
+                                p.playSound("au.error");
                             }
                         }
                     });
 
-            } else if (selection === 2) {
+            } else if (selection === 2) { //Enable for myself
+                new MessageFormData()
+                    .title("Enable spectator freecam")
+                    .body("Are you sure you want to enable spectator freecam for §byourself§r?")
+                    .button1("No")
+                    .button2("Yes")
+                    .show(p).then(result => {
+                        if (result.canceled === true) return this.#enableSpecFreeCamGUI(p);
+                        if (result.selection === 0) {
+                            this.#enableSpecFreeCamGUI(p);
 
+                        } else {
+                            if (this.isInFreecam(p.name)) { //In case another player enabled it for them
+                                p.sendMessage("§cError, you are already in spectator freecam.");
+                                p.playSound("au.error");
 
-            } else if (selection >= 3) {
+                            } else {
+                                try {
+                                    const data = {
+                                        mode: "spectatorFreeCam",
+                                        lastDimension: p.dimension.id,
+                                        lastLoc: p.location,
+                                        lastGameMode: p.getGameMode()
+                                    };
+                                    database.set("Freecam", p.name, data);
+                                    p.sendMessage(`§aSpectator freecam has been enabled successfully for you.`);
+                                    p.playSound("au.success");
+                                } catch (e) {
+                                    console.warn(e);
+                                    p.sendMessage("§cError, couldn't enable spectator freecam.");
+                                    p.playSound("au.error");
+                                }
+                            }
+                        }
+                    });
 
+            } else if (selection >= 3) { //Player selection
+                const selectedPlayer = availablePlayers[selection - 3];
 
+                new MessageFormData()
+                    .title("Enable spectator freecam")
+                    .body(`Are you sure you want to enable spectator freecam for §b${selectedPlayer}§r?`)
+                    .button1("No")
+                    .button2("Yes")
+                    .show(p).then(result => {
+                        if (result.canceled === true) return this.#enableSpecFreeCamGUI(p);
+                        if (result.selection === 0) {
+                            this.#enableSpecFreeCamGUI(p);
+
+                        } else {
+                            if (this.isInFreecam(selectedPlayer)) {
+                                p.sendMessage(`§cError, §4${selectedPlayer}§c has recently entered spectator freecam.`);
+                                p.playSound("au.error");
+
+                            } else {
+                                try {
+                                    const rawPlayer = world.getPlayers({ name: selectedPlayer })[0];
+                                    let data = {};
+                                    if (rawPlayer) {
+                                        data = {
+                                            mode: "spectatorFreeCam",
+                                            lastDimension: rawPlayer.dimension.id,
+                                            lastLoc: rawPlayer.location,
+                                            lastGameMode: rawPlayer.getGameMode()
+                                        };
+                                    } else {
+                                        data = {
+                                            mode: "spectatorFreeCam",
+                                            lastDimension: database.getTable("PlayersData")[selectedPlayer].lastDimension,
+                                            lastLoc: database.getTable("PlayersData")[selectedPlayer].lastLoc,
+                                            lastGameMode: database.getTable("PlayersData")[selectedPlayer].lastGameMode
+                                        };
+                                    }
+                                    database.set("Freecam", selectedPlayer, data);
+                                    p.sendMessage(`§aSpectator freecam has been enabled successfully for §b${selectedPlayer}§a.`);
+                                    p.playSound("au.success");
+                                } catch (e) {
+                                    console.warn(e);
+                                    p.sendMessage(`§cError, couldn't enable spectator freecam for §4${selectedPlayer}§c.`);
+                                    p.playSound("au.error");
+                                }
+                            }
+                        }
+                    });
             }
         });
     }
@@ -135,8 +223,13 @@ class FreeCam {
 
     }
 
+    /**
+     * 
+     * @param { String } player 
+     * @returns { Boolean }
+     */
     isInFreecam(player) {
-        return Object.keys(database.getTable("Freecam")).includes(player);
+        return database.keyExists("Freecam", player);
     }
 }
 
@@ -150,11 +243,13 @@ system.runInterval(() => {
         const rawPlayer = world.getPlayers({ name: player })[0];
 
         if (rawPlayer) {
-            if (table[player].lastDimension === undefined) {
+            if (table[player].lastDimension === undefined) { //If the player has joined for the first time since freecam was enabled for them
                 let newTable = table[player];
+                //Fill properties
                 newTable.lastDimension = rawPlayer.dimension.id;
                 newTable.lastLoc = rawPlayer.location;
                 newTable.lastGameMode = rawPlayer.getGameMode();
+                //Save properties
                 database.set("Freecam", player, newTable);
             }
             if (table[player].mode === "spectatorFreeCam") { //Spectator freecam
@@ -190,11 +285,15 @@ async function handleExpFreecam(rawPlayer, startLoc, dimension, player) {
     currentLoc.y = currentLoc.y + 2;
     let lastVelocity = { x: 0.00, y: 0.00, z: 0.00 };
     let lastVelCount = 0;
+    let gamemode = "";
 
     const run = system.runInterval(() => {
-        if (!rawPlayer.isValid() || !Object.keys(database.getTable("Freecam")).includes(player)) {
+        if (!rawPlayer.isValid() || !freeCam.isInFreecam(player)) {
             activeExpFreeCams.splice(activeExpFreeCams.indexOf(player), 1);
             system.clearRun(run);
+        }
+        if (rawPlayer.getGameMode() === "spectator") {
+            rawPlayer.setGameMode(gamemode);
         }
 
         const pVelocity = rawPlayer.getVelocity();
@@ -227,6 +326,13 @@ async function handleExpFreecam(rawPlayer, startLoc, dimension, player) {
         } else if (!areObjectsEqual(lastVelocity, { x: 0.00, y: 0.00, z: 0.00 })) {
             lastVelCount++;
         }
-        rawPlayer.onScreenDisplay.setActionBar(`X: ${currentLoc.x.toFixed(2)}, Y: ${currentLoc.y.toFixed(2)}, Z: ${currentLoc.z.toFixed(2)}, ${dimension}`);
+
+        let actionBar = `X: ${currentLoc.x.toFixed(2)}, Y: ${currentLoc.y.toFixed(2)}, Z: ${currentLoc.z.toFixed(2)}, ${dimension}${rawPlayer.isFlying ? "\n§cYou can't ascend if your character is flying." : ""}`;
+        rawPlayer.onScreenDisplay.setActionBar(actionBar);
+
+        if (gamemode !== rawPlayer.getGameMode() && rawPlayer.getGameMode === "creative") {
+            rawPlayer.sendMessage("§4Warning, §cif you're in Creative mode, make sure not to fly, as you won't be able to ascend with the freecam.");
+        }
+        gamemode = rawPlayer.getGameMode();
     }, 1);
 }
