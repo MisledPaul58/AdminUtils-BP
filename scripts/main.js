@@ -3,6 +3,8 @@ import * as GameTest from "@minecraft/server-gametest";
 import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/server-ui";
 import moment from "./moment/src/moment.js";
 import { freeCam } from "./systems/freeCam.js";
+import { database } from "./utils/database.js";
+import "./utils/players.js";
 
 const overworld = world.getDimension("overworld"); //Hacer una cárcel con tiempo y un vanish, sendcommandfeedback?, cambiar los /camera para que se apliquen los efectos de poción?, cancelar ItemUse con beforeEvents para los encarcelados?, invSee?!
 const delay = ticks => new Promise(res => system.runTimeout(res, ticks));
@@ -16,9 +18,7 @@ let stuckJailedPlayers = [];
 let invChests = [];
 let pendingMenuPlayers = [];
 
-system.beforeEvents.watchdogTerminate.subscribe(watchdog => {
-    watchdog.cancel = true;
-});
+system.beforeEvents.watchdogTerminate.subscribe(watchdog => { watchdog.cancel = true });
 
 system.runInterval(async () => {
     players = [...world.getPlayers()];
@@ -38,6 +38,8 @@ system.runInterval(async () => {
         try { world.scoreboard.addObjective('-auVanished', '-auVanished') } catch (e) { }
         try { world.scoreboard.addObjective('-auInvSees', '-auInvSees') } catch (e) { }
         try { world.scoreboard.addObjective('-auTempKilled', '-auTempKilled') } catch (e) { }
+        database.createTable("Freecam");
+        database.createTable("PlayersData");
         scoreboardsLoaded = true;
         asyncText();
         async function asyncText() {
@@ -97,7 +99,7 @@ system.runInterval(async () => {
                             }
                         }, 1);
 
-                        let initChest = true; //Cosas a resolver: qué pasa si alguien cambia el cofre mientras el jugador no está conectado, qué pasa si el inventario cambia mientras el cofre no puede ser accedido, qué pasa si alguien pone un item en los slots que no se usan
+                        let initChest = true;
                         let replaceInvWhenJoin = false;
                         let replaceChestWhenLoad = false;
                         let lastTargetData = [
@@ -3650,7 +3652,7 @@ function runTellraw(player, txt) {
     return player.runCommandAsync(`execute @s ~~~ tellraw @s {"rawtext": [{ "text": "${txt}" }]}`);
 }
 
-function isValidUsername(username) {
+export function isValidUsername(username) {
     if (username.match(/^ | $/) !== null || username.match(/[^A-Za-z0-9À-ÿ\u00f1\u00d1 \(\)]+/) !== null || username === "") {
         return false;
     } else if (username.match(/^ | $/) === null && username.match(/[^A-Za-z0-9À-ÿ\u00f1\u00d1 \(\)]+/) === null && username !== "") {
@@ -4210,7 +4212,7 @@ function round(num, decimals = 2) {
  * @param { {} } obj2
  * @returns { Boolean }
  */
-function areObjectsEqual(obj1, obj2) {
+export function areObjectsEqual(obj1, obj2) {
     let objEqual = false;
     const obj1Keys = Object.keys(obj1).sort();
     const obj2Keys = Object.keys(obj2).sort();

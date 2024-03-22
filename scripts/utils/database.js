@@ -1,5 +1,5 @@
 import { world } from "@minecraft/server";
-import { convertToRegExpFriendly } from "./main";
+import { convertToRegExpFriendly } from "../main";
 
 class Database {
     /**
@@ -20,15 +20,26 @@ class Database {
     set(table, key, value) {
         this.createTable(table);
         let object = this.getTable(table);
+        const oldChunks = JSON.stringify(object).match(/.{1,30000}/g);
         object[key] = value;
         
         const chunks = JSON.stringify(object).match(/.{1,30000}/g);
         for (const i in chunks) {
             world.setDynamicProperty(`${i}_${table}`, chunks[i]);
         }
+        if (oldChunks.length > chunks.length) {
+            for (let i = chunks.length; i < oldChunks.length; i++) { //Delete the old tables from the old chunks
+                world.setDynamicProperty(`${i}_${table}`, undefined);
+            }
+        }
     }
 
+    /**
+     * Deletes the specified table with all its content.
+     * @param { String } table
+     */
     deleteTable(table) {
+        if (!this.tableExists(table)) throw new Error("Database: tried to delete a table that doesn't exist.");
         const regexp = new RegExp(`^\\d+_${convertToRegExpFriendly(table)}$`);
         const properties = world.getDynamicPropertyIds().filter(property => regexp.test(property));
         for (const property of properties) {
@@ -37,7 +48,30 @@ class Database {
     }
 
     /**
-     * 
+     * Deletes a key from a table.
+     * @param { String } table 
+     * @param { String } key 
+     */
+    deleteKey(table, key) {
+        if (!this.tableExists(table)) throw new Error("Database: tried to delete a key from a table that doesn't exist.");
+        let object = this.getTable(table);
+        if (!Object.keys(object).includes(key)) throw new Error("Database: tried to delete a key that doesn't exist.");
+        const oldChunks = JSON.stringify(object).match(/.{1,30000}/g);
+        delete object[key];
+
+        const chunks = JSON.stringify(object).match(/.{1,30000}/g);
+        for (const i in chunks) {
+            world.setDynamicProperty(`${i}_${table}`, chunks[i]);
+        }
+        if (oldChunks.length > chunks.length) {
+            for (let i = chunks.length; i < oldChunks.length; i++) { //Delete the old tables from the old chunks
+                world.setDynamicProperty(`${i}_${table}`, undefined);
+            }
+        }
+    }
+
+    /**
+     * Returns the names of all the tables.
      * @returns { String[] }
      */
     getTables() {
@@ -54,11 +88,11 @@ class Database {
 
     /**
      * Returns the table object.
-     * @param { String } table
+     * @param { String } tableName
      * @returns { object }
      */
-    getTable(table) {
-        const regexp = new RegExp(`^\\d+_${convertToRegExpFriendly(table)}$`);
+    getTable(tableName) {
+        const regexp = new RegExp(`^\\d+_${convertToRegExpFriendly(tableName)}$`);
         const properties = world.getDynamicPropertyIds().filter(property => regexp.test(property));
         let table = "";
         for (const property of properties) {
