@@ -15,13 +15,13 @@ class Database {
      * Sets a value in the table with a certain key. Creates the table if it doesn't exist.
      * @param { String } table
      * @param { String } key
-     * @param { String} value
+     * @param { {} } data
      */
-    set(table, key, value) {
+    set(table, key, data) {
         this.createTable(table);
         let object = this.getTable(table);
         const oldChunks = JSON.stringify(object).match(/.{1,30000}/g);
-        object[key] = value;
+        object[key] = data;
         
         const chunks = JSON.stringify(object).match(/.{1,30000}/g);
         for (const i in chunks) {

@@ -7,7 +7,7 @@ import { database } from "./utils/database.js";
 import "./utils/players.js";
 
 const overworld = world.getDimension("overworld"); //Hacer una cárcel con tiempo y un vanish, sendcommandfeedback?, cambiar los /camera para que se apliquen los efectos de poción?, cancelar ItemUse con beforeEvents para los encarcelados?, invSee?!
-const delay = ticks => new Promise(res => system.runTimeout(res, ticks));
+export const delay = ticks => new Promise(res => system.runTimeout(res, ticks));
 let worldLoaded = false;
 let scoreboardsLoaded = false;
 let players = []; //Hacer que vuelva a la lista de jugadores en projectilePowers después de darle a submit?, recordarte el jugador que has seleccionado en el ModalFormData?
@@ -39,7 +39,7 @@ system.runInterval(async () => {
         try { world.scoreboard.addObjective('-auInvSees', '-auInvSees') } catch (e) { }
         try { world.scoreboard.addObjective('-auTempKilled', '-auTempKilled') } catch (e) { }
         database.createTable("Freecam");
-        database.createTable("PlayersData");
+        database.createTable("PlayerData");
         scoreboardsLoaded = true;
         asyncText();
         async function asyncText() {
@@ -612,43 +612,43 @@ world.beforeEvents.itemUse.subscribe(data => {
             player.playSound("au.menuOpen", { location: { x: player.location.x, y: player.location.y + 1, z: player.location.z } });
         });
 
-        let currentLoc = { x: -165.5, y: 69.00, z: 245.5 };
-        const startLoc = { x: -165.5, y: 67.00, z: 245.5 };
-        let lastVelocity = { x: 0.00, y: 0.00, z: 0.00 };
-        let lastVelCount = 0;
-        system.runInterval(() => {
-            const pVelocity = player.getVelocity();
-            const pRot = player.getRotation();
-            currentLoc = { x: currentLoc.x + (lastVelocity.x !== 0.00 ? lastVelocity.x : pVelocity.x) / 0.7 / (player.isSneaking ? 0.4 : 1), y: currentLoc.y, z: currentLoc.z + (lastVelocity.z !== 0.00 ? lastVelocity.z : pVelocity.z) / 0.7 / (player.isSneaking ? 0.4 : 1) };
-            if (player.isJumping) {
-                world.sendMessage("jumping");
-                Object.assign(currentLoc, { y: currentLoc.y + 0.35 });
+        // let currentLoc = { x: -165.5, y: 69.00, z: 245.5 };
+        // const startLoc = { x: -165.5, y: 67.00, z: 245.5 };
+        // let lastVelocity = { x: 0.00, y: 0.00, z: 0.00 };
+        // let lastVelCount = 0;
+        // system.runInterval(() => {
+        //     const pVelocity = player.getVelocity();
+        //     const pRot = player.getRotation();
+        //     currentLoc = { x: currentLoc.x + (lastVelocity.x !== 0.00 ? lastVelocity.x : pVelocity.x) / 0.7 / (player.isSneaking ? 0.4 : 1), y: currentLoc.y, z: currentLoc.z + (lastVelocity.z !== 0.00 ? lastVelocity.z : pVelocity.z) / 0.7 / (player.isSneaking ? 0.4 : 1) };
+        //     if (player.isJumping) {
+        //         world.sendMessage("jumping");
+        //         Object.assign(currentLoc, { y: currentLoc.y + 0.35 });
 
-            } else if (player.isSneaking) {
-                world.sendMessage("sneaking");
-                Object.assign(currentLoc, { y: currentLoc.y - 0.35 });
-            }
+        //     } else if (player.isSneaking) {
+        //         world.sendMessage("sneaking");
+        //         Object.assign(currentLoc, { y: currentLoc.y - 0.35 });
+        //     }
 
-            player.camera.setCamera("au:tpanimation", { location: currentLoc, easeOptions: { easeTime: 0.05, easeType: EasingType.InOutSine }, rotation: pRot });
+        //     player.camera.setCamera("au:tpanimation", { location: currentLoc, easeOptions: { easeTime: 0.05, easeType: EasingType.InOutSine }, rotation: pRot });
 
-            if (player.location.x > startLoc.x + 1.25 || player.location.x < startLoc.x - 1.25 || player.location.y > startLoc.y + 1.5 || player.location.y < startLoc.y - 1.5 || player.location.z > startLoc.z + 1.25 || player.location.z < startLoc.z - 1.25) {
-                if (lastVelCount === 0) {
-                    lastVelocity = pVelocity;
-                }
-                player.teleport(startLoc);
-            } else if (lastVelCount >= 3) {
-                lastVelCount = 0;
-                lastVelocity = { x: 0.00, y: 0.00, z: 0.00 };
-            }
-            if ((lastVelCount >= 2 && areObjectsEqual(pVelocity, { x: 0.00, y: 0.00, z: 0.00 })) || (lastVelocity.x > 0.05 && pVelocity.x < -0.05) || (lastVelocity.x < -0.05 && pVelocity.x > 0.05) || (lastVelocity.z > 0.05 && pVelocity.z < -0.05) || (lastVelocity.z < -0.05 && pVelocity.z > 0.05)) {
-                lastVelCount = 0;
-                lastVelocity = { x: 0.00, y: 0.00, z: 0.00 };
+        //     if (player.location.x > startLoc.x + 1.25 || player.location.x < startLoc.x - 1.25 || player.location.y > startLoc.y + 1.5 || player.location.y < startLoc.y - 1.5 || player.location.z > startLoc.z + 1.25 || player.location.z < startLoc.z - 1.25) {
+        //         if (lastVelCount === 0) {
+        //             lastVelocity = pVelocity;
+        //         }
+        //         player.teleport(startLoc);
+        //     } else if (lastVelCount >= 3) {
+        //         lastVelCount = 0;
+        //         lastVelocity = { x: 0.00, y: 0.00, z: 0.00 };
+        //     }
+        //     if ((lastVelCount >= 2 && areObjectsEqual(pVelocity, { x: 0.00, y: 0.00, z: 0.00 })) || (lastVelocity.x > 0.05 && pVelocity.x < -0.05) || (lastVelocity.x < -0.05 && pVelocity.x > 0.05) || (lastVelocity.z > 0.05 && pVelocity.z < -0.05) || (lastVelocity.z < -0.05 && pVelocity.z > 0.05)) {
+        //         lastVelCount = 0;
+        //         lastVelocity = { x: 0.00, y: 0.00, z: 0.00 };
 
-            } else if (!areObjectsEqual(lastVelocity, { x: 0.00, y: 0.00, z: 0.00 })) {
-                lastVelCount++;
-            }
-            player.onScreenDisplay.setActionBar(`${pVelocity.x.toFixed(2)} ${pVelocity.y.toFixed(2)} ${pVelocity.z.toFixed(2)} §b${lastVelocity.x}`);
-        }, 1);
+        //     } else if (!areObjectsEqual(lastVelocity, { x: 0.00, y: 0.00, z: 0.00 })) {
+        //         lastVelCount++;
+        //     }
+        //     player.onScreenDisplay.setActionBar(`${pVelocity.x.toFixed(2)} ${pVelocity.y.toFixed(2)} ${pVelocity.z.toFixed(2)} §b${lastVelocity.x}`);
+        // }, 1);
 
         // system.runInterval(() => {
         //     player.teleport(startLoc);
@@ -4469,4 +4469,38 @@ function areItemsEqual(itemStack1, itemStack2) {
     } else {
         return true;
     }
+}
+
+/**
+ * 
+ * @param { "minecraft:overworld" | "minecraft:nether" | "minecraft:the_end" } dimensionId
+ * @returns { "§bOverworld" | "§cNether" | "§5The End" }
+ */
+export function toFancyDim(dimensionId) {
+    let dimension = "";
+    if (dimensionId === "minecraft:overworld") {
+        dimension = '§bOverworld';
+    } else if (dimensionId === "minecraft:nether") {
+        dimension = '§cNether';
+    } else if (dimensionId === "minecraft:the_end") {
+        dimension = '§5The End';
+    }
+    return dimension;
+}
+
+/**
+ * 
+ * @param { "§bOverworld" | "§cNether" | "§5The End" } fancyDim 
+ * @returns { "minecraft:overworld" | "minecraft:nether" | "minecraft:the_end" }
+ */
+export function toDimId(fancyDim) {
+    let dimId = "";
+    if (fancyDim === "§bOverworld") {
+        dimId = "minecraft:overworld";
+    } else if (fancyDim === "§cNether") {
+        dimId = "minecraft:nether";
+    } else if (fancyDim === "§5The End") {
+        dimId = "minecraft:the_end";
+    }
+    return dimId;
 }
