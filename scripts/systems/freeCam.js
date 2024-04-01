@@ -1,15 +1,14 @@
 import { Dimension, Player, TicksPerSecond, system, world } from "@minecraft/server";
 import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
-import { adminUtils, areObjectsEqual, delay, isValidUsername, toDimId, toFancyDim } from "../main";
-import { database } from "../utils/database";
+import { databases, adminUtils, areObjectsEqual, delay, isValidUsername, toDimId, toFancyDim } from "../main";
 
 class FreeCam {
     /**
      * @param { Player } p 
      */
     init(p) {
-        world.sendMessage(`${world.getDynamicProperty("0_PlayerData")}`);
-        world.sendMessage(`${JSON.stringify(database.getTable("Freecam"))}`);
+        world.sendMessage(`${world.getDynamicPropertyIds()}`);
+        world.sendMessage(`${JSON.stringify(databases.freeCam.getTable())}`);
         let extraButton = 0;
         const form = new ActionFormData()
             .title("Freecam menu")
@@ -179,13 +178,13 @@ class FreeCam {
                                 } else {
                                     data = {
                                         mode: "spectatorFreeCam",
-                                        lastDimension: database.getTable("PlayerData")[specifiedPlayer]?.lastDimension, //These keys with undefined values are actually lost during JSON.stringify
-                                        lastLoc: database.getTable("PlayerData")[specifiedPlayer]?.lastLoc,
-                                        lastGameMode: database.getTable("PlayerData")[specifiedPlayer]?.lastGameMode,
+                                        lastDimension: databases.playerData.get(specifiedPlayer)?.lastDimension, //These keys with undefined values are actually lost during JSON.stringify
+                                        lastLoc: databases.playerData.get(specifiedPlayer)?.lastLoc,
+                                        lastGameMode: databases.playerData.get(specifiedPlayer)?.lastGameMode,
                                         hasToLeaveFreeCam: false
                                     };
                                 }
-                                database.set("Freecam", specifiedPlayer, data);
+                                databases.freeCam.set(specifiedPlayer, data);
                                 p.sendMessage(`§bSpectator Freecam§a has been enabled successfully for §b${specifiedPlayer}§a.`);
                                 p.playSound("au.success");
                             } catch (e) {
@@ -204,18 +203,14 @@ class FreeCam {
                         .button1("No")
                         .button2("Yes")
                         .show(p).then(result => {
-                            if (result.canceled === true) return this.#enableSpecFreeCamGUI(p);
-                            if (result.selection === 0) {
-                                this.#enableSpecFreeCamGUI(p);
+                            if (result.canceled === true || result.selection === 0) return this.#enableSpecFreeCamGUI(p);
+
+                            if (!this.isInExpFreeCam(p.name)) {
+                                p.sendMessage("§Error, another user has recently disabled Experimental Freecam for you.")
+                                p.playSound("au.error");
 
                             } else {
-                                if (!this.isInExpFreeCam(p.name)) {
-                                    p.sendMessage("§Error, another user has recently disabled Experimental Freecam for you.")
-                                    p.playSound("au.error");
-
-                                } else {
-                                    this.#manageFreeCamGUI(p);
-                                }
+                                this.#manageFreeCamGUI(p);
                             }
                         });
 
@@ -226,36 +221,32 @@ class FreeCam {
                         .button1("No")
                         .button2("Yes")
                         .show(p).then(result => {
-                            if (result.canceled === true) return this.#enableSpecFreeCamGUI(p);
-                            if (result.selection === 0) {
-                                this.#enableSpecFreeCamGUI(p);
+                            if (result.canceled === true || result.selection === 0) return this.#enableSpecFreeCamGUI(p);
+
+                            if (this.isInSpecFreeCam(p.name)) { //In case another player enabled it for them
+                                p.sendMessage("§cError, you are already in Spectator Freecam.");
+                                p.playSound("au.error");
+
+                            } else if (this.isInExpFreeCam(p.name)) {
+                                p.sendMessage("§cError, another user has recently enabled Experimental Freecam for you.");
+                                p.playSound("au.error");
 
                             } else {
-                                if (this.isInSpecFreeCam(p.name)) { //In case another player enabled it for them
-                                    p.sendMessage("§cError, you are already in Spectator Freecam.");
+                                try {
+                                    const data = {
+                                        mode: "spectatorFreeCam",
+                                        lastDimension: p.dimension.id,
+                                        lastLoc: p.location,
+                                        lastGameMode: p.getGameMode(),
+                                        hasToLeaveFreeCam: false
+                                    };
+                                    databases.freeCam.set(p.name, data);
+                                    p.sendMessage(`§bSpectator Freecam§a has been enabled successfully for you.`);
+                                    p.playSound("au.success");
+                                } catch (e) {
+                                    console.warn(e);
+                                    p.sendMessage("§cError, couldn't enable §4Spectator Freecam§c.");
                                     p.playSound("au.error");
-
-                                } else if (this.isInExpFreeCam(p.name)) {
-                                    p.sendMessage("§cError, another user has recently enabled Experimental Freecam for you.");
-                                    p.playSound("au.error");
-
-                                } else {
-                                    try {
-                                        const data = {
-                                            mode: "spectatorFreeCam",
-                                            lastDimension: p.dimension.id,
-                                            lastLoc: p.location,
-                                            lastGameMode: p.getGameMode(),
-                                            hasToLeaveFreeCam: false
-                                        };
-                                        database.set("Freecam", p.name, data);
-                                        p.sendMessage(`§bSpectator Freecam§a has been enabled successfully for you.`);
-                                        p.playSound("au.success");
-                                    } catch (e) {
-                                        console.warn(e);
-                                        p.sendMessage("§cError, couldn't enable §4Spectator Freecam§c.");
-                                        p.playSound("au.error");
-                                    }
                                 }
                             }
                         });
@@ -270,48 +261,44 @@ class FreeCam {
                     .button1("No")
                     .button2("Yes")
                     .show(p).then(result => {
-                        if (result.canceled === true) return this.#enableSpecFreeCamGUI(p);
-                        if (result.selection === 0) {
-                            this.#enableSpecFreeCamGUI(p);
+                        if (result.canceled === true || result.selection === 0) return this.#enableSpecFreeCamGUI(p);
+
+                        if (this.isInSpecFreeCam(selectedPlayer)) {
+                            p.sendMessage(`§cError, §4${selectedPlayer}§c has recently entered Spectator Freecam.`);
+                            p.playSound("au.error");
+
+                        } else if (this.isInExpFreeCam(selectedPlayer)) {
+                            p.sendMessage(`§cError, §4${selectedPlayer}§c has recently entered Experimental Freecam.`);
+                            p.playSound("au.error");
 
                         } else {
-                            if (this.isInSpecFreeCam(selectedPlayer)) {
-                                p.sendMessage(`§cError, §4${selectedPlayer}§c has recently entered Spectator Freecam.`);
-                                p.playSound("au.error");
-
-                            } else if (this.isInExpFreeCam(selectedPlayer)) {
-                                p.sendMessage(`§cError, §4${selectedPlayer}§c has recently entered Experimental Freecam.`);
-                                p.playSound("au.error");
-
-                            } else {
-                                try {
-                                    const rawPlayer = world.getPlayers({ name: selectedPlayer })[0];
-                                    let data = {};
-                                    if (rawPlayer) {
-                                        data = {
-                                            mode: "spectatorFreeCam",
-                                            lastDimension: rawPlayer.dimension.id,
-                                            lastLoc: rawPlayer.location,
-                                            lastGameMode: rawPlayer.getGameMode(),
-                                            hasToLeaveFreeCam: false
-                                        };
-                                    } else {
-                                        data = {
-                                            mode: "spectatorFreeCam",
-                                            lastDimension: database.getTable("PlayerData")[selectedPlayer]?.lastDimension,
-                                            lastLoc: database.getTable("PlayerData")[selectedPlayer]?.lastLoc,
-                                            lastGameMode: database.getTable("PlayerData")[selectedPlayer]?.lastGameMode,
-                                            hasToLeaveFreeCam: false
-                                        };
-                                    }
-                                    database.set("Freecam", selectedPlayer, data);
-                                    p.sendMessage(`§bSpectator Freecam§a has been enabled successfully for §b${selectedPlayer}§a.`);
-                                    p.playSound("au.success");
-                                } catch (e) {
-                                    console.warn(e);
-                                    p.sendMessage(`§cError, couldn't enable §4Spectator Freecam§c for §4${selectedPlayer}§c.`);
-                                    p.playSound("au.error");
+                            try {
+                                const rawPlayer = world.getPlayers({ name: selectedPlayer })[0];
+                                let data = {};
+                                if (rawPlayer) {
+                                    data = {
+                                        mode: "spectatorFreeCam",
+                                        lastDimension: rawPlayer.dimension.id,
+                                        lastLoc: rawPlayer.location,
+                                        lastGameMode: rawPlayer.getGameMode(),
+                                        hasToLeaveFreeCam: false
+                                    };
+                                } else {
+                                    data = {
+                                        mode: "spectatorFreeCam",
+                                        lastDimension: databases.playerData.get(selectedPlayer)?.lastDimension,
+                                        lastLoc: databases.playerData.get(selectedPlayer)?.lastLoc,
+                                        lastGameMode: databases.playerData.get(selectedPlayer)?.lastGameMode,
+                                        hasToLeaveFreeCam: false
+                                    };
                                 }
+                                databases.freeCam.set(selectedPlayer, data);
+                                p.sendMessage(`§bSpectator Freecam§a has been enabled successfully for §b${selectedPlayer}§a.`);
+                                p.playSound("au.success");
+                            } catch (e) {
+                                console.warn(e);
+                                p.sendMessage(`§cError, couldn't enable §4Spectator Freecam§c for §4${selectedPlayer}§c.`);
+                                p.playSound("au.error");
                             }
                         }
                     });
@@ -332,7 +319,7 @@ class FreeCam {
             .button("Type an offline/online player instead", "textures/icons/pencil.png")
             .button("Disable for myself");
 
-        for (const player of Object.keys(database.getTable("Freecam"))) {
+        for (const player of databases.freeCam.keys()) {
             if (this.isInSpecFreeCam(player) && player !== p.name) {
                 form.button(player, "textures/icons/steve_icon.png");
                 availablePlayers.push(player);
@@ -358,24 +345,24 @@ class FreeCam {
                             p.sendMessage("§cError, the username you entered is invalid.");
                             p.playSound("au.error");
 
-                        } else if (!this.isInSpecFreeCam(specifiedPlayer)) {
-                            p.sendMessage(`§cError, §4${specifiedPlayer}§c is not in Spectator Freecam.`);
-                            p.playSound("au.error");
-
                         } else if (this.isInExpFreeCam(specifiedPlayer)) { //Make a messageformdata to go to disable Experimental Freecam menu?
                             p.sendMessage(`§cError, §4${specifiedPlayer}§c is in Experimental Freecam, not Spectator Freecam. Please disable it in the Experimental Freecam menu.`);
+                            p.playSound("au.error");
+
+                        } else if (!this.isInSpecFreeCam(specifiedPlayer)) {
+                            p.sendMessage(`§cError, §4${specifiedPlayer}§c is not in Spectator Freecam.`);
                             p.playSound("au.error");
 
                         } else {
                             try {
                                 const rawPlayer = world.getPlayers({ name: specifiedPlayer })[0];
                                 if (rawPlayer) {
-                                    rawPlayer.setGameMode(database.getTable("Freecam")[specifiedPlayer].lastGameMode);
-                                    database.deleteKey("Freecam", specifiedPlayer);
+                                    rawPlayer.setGameMode(databases.freeCam.get(specifiedPlayer).lastGameMode);
+                                    databases.freeCam.delete(specifiedPlayer);
                                 } else {
-                                    let data = database.getTable("Freecam")[specifiedPlayer];
+                                    let data = databases.freeCam.get(specifiedPlayer);
                                     data.hasToLeaveFreeCam = true;
-                                    database.set("Freecam", specifiedPlayer, data);
+                                    databases.freeCam.set(specifiedPlayer, data);
                                 }
                                 p.sendMessage(`§bSpectator Freecam§a has been disabled successfully for §b${specifiedPlayer}§a.`);
                                 p.playSound("au.success");
@@ -399,17 +386,13 @@ class FreeCam {
                         .button1("No")
                         .button2("Yes")
                         .show(p).then(result => {
-                            if (result.canceled === true) return this.#disableSpecFreeCamGUI(p);
-                            if (result.selection === 0) {
-                                this.#disableSpecFreeCamGUI(p);
+                            if (result.canceled === true || result.selection === 0) return this.#disableSpecFreeCamGUI(p);
+
+                            if (!this.isInFreeCam(p.name)) {
+                                p.sendMessage("§cError, another user has disabled your freecam.");
 
                             } else {
-                                if (!this.isInFreeCam(p.name)) {
-                                    p.sendMessage("§cError, another user has disabled your freecam.");
-
-                                } else {
-                                    this.#manageFreeCamGUI(p);
-                                }
+                                this.#manageFreeCamGUI(p);
                             }
                         });
                 }
@@ -425,24 +408,24 @@ class FreeCam {
                     .show(p).then(result => {
                         if (result.canceled === true || result.selection === 0) return this.#disableSpecFreeCamGUI(p);
 
-                        if (!this.isInSpecFreeCam(selectedPlayer)) {
-                            p.sendMessage(`§cError, §4${selectedPlayer}§c has recently left Spectator Freecam.`);
+                        if (this.isInExpFreeCam(selectedPlayer)) {
+                            p.sendMessage(`§cError, §4${selectedPlayer}§c has recently left Spectator Freecam and is now in Experimental Freecam.`);
                             p.playSound("au.error");
 
-                        } else if (this.isInExpFreeCam(selectedPlayer)) {
-                            p.sendMessage(`§cError, §4${selectedPlayer}§c has recently left Spectator Freecam and is now in Experimental Freecam.`);
+                        } else if (!this.isInSpecFreeCam(selectedPlayer)) {
+                            p.sendMessage(`§cError, §4${selectedPlayer}§c has recently left Spectator Freecam.`);
                             p.playSound("au.error");
 
                         } else {
                             try {
                                 const rawPlayer = world.getPlayers({ name: selectedPlayer })[0];
                                 if (rawPlayer) {
-                                    rawPlayer.setGameMode(database.getTable("Freecam")[selectedPlayer].lastGameMode);
-                                    database.deleteKey("Freecam", selectedPlayer);
+                                    rawPlayer.setGameMode(databases.freeCam.get(selectedPlayer).lastGameMode);
+                                    databases.freeCam.delete(selectedPlayer);
                                 } else {
-                                    let data = database.getTable("Freecam")[selectedPlayer];
+                                    let data = databases.freeCam.get(selectedPlayer);
                                     data.hasToLeaveFreeCam = true;
-                                    database.set("Freecam", selectedPlayer, data);
+                                    databases.freeCam.set(selectedPlayer, data);
                                 }
                                 p.sendMessage(`§bSpectator Freecam§a has been disabled successfully for §b${selectedPlayer}§a.`);
                                 p.playSound("au.success");
@@ -514,20 +497,28 @@ class FreeCam {
                                         lastDimension: rawPlayer.dimension.id,
                                         lastLoc: rawPlayer.location,
                                         lastGameMode: rawPlayer.getGameMode(),
-                                        isAutoChunkLoadEnabled: true,
+                                        autoChunkLoad: {
+                                            enabled: true,
+                                            radius: 6,
+                                            lastLoadLoc: {}
+                                        },
                                         hasToLeaveFreeCam: false
                                     };
                                 } else {
                                     data = {
                                         mode: "experimentalFreeCam",
-                                        lastDimension: database.getTable("PlayerData")[specifiedPlayer]?.lastDimension, //These keys with undefined values are actually lost during JSON.stringify
-                                        lastLoc: database.getTable("PlayerData")[specifiedPlayer]?.lastLoc,
-                                        lastGameMode: database.getTable("PlayerData")[specifiedPlayer]?.lastGameMode,
-                                        isAutoChunkLoadEnabled: true,
+                                        lastDimension: databases.playerData.get(specifiedPlayer)?.lastDimension, //These keys with undefined values are actually lost during JSON.stringify
+                                        lastLoc: databases.playerData.get(specifiedPlayer)?.lastLoc,
+                                        lastGameMode: databases.playerData.get(specifiedPlayer)?.lastGameMode,
+                                        autoChunkLoad: {
+                                            enabled: true,
+                                            radius: 6,
+                                            lastLoadLoc: {}
+                                        },
                                         hasToLeaveFreeCam: false
                                     };
                                 }
-                                database.set("Freecam", specifiedPlayer, data);
+                                databases.freeCam.set(specifiedPlayer, data);
                                 p.sendMessage(`§bExperimental Freecam§a has been enabled successfully for §b${specifiedPlayer}§a.`);
                                 p.playSound("au.success");
                             } catch (e) {
@@ -581,10 +572,14 @@ class FreeCam {
                                         lastDimension: p.dimension.id,
                                         lastLoc: p.location,
                                         lastGameMode: p.getGameMode(),
-                                        isAutoChunkLoadEnabled: true,
+                                        autoChunkLoad: {
+                                            enabled: true,
+                                            radius: 6,
+                                            lastLoadLoc: {}
+                                        },
                                         hasToLeaveFreeCam: false
                                     };
-                                    database.set("Freecam", p.name, data);
+                                    databases.freeCam.set(p.name, data);
                                     p.sendMessage(`§bExperimental Freecam§a has been enabled successfully for you.`);
                                     p.playSound("au.success");
                                 } catch (e) {
@@ -625,20 +620,28 @@ class FreeCam {
                                         lastDimension: rawPlayer.dimension.id,
                                         lastLoc: rawPlayer.location,
                                         lastGameMode: rawPlayer.getGameMode(),
-                                        isAutoChunkLoadEnabled: true,
+                                        autoChunkLoad: {
+                                            enabled: true,
+                                            radius: 6,
+                                            lastLoadLoc: {}
+                                        },
                                         hasToLeaveFreeCam: false
                                     };
                                 } else {
                                     data = {
                                         mode: "experimentalFreeCam",
-                                        lastDimension: database.getTable("PlayerData")[selectedPlayer]?.lastDimension,
-                                        lastLoc: database.getTable("PlayerData")[selectedPlayer]?.lastLoc,
-                                        lastGameMode: database.getTable("PlayerData")[selectedPlayer]?.lastGameMode,
-                                        isAutoChunkLoadEnabled: true,
+                                        lastDimension: databases.playerData.get(selectedPlayer)?.lastDimension,
+                                        lastLoc: databases.playerData.get(selectedPlayer)?.lastLoc,
+                                        lastGameMode: databases.playerData.get(selectedPlayer)?.lastGameMode,
+                                        autoChunkLoad: {
+                                            enabled: true,
+                                            radius: 6,
+                                            lastLoadLoc: {}
+                                        },
                                         hasToLeaveFreeCam: false
                                     };
                                 }
-                                database.set("Freecam", selectedPlayer, data);
+                                databases.freeCam.set(selectedPlayer, data);
                                 p.sendMessage(`§bExperimental Freecam§a has been enabled successfully for §b${selectedPlayer}§a.`);
                                 p.playSound("au.success");
                             } catch (e) {
@@ -665,7 +668,7 @@ class FreeCam {
             .button("Type an offline/online player instead", "textures/icons/pencil.png")
             .button("Disable for myself");
 
-        for (const player of Object.keys(database.getTable("Freecam"))) {
+        for (const player of databases.freeCam.keys()) {
             if (this.isInExpFreeCam(player) && player !== p.name) {
                 form.button(player, "textures/icons/steve_icon.png");
                 availablePlayers.push(player);
@@ -691,30 +694,25 @@ class FreeCam {
                             p.sendMessage("§cError, the username you entered is invalid.");
                             p.playSound("au.error");
 
-                        } else if (!this.isInExpFreeCam(specifiedPlayer)) {
-                            p.sendMessage(`§cError, §4${specifiedPlayer}§c is not in Experimental Freecam.`);
-                            p.playSound("au.error");
-
                         } else if (this.isInSpecFreeCam(specifiedPlayer)) { //Make a messageformdata to go to disable Spectator Freecam menu?
                             p.sendMessage(`§cError, §4${specifiedPlayer}§c is in Spectator Freecam, not Experimental Freecam. Please disable it in the Spectator Freecam menu.`);
                             p.playSound("au.error");
 
+                        } else if (!this.isInExpFreeCam(specifiedPlayer)) {
+                            p.sendMessage(`§cError, §4${specifiedPlayer}§c is not in Experimental Freecam.`);
+                            p.playSound("au.error");
+
                         } else {
                             try {
-                                const rawPlayer = world.getPlayers({ name: specifiedPlayer })[0];
-                                if (rawPlayer) {
-                                    rawPlayer.setGameMode(database.getTable("Freecam")[specifiedPlayer].lastGameMode);
-                                    database.deleteKey("Freecam", specifiedPlayer);
-                                } else {
-                                    let data = database.getTable("Freecam")[specifiedPlayer];
-                                    data.hasToLeaveFreeCam = true;
-                                    database.set("Freecam", specifiedPlayer, data);
-                                }
-                                p.sendMessage(`§bSpectator Freecam§a has been disabled successfully for §b${specifiedPlayer}§a.`);
+                                let data = databases.freeCam.get(specifiedPlayer);
+                                data.hasToLeaveFreeCam = true;
+                                databases.freeCam.set(specifiedPlayer, data);
+
+                                p.sendMessage(`§bExperimental Freecam§a has been disabled successfully for §b${specifiedPlayer}§a.`);
                                 p.playSound("au.success");
                             } catch (e) {
                                 console.warn(e);
-                                p.sendMessage(`§cError, couldn't disable §4Spectator Freecam§c for §4${specifiedPlayer}§c.`);
+                                p.sendMessage(`§cError, couldn't disable §4Experimental Freecam§c for §4${specifiedPlayer}§c.`);
                                 p.playSound("au.error");
                             }
                         }
@@ -727,22 +725,18 @@ class FreeCam {
 
                 } else {
                     new MessageFormData()
-                        .title("Disable Spectator Freecam")
+                        .title("Disable Experimental Freecam")
                         .body("Please go to §bCurrent freecam§r to choose how you would like to disable the freecam.\nWould you like to go now?")
                         .button1("No")
                         .button2("Yes")
                         .show(p).then(result => {
-                            if (result.canceled === true) return this.#disableSpecFreeCamGUI(p);
-                            if (result.selection === 0) {
-                                this.#disableSpecFreeCamGUI(p);
+                            if (result.canceled === true || result.selection === 0) return this.#disableExpFreeCamGUI(p);
+
+                            if (!this.isInFreeCam(p.name)) {
+                                p.sendMessage("§cError, another user has disabled your freecam.");
 
                             } else {
-                                if (!this.isInFreeCam(p.name)) {
-                                    p.sendMessage("§cError, another user has disabled your freecam.");
-
-                                } else {
-                                    this.#manageFreeCamGUI(p);
-                                }
+                                this.#manageFreeCamGUI(p);
                             }
                         });
                 }
@@ -751,37 +745,32 @@ class FreeCam {
                 const selectedPlayer = availablePlayers[selection - 3];
 
                 new MessageFormData()
-                    .title("Disable Spectator Freecam")
-                    .body(`Are you sure you want to disable Spectator Freecam for §b${selectedPlayer}§r?`)
+                    .title("Disable Experimental Freecam")
+                    .body(`Are you sure you want to disable Experimental Freecam for §b${selectedPlayer}§r?`)
                     .button1("No")
                     .button2("Yes")
                     .show(p).then(result => {
-                        if (result.canceled === true || result.selection === 0) return this.#disableSpecFreeCamGUI(p);
+                        if (result.canceled === true || result.selection === 0) return this.#disableExpFreeCamGUI(p);
 
-                        if (!this.isInSpecFreeCam(selectedPlayer)) {
-                            p.sendMessage(`§cError, §4${selectedPlayer}§c has recently left Spectator Freecam.`);
+                        if (this.isInSpecFreeCam(selectedPlayer)) {
+                            p.sendMessage(`§cError, §4${selectedPlayer}§c has recently left Experimental Freecam and is now in Spectator Freecam.`);
                             p.playSound("au.error");
 
-                        } else if (this.isInExpFreeCam(selectedPlayer)) {
-                            p.sendMessage(`§cError, §4${selectedPlayer}§c has recently left Spectator Freecam and is now in Experimental Freecam.`);
+                        } else if (!this.isInExpFreeCam(selectedPlayer)) {
+                            p.sendMessage(`§cError, §4${selectedPlayer}§c has recently left Experimental Freecam.`);
                             p.playSound("au.error");
 
                         } else {
                             try {
-                                const rawPlayer = world.getPlayers({ name: selectedPlayer })[0];
-                                if (rawPlayer) {
-                                    rawPlayer.setGameMode(database.getTable("Freecam")[selectedPlayer].lastGameMode);
-                                    database.deleteKey("Freecam", selectedPlayer);
-                                } else {
-                                    let data = database.getTable("Freecam")[selectedPlayer];
-                                    data.hasToLeaveFreeCam = true;
-                                    database.set("Freecam", selectedPlayer, data);
-                                }
-                                p.sendMessage(`§bSpectator Freecam§a has been disabled successfully for §b${selectedPlayer}§a.`);
+                                let data = databases.freeCam.get(selectedPlayer);
+                                data.hasToLeaveFreeCam = true;
+                                databases.freeCam.set(selectedPlayer, data);
+
+                                p.sendMessage(`§bExperimental Freecam§a has been disabled successfully for §b${selectedPlayer}§a.`);
                                 p.playSound("au.success");
                             } catch (e) {
                                 console.warn(e);
-                                p.sendMessage(`§cError, couldn't disable §4Spectator Freecam§c for §4${selectedPlayer}§c.`);
+                                p.sendMessage(`§cError, couldn't disable §4Experimental Freecam§c for §4${selectedPlayer}§c.`);
                                 p.playSound("au.error");
                             }
                         }
@@ -824,10 +813,10 @@ class FreeCam {
                                     break;
 
                                 case 1: { //Tp to starting location
-                                    const startLoc = database.getTable("Freecam")[p.name].lastLoc;
+                                    const startLoc = databases.freeCam.get(p.name).lastLoc;
                                     new MessageFormData()
                                         .title("§lTeleport to the starting loc.")
-                                        .body(`Are you sure you want to teleport your freecam to the starting location?\n§l§bStarting location:\n§rX: ${startLoc.x.toFixed(2)}, Y: ${startLoc.y.toFixed(2)}, Z: ${startLoc.z.toFixed(2)}, ${toFancyDim(database.getTable("Freecam")[p.name].lastDimension)}`)
+                                        .body(`Are you sure you want to teleport your freecam to the starting location?\n§l§bStarting location:\n§rX: ${startLoc.x.toFixed(2)}, Y: ${startLoc.y.toFixed(2)}, Z: ${startLoc.z.toFixed(2)}, ${toFancyDim(databases.freeCam.get(p.name).lastDimension)}`)
                                         .button1("No")
                                         .button2("Yes")
                                         .show(p).then(async result => {
@@ -839,7 +828,7 @@ class FreeCam {
 
                                             } else {
                                                 try {
-                                                    const data = database.getTable("Freecam")[p.name];
+                                                    const data = databases.freeCam.get(p.name);
                                                     p.runCommand("camera @s fade time 2 1 1 color 0 0 0");
                                                     await delay(40);
                                                     p.teleport(data.lastLoc, { dimension: world.getDimension(data.lastDimension) });
@@ -848,7 +837,7 @@ class FreeCam {
                                                     p.playSound("au.success");
                                                 } catch (e) {
                                                     console.warn(e);
-                                                    p.sendMessage("§cError, couldn't teleport you to the starting location.");
+                                                    p.sendMessage("§cError, couldn't teleport you to the §4starting location§c.");
                                                     p.playSound("au.error");
                                                 }
                                             }
@@ -874,7 +863,7 @@ class FreeCam {
                                                 const regexp = /^-?\d+(?:\.\d+)? -?\d+(?:\.\d+)? -?\d+(?:\.\d+)?$/;
 
                                                 if (rawCoords.trim() === "") {
-                                                    p.sendMessage("§cError, please enter the coordinates you want to telport to.");
+                                                    p.sendMessage("§cError, please enter the coordinates you want to teleport to.");
                                                     p.playSound("au.error");
 
                                                 } else if (!regexp.test(rawCoords.trim())) {
@@ -901,10 +890,10 @@ class FreeCam {
                                 } break;
 
                                 case 3: { //Exit and tp to starting location
-                                    const startLoc = database.getTable("Freecam")[p.name].lastLoc;
+                                    const startLoc = databases.freeCam.get(p.name).lastLoc;
                                     new MessageFormData()
                                         .title("§lExit and tp to the starting loc.")
-                                        .body(`Are you sure you want to exit and teleport your freecam to the starting location?\n§l§bStarting location:\n§rX: ${startLoc.x.toFixed(2)}, Y: ${startLoc.y.toFixed(2)}, Z: ${startLoc.z.toFixed(2)}, ${toFancyDim(database.getTable("Freecam")[p.name].lastDimension)}`)
+                                        .body(`Are you sure you want to exit and teleport your freecam to the starting location?\n§l§bStarting location:\n§rX: ${startLoc.x.toFixed(2)}, Y: ${startLoc.y.toFixed(2)}, Z: ${startLoc.z.toFixed(2)}, ${toFancyDim(databases.freeCam.get(p.name).lastDimension)}`)
                                         .button1("No")
                                         .button2("Yes")
                                         .show(p).then(async result => {
@@ -916,12 +905,12 @@ class FreeCam {
 
                                             } else {
                                                 try {
-                                                    const data = database.getTable("Freecam")[p.name];
+                                                    const data = databases.freeCam.get(p.name);
                                                     p.runCommand("camera @s fade time 2 1 1 color 0 0 0");
                                                     await delay(40);
                                                     p.teleport(data.lastLoc, { dimension: world.getDimension(data.lastDimension) });
                                                     p.setGameMode(data.lastGameMode);
-                                                    database.deleteKey("Freecam", p.name);
+                                                    databases.freeCam.delete(p.name);
                                                     await delay(20);
                                                     p.sendMessage("§bTeleported!");
                                                     p.playSound("au.success");
@@ -949,13 +938,13 @@ class FreeCam {
 
                                             } else {
                                                 try {
-                                                    p.setGameMode(database.getTable("Freecam")[p.name].lastGameMode);
-                                                    database.deleteKey("Freecam", p.name);
+                                                    p.setGameMode(databases.freeCam.get(p.name).lastGameMode);
+                                                    databases.freeCam.delete(p.name);
                                                     p.sendMessage("§bSpectator Freecam§a has been disabled successfully at your current location.");
                                                     p.playSound("au.success");
                                                 } catch (e) {
                                                     console.warn(e);
-                                                    p.sendMessage(`§cError, couldn't exit Spectator Freecam.`);
+                                                    p.sendMessage(`§cError, couldn't exit §4Spectator Freecam§c.`);
                                                     p.playSound("au.error");
                                                 }
                                             }
@@ -992,7 +981,7 @@ class FreeCam {
      * @returns { Boolean }
      */
     isInFreeCam(player) {
-        return database.getTable("Freecam")[player]?.hasToLeaveFreeCam === false;
+        return databases.freeCam.get(player)?.hasToLeaveFreeCam === false;
     }
 
     /**
@@ -1000,7 +989,7 @@ class FreeCam {
      * @returns { Boolean }
      */
     isInSpecFreeCam(player) {
-        const data = database.getTable("Freecam")[player];
+        const data = databases.freeCam.get(player);
         return data?.mode === "spectatorFreeCam" && data?.hasToLeaveFreeCam === false;
     }
 
@@ -1009,7 +998,7 @@ class FreeCam {
      * @returns { Boolean }
      */
     isInExpFreeCam(player) {
-        const data = database.getTable("Freecam")[player];
+        const data = databases.freeCam.get(player);
         return data?.mode === "experimentalFreeCam" && data?.hasToLeaveFreeCam === false;
     }
 }
@@ -1019,27 +1008,28 @@ export const freeCam = new FreeCam();
 let activeExpFreeCams = [];
 
 system.runInterval(() => {
-    const table = database.getTable("Freecam");
-    for (const player in table) {
+    if (!databases.loaded) return;
+    for (const player in databases.freeCam.getTable()) {
         const rawPlayer = world.getPlayers({ name: player })[0];
+        const playerData = databases.freeCam.get(player);
 
         if (rawPlayer) {
-            if (table[player].lastDimension === undefined) { //If the player has joined for the first time since freecam was enabled for them
-                let newTable = table[player];
+            if (playerData.lastDimension === undefined) { //If the player has joined for the first time since freecam was enabled for them
+                let newTable = playerData;
                 //Fill properties
                 newTable.lastDimension = rawPlayer.dimension.id;
                 newTable.lastLoc = rawPlayer.location;
                 newTable.lastGameMode = rawPlayer.getGameMode();
                 //Save properties
-                database.set("Freecam", player, newTable);
+                databases.freeCam.set(player, newTable);
             }
-            if (table[player].mode === "spectatorFreeCam") { //Spectator Freecam
+            if (playerData.mode === "spectatorFreeCam") { //Spectator Freecam
                 rawPlayer.setGameMode("spectator"); //Evitar con beforegamemodechange?
 
             } else { //Experimental freecam
                 if (!activeExpFreeCams.includes(player)) {
                     activeExpFreeCams.push(player);
-                    handleExpFreecam(rawPlayer, table[player].lastLoc, toFancyDim(rawPlayer.dimension.id), player);
+                    handleExpFreecam(rawPlayer, playerData.lastLoc, toFancyDim(rawPlayer.dimension.id));
                 }
             }
         }
@@ -1051,7 +1041,8 @@ system.runInterval(() => {
  * @param { Player } rawPlayer 
  * @param { Vector3 } startLoc 
  */
-async function handleExpFreecam(rawPlayer, startLoc, dimension, player) {
+async function handleExpFreecam(rawPlayer, startLoc, dimension) {
+    const player = rawPlayer.name;
     let currentLoc = startLoc;
     currentLoc.y = currentLoc.y + 2;
     let lastVelocity = { x: 0.00, y: 0.00, z: 0.00 };
@@ -1069,13 +1060,13 @@ async function handleExpFreecam(rawPlayer, startLoc, dimension, player) {
 
         const pVelocity = rawPlayer.getVelocity();
         const pRot = rawPlayer.getRotation();
-        if (database.getTable("Freecam")[rawPlayer.name].locOverride) {
-            let data = database.getTable("Freecam")[rawPlayer.name];
+        if (databases.freeCam.get(player).locOverride) { //Location override, used for teleporting the freecam
+            let data = databases.freeCam.get(player);
             currentLoc = data.locOverride;
             lastVelCount = 0;
             lastVelocity = { x: 0, y: 0, z: 0 };
             delete data.locOverride;
-            database.set("Freecam", rawPlayer.name, data);
+            databases.freeCam.set(player, data);
 
         } else {
             currentLoc = { x: currentLoc.x + (lastVelocity.x !== 0.00 ? lastVelocity.x : pVelocity.x) / 0.7 / (rawPlayer.isSneaking ? 0.4 : 1), y: currentLoc.y, z: currentLoc.z + (lastVelocity.z !== 0.00 ? lastVelocity.z : pVelocity.z) / 0.7 / (rawPlayer.isSneaking ? 0.4 : 1) };

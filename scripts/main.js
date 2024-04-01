@@ -1,13 +1,22 @@
 import { world, GameMode, system, Vector, TicksPerSecond, EffectTypes, Player, Entity, BlockType, BlockPermutation, Container, EntityEquippableComponent, ItemStack, EasingType, ItemComponentTypes } from "@minecraft/server";
 import * as GameTest from "@minecraft/server-gametest";
 import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/server-ui";
-import moment from "./moment/src/moment.js";
+import moment from "./moment/moment.js";
 import { freeCam } from "./systems/freeCam.js";
-import { database } from "./utils/database.js";
+import { Database } from "./utils/database.js";
 import "./utils/players.js";
 
 const overworld = world.getDimension("overworld"); //Hacer una cárcel con tiempo y un vanish, sendcommandfeedback?, cambiar los /camera para que se apliquen los efectos de poción?, cancelar ItemUse con beforeEvents para los encarcelados?, invSee?!
 export const delay = ticks => new Promise(res => system.runTimeout(res, ticks));
+
+/**
+ * @type { { loaded: Boolean, freeCam: Database, playerData: Database } }
+ */
+export let databases = {
+    loaded: false
+};
+
+let playerJoined = false;
 let worldLoaded = false;
 let scoreboardsLoaded = false;
 let players = []; //Hacer que vuelva a la lista de jugadores en projectilePowers después de darle a submit?, recordarte el jugador que has seleccionado en el ModalFormData?
@@ -38,18 +47,20 @@ system.runInterval(async () => {
         try { world.scoreboard.addObjective('-auVanished', '-auVanished') } catch (e) { }
         try { world.scoreboard.addObjective('-auInvSees', '-auInvSees') } catch (e) { }
         try { world.scoreboard.addObjective('-auTempKilled', '-auTempKilled') } catch (e) { }
-        database.createTable("Freecam");
-        database.createTable("PlayerData");
         scoreboardsLoaded = true;
         asyncText();
         async function asyncText() {
-            while (function () {
-                const { successCount } = overworld.runCommand('testfor @a');
+            while (await async function () {
+                const { successCount } = await overworld.runCommandAsync('testfor @a');
                 if (successCount === 1) return false
                 else return true;
             }()) {
-                await delay(3);
+                await delay(10);
             }
+            playerJoined = true;
+            databases.freeCam = new Database("Freecam");
+            databases.playerData = new Database("PlayerData");
+            databases.loaded = true;
             await delay(6 * TicksPerSecond);
             world.sendMessage("§l§4§kqww§r§l§bThanks for using Admin Utils! §aMade by §6MisledPaul58§4§kqww");
             worldLoaded = true;
@@ -190,7 +201,7 @@ system.runInterval(async () => {
 
     // players[0].runCommand('execute @s ~ ~1.5 ~ tp @e[type=au:nopvp, c=1] ^ ^ ^0.1');
     // overworld.getEntities({ type: "au:nopvp" })[0].teleport(players[0].location)
-
+    // if (!worldLoaded) return;
     for (const player of players) {
         if (player.hasTag("owner")) {
             if (world.scoreboard.getObjective('-auOwner').getParticipants()[0]) {
@@ -314,6 +325,7 @@ system.runInterval(async () => {
             } else {
                 const releaseDate = moment(getReleaseISO(jailedPlayer), moment.ISO_8601);
                 const currentDate = moment();
+                moment.duration()
                 const remainingTime = moment.duration(releaseDate.diff(currentDate));
 
                 const remainingYears = remainingTime.years();

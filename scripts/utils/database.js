@@ -1,123 +1,126 @@
 import { world } from "@minecraft/server";
 import { convertToRegExpFriendly } from "../main";
 
-class Database {
-    /**
-     * @param { String } name 
-     */
-    createTable(name) {
-        if (!this.tableExists(name)) {
-            world.setDynamicProperty(`0_${name}`, "{}");
-        }
+export class Database {
+    
+    #tableName;
+    #memory;
+
+    constructor(tableName) {
+        this.#tableName = tableName;
+        this.#memory = this.#fetch();
     }
 
-    /**
-     * Sets a value in the table with a certain key. Creates the table if it doesn't exist.
-     * @param { String } table
-     * @param { String } key
-     * @param { {} } data
-     */
-    set(table, key, data) {
-        this.createTable(table);
-        let object = this.getTable(table);
-        const oldChunks = JSON.stringify(object).match(/.{1,30000}/g);
-        object[key] = data;
-        
-        const chunks = JSON.stringify(object).match(/.{1,30000}/g);
-        for (const i in chunks) {
-            world.setDynamicProperty(`${i}_${table}`, chunks[i]);
-        }
-        if (oldChunks.length > chunks.length) {
-            for (let i = chunks.length; i < oldChunks.length; i++) { //Delete the old tables from the old chunks
-                world.setDynamicProperty(`${i}_${table}`, undefined);
-            }
-        }
-    }
-
-    /**
-     * Deletes the specified table with all its content.
-     * @param { String } table
-     */
-    deleteTable(table) {
-        if (!this.tableExists(table)) throw new Error("Database: tried to delete a table that doesn't exist.");
-        const regexp = new RegExp(`^\\d+_${convertToRegExpFriendly(table)}$`);
-        const properties = world.getDynamicPropertyIds().filter(property => regexp.test(property));
-        for (const property of properties) {
-            world.setDynamicProperty(property, undefined);
-        }
-    }
-
-    /**
-     * Deletes a key from a table.
-     * @param { String } table 
-     * @param { String } key 
-     */
-    deleteKey(table, key) {
-        if (!this.tableExists(table)) throw new Error("Database: tried to delete a key from a table that doesn't exist.");
-        let object = this.getTable(table);
-        if (!Object.keys(object).includes(key)) throw new Error("Database: tried to delete a key that doesn't exist.");
-        const oldChunks = JSON.stringify(object).match(/.{1,30000}/g);
-        delete object[key];
-
-        const chunks = JSON.stringify(object).match(/.{1,30000}/g);
-        for (const i in chunks) {
-            world.setDynamicProperty(`${i}_${table}`, chunks[i]);
-        }
-        if (oldChunks.length > chunks.length) {
-            for (let i = chunks.length; i < oldChunks.length; i++) { //Delete the old tables from the old chunks
-                world.setDynamicProperty(`${i}_${table}`, undefined);
-            }
-        }
-    }
-
-    /**
-     * Returns the names of all the tables.
-     * @returns { String[] }
-     */
-    getTables() {
+    #fetch() {
+        const regexp = new RegExp(`^\\d+_${convertToRegExpFriendly(this.#tableName)}$`);
         const properties = world.getDynamicPropertyIds();
-        const tables = properties.reduce(function (accumulator, currentValue) {
-            const property = currentValue.match(/(?<=^\d+_).+/)[0]; //1_Freecam, returns Freecam
-            if (accumulator.indexOf(property) === -1) {
-                accumulator.push(property);
-            }
-            return accumulator;
-        }, []);
-        return tables;
-    }
+        let tableProperties = [];
+        for (let i = 0; i < properties.length; i++) {
+            if (regexp.test(properties[i])) tableProperties.push(properties[i]);
+        }
 
-    /**
-     * Returns the table object.
-     * @param { String } tableName
-     * @returns { object }
-     */
-    getTable(tableName) {
-        const regexp = new RegExp(`^\\d+_${convertToRegExpFriendly(tableName)}$`);
-        const properties = world.getDynamicPropertyIds().filter(property => regexp.test(property));
+        if (tableProperties.length === 0) return {};
         let table = "";
-        for (const property of properties) {
+        for (const property of tableProperties) {
             table += world.getDynamicProperty(property);
         }
         return JSON.parse(table);
     }
 
     /**
-     * 
-     * @param { String } table 
-     * @returns { Boolean }
+     * Sets the specified `key` to the given `value` in the database table.
+     * @param { String } key 
+     * @param { {} } value 
      */
-    tableExists(table) {
-        return this.getTables().includes(table);
+    set(key, value) {
+        if (!this.#memory) throw new Error("Data tried to be set before load!");
+        this.#memory[key] = value;
+        this.#saveData();
     }
 
     /**
-     * 
-     * @param { String } table 
+     * Gets a value from this table.
+     * @param { String } key 
+     * @returns the value associated with the given key in the database table.
+     */
+    get(key) {
+        if (!this.#memory) throw new Error("Data not loaded!");
+        return this.#memory[key];
+    }
+
+    /**
+     * Gets all the keys in the table.
+     * @returns { String[] }
+     */
+    keys() {
+        if (!this.#memory) throw new Error("Data not loaded!");
+        return Object.keys(this.#memory);
+    }
+
+    /**
+     * Gets all the values in the table.
+     * @returns { [] } values in the table
+     */
+    values() {
+        if (!this.#memory) throw new Error("Data not loaded!");
+        return Object.values(this.#memory);
+    }
+
+    #saveData() {
+        const regexp = new RegExp(`^\\d+_${convertToRegExpFriendly(this.#tableName)}$`);
+        const properties = world.getDynamicPropertyIds();
+        let oldChunksLength = 0;
+        for (let i = 0; i < properties.length; i++) {
+            if (regexp.test(properties[i])) oldChunksLength++;
+        }
+        
+        const chunks = JSON.stringify(this.#memory).match(/.{1,30000}/g);
+        for (const i in chunks) {
+            world.setDynamicProperty(`${i}_${this.#tableName}`, chunks[i]);
+        }
+        if (oldChunksLength > chunks.length) {
+            for (let i = chunks.length; i < oldChunksLength; i++) { //Delete the old tables from the old chunks
+                world.setDynamicProperty(`${i}_${this.#tableName}`, undefined);
+            }
+        }
+    }
+
+    /**
+     * Checks if the key exists in the table.
+     * @param { String } key 
+     * @returns { Boolean }
+     */
+    has(key) {
+        if (!this.#memory) throw new Error("Data not loaded!");
+        return Object.keys(this.#memory).includes(key);
+    }
+
+    /**
+     * Deletes a key from a table.
      * @param { String } key 
      */
-    keyExists(table, key) {
-        return Object.keys(database.getTable(table)).includes(key);
+    delete(key) {
+        if (!this.#memory) return false;
+        const status = delete this.#memory[key];
+        this.#saveData();
+        return status;
+    }
+    
+    /**
+     * Returns the table object with all its keys and values.
+     * @returns { object }
+     */
+    getTable() {
+        if (!this.#memory) throw new Error("Data not loaded!");
+        return this.#memory;
+    }
+
+    /**
+     * Gets the name of the table.
+     * @returns { String }
+     */
+    getTableName() {
+        if (!this.#memory) throw new Error("Data not loaded!");
+        return this.#tableName;
     }
 }
-
-export const database = new Database();

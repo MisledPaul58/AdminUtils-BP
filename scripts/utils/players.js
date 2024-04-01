@@ -1,13 +1,13 @@
 import { world } from "@minecraft/server";
-import { database } from "./database";
+import { databases } from "../main";
 
 world.beforeEvents.playerLeave.subscribe(event => {
     const { player } = event;
-    let data = database.getTable("PlayerData")[player.name] ?? {};
+    let data = databases.playerData.get(player.name) ?? {};
 
     data.lastDimension = player.dimension.id;
     data.lastLoc = player.location;
     data.lastGameMode = player.getGameMode();
     
-    database.set("PlayerData", player.name, data);
+    databases.playerData.set(player.name, data);
 });
