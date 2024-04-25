@@ -1,7 +1,7 @@
 import { world, GameMode, system, Vector, TicksPerSecond, EffectTypes, Player, Entity, BlockType, BlockPermutation, Container, EntityEquippableComponent, ItemStack, EasingType, ItemComponentTypes } from "@minecraft/server";
 import * as GameTest from "@minecraft/server-gametest";
 import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/server-ui";
-import moment from "./moment/moment.js";
+import moment from "./moment/moment";
 import { freeCam } from "./systems/freeCam.js";
 import { Database } from "./utils/database.js";
 import "./utils/players.js";
