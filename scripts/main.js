@@ -1,5 +1,4 @@
-import { world, GameMode, system, Vector, TicksPerSecond, EffectTypes, Player, Entity, BlockType, BlockPermutation, Container, EntityEquippableComponent, ItemStack, EasingType, ItemComponentTypes } from "@minecraft/server";
-import * as GameTest from "@minecraft/server-gametest";
+import { world, GameMode, system, TicksPerSecond, EffectTypes, Player, Entity, BlockType, BlockPermutation, Container, EntityEquippableComponent, ItemStack, EasingType, ItemComponentTypes } from "@minecraft/server";
 import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/server-ui";
 import moment from "./moment/moment";
 import { freeCam } from "./systems/freeCam.js";
@@ -241,7 +240,7 @@ system.runInterval(async () => {
         if (isFrozen(player.name)) {
             try {
                 const positions = world.scoreboard.getObjective('-auFrozen').getParticipants().filter(participant => participant.displayName.match(/-auname([^]*) -au-?[0-9]+[^]* -au-?[0-9]+[^]* -au-?[0-9]+[^]*/)[1] === player.name)[0].displayName.match(/-au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*) -au(-?[0-9]+[^]*)/).slice(1).map(pos => pos * 1); //Gets the positions where the player was frozen and converts it to integer or float
-                try { player.teleport(new Vector(positions[0], positions[1], positions[2]), { dimension: player.dimension }) } catch (e) { }
+                try { player.teleport({ x: positions[0], y: positions[1], z: positions[2] }, { dimension: player.dimension }) } catch (e) { }
                 //positions[0] is the x, positions[1] the y and positions[2] the z
             } catch (e) {
                 const scoreboard = world.scoreboard.getObjective('-auFrozen').getParticipants().filter(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1] === player.name)[0].displayName;
@@ -1063,10 +1062,10 @@ export function adminUtils(p) {
         .button("§lFreeze menu", "textures/icons/freeze.png") //4
         .button("§lSee an inventory", "textures/icons/chest.png") //5
         .button("§lFreecam menu") //6
-        .button("§lSimulated player", "textures/icons/simPlayers.png") //7
-        .button("§lProjectile powers", "textures/icons/projPowers.png") //8
-        .button("§lKill a player", "textures/icons/simAttack.png") //9
-        .button("§lLaunch a player", "textures/icons/launch.png") //10
+        // .button("§lSimulated player", "textures/icons/simPlayers.png")
+        .button("§lProjectile powers", "textures/icons/projPowers.png") //7
+        .button("§lKill a player", "textures/icons/simAttack.png") //8
+        .button("§lLaunch a player", "textures/icons/launch.png") //9
     form.show(p).then((response) => {
         switch (response.selection) {
             case 0: { //Back 
@@ -1231,13 +1230,10 @@ export function adminUtils(p) {
             case 6: { //Freecam
                 freeCam.init(p);
             } break;
-            case 7: { //Make a sim player menu 
-                simPlayer(p);
-            } break;
-            case 8: { //Projectile powers
+            case 7: { //Projectile powers
                 projectilePowers(p);
             } break;
-            case 9: { //Kill a player 
+            case 8: { //Kill a player
                 const playersArray = players.map(pname => pname.name);
                 const form = new ActionFormData()
                     .title("Kill a player")
@@ -1386,7 +1382,7 @@ export function adminUtils(p) {
                     }
                 });
             } break;
-            case 10: { //Launch a player
+            case 9: { //Launch a player
                 launchPlayer();
                 function launchPlayer() {
                     const locPlayers = players;
@@ -3353,7 +3349,7 @@ function seeInventoryMenu(p) {
                                                 .body(`Select an option. This chest is located at §a${selectedChest.signPos[0]}, ${selectedChest.signPos[1]}, ${selectedChest.signPos[2]}§r, ${chestDim}§r.`)
                                                 .button("§l<-- Back", "textures/icons/back.png")
                                                 .button("Teleport to this chest", "textures/icons/teleport.png")
-                                                .button("Delete this chest", "textures/icons/delete.png"); //Spawnear mi entidad y teletransportarla ahí, luego romper el cofre
+                                                // .button("Delete this chest", "textures/icons/delete.png"); //Spawnear mi entidad y teletransportarla ahí, luego romper el cofre
                                             form.show(p).then((response) => {
                                                 if (response.canceled === true) return;
                                                 const { selection } = response;
@@ -3402,60 +3398,60 @@ function seeInventoryMenu(p) {
                                                         });
                                                     }
 
-                                                } else if (selection === 2) { //Delete the chest
-                                                    const form = new MessageFormData()
-                                                        .title(`§l§b${selectedPlayer}: §6chest ${chestSelection}`)
-                                                        .body(`Are you sure you want to delete the chest located at §a${selectedChest.signPos[0]}, ${selectedChest.signPos[1]}, ${selectedChest.signPos[2]}§r, ${chestDim}§r?\nA simulated player will be spawned in order to load the chest's chunk and delete it.\nIf you don't want this, you can teleport to the chest and manually break it.`)
-                                                        .button1("No")
-                                                        .button2("Yes");
-                                                    form.show(p).then(async result => {
-                                                        if (result.canceled === true) return;
-                                                        if (result.selection === 0) {
-                                                            chestOptions();
-                                                        } else {
-                                                            if (!getInvSees().some(chest => chest.scoreboard === selectedChest.scoreboard)) {
-                                                                p.sendMessage('§cError, the selected chest has recently been removed by another user.');
-                                                                p.playSound("au.error");
-
-                                                            } else {
-                                                                try {
-                                                                    GameTest.registerAsync("SimPlayers", `sim_player${simcount}`, (test) => {
-                                                                        const spawnLoc = new Vector(1, 2, 1);
-                                                                        const player = test.spawnSimulatedPlayer(spawnLoc, "", GameMode.creative);
-                                                                        let begunBreakingBlock = false;
-
-                                                                        test
-                                                                            .startSequence()
-                                                                            .thenExecuteFor(5 * TicksPerSecond, async () => {
-                                                                                if (player?.isValid() && begunBreakingBlock === false) {
-                                                                                    player.teleport({ x: selectedChest.signPos[0] + 0.5, y: selectedChest.signPos[1], z: selectedChest.signPos[2] + 0.5 }, { dimension: world.getDimension(selectedChest.dimension) });
-                                                                                    await test.idle(10);
-                                                                                    player.breakBlock(test.relativeBlockLocation({ x: selectedChest.signPos[0], y: selectedChest.signPos[1], z: selectedChest.signPos[2] }));
-                                                                                    begunBreakingBlock = true;
-                                                                                    //player.breakBlock({ x: selectedChest.signPos[0] - 1234567, y: selectedChest.signPos[1] - 318, z: selectedChest.signPos[2] - 1234567 });
-                                                                                } else if (begunBreakingBlock === true && world.getDimension(selectedChest.dimension).getBlock({ x: selectedChest.signPos[0], y: selectedChest.signPos[1], z: selectedChest.signPos[2] })?.isAir) {
-                                                                                    test.succeed();
-                                                                                    p.sendMessage("§aThe selected chest has been deleted successfully.");
-                                                                                    p.playSound("au.success");
-                                                                                    overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
-                                                                                }
-                                                                            })
-                                                                    })
-                                                                        .maxTicks(5 * TicksPerSecond)
-                                                                        .setupTicks(0)
-                                                                        .structureName("AdminUtils:simplayer")
-                                                                        .tag(GameTest.Tags.suiteDefault);
-                                                                    overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simplayers:sim_player${simcount} false 1`);
-                                                                    simcount++;
-                                                                } catch (e) {
-                                                                    p.sendMessage("§cError, couldn't delete the chest.");
-                                                                    p.playSound("au.error");
-                                                                    console.warn(e);
-                                                                }
-                                                            }
-                                                        }
-                                                    });
-                                                }
+                                                } //else if (selection === 2) { //Delete the chest
+                                                //     const form = new MessageFormData()
+                                                //         .title(`§l§b${selectedPlayer}: §6chest ${chestSelection}`)
+                                                //         .body(`Are you sure you want to delete the chest located at §a${selectedChest.signPos[0]}, ${selectedChest.signPos[1]}, ${selectedChest.signPos[2]}§r, ${chestDim}§r?\nA simulated player will be spawned in order to load the chest's chunk and delete it.\nIf you don't want this, you can teleport to the chest and manually break it.`)
+                                                //         .button1("No")
+                                                //         .button2("Yes");
+                                                //     form.show(p).then(async result => {
+                                                //         if (result.canceled === true) return;
+                                                //         if (result.selection === 0) {
+                                                //             chestOptions();
+                                                //         } else {
+                                                //             if (!getInvSees().some(chest => chest.scoreboard === selectedChest.scoreboard)) {
+                                                //                 p.sendMessage('§cError, the selected chest has recently been removed by another user.');
+                                                //                 p.playSound("au.error");
+                                                //
+                                                //             } else {
+                                                //                 try {
+                                                //                     GameTest.registerAsync("SimPlayers", `sim_player${simcount}`, (test) => {
+                                                //                         const spawnLoc = { x: 1, y: 2, z: 1 };
+                                                //                         const player = test.spawnSimulatedPlayer(spawnLoc, "", GameMode.creative);
+                                                //                         let begunBreakingBlock = false;
+                                                //
+                                                //                         test
+                                                //                             .startSequence()
+                                                //                             .thenExecuteFor(5 * TicksPerSecond, async () => {
+                                                //                                 if (player?.isValid() && begunBreakingBlock === false) {
+                                                //                                     player.teleport({ x: selectedChest.signPos[0] + 0.5, y: selectedChest.signPos[1], z: selectedChest.signPos[2] + 0.5 }, { dimension: world.getDimension(selectedChest.dimension) });
+                                                //                                     await test.idle(10);
+                                                //                                     player.breakBlock(test.relativeBlockLocation({ x: selectedChest.signPos[0], y: selectedChest.signPos[1], z: selectedChest.signPos[2] }));
+                                                //                                     begunBreakingBlock = true;
+                                                //                                     //player.breakBlock({ x: selectedChest.signPos[0] - 1234567, y: selectedChest.signPos[1] - 318, z: selectedChest.signPos[2] - 1234567 });
+                                                //                                 } else if (begunBreakingBlock === true && world.getDimension(selectedChest.dimension).getBlock({ x: selectedChest.signPos[0], y: selectedChest.signPos[1], z: selectedChest.signPos[2] })?.isAir) {
+                                                //                                     test.succeed();
+                                                //                                     p.sendMessage("§aThe selected chest has been deleted successfully.");
+                                                //                                     p.playSound("au.success");
+                                                //                                     overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
+                                                //                                 }
+                                                //                             })
+                                                //                     })
+                                                //                         .maxTicks(5 * TicksPerSecond)
+                                                //                         .setupTicks(0)
+                                                //                         .structureName("AdminUtils:simplayer")
+                                                //                         .tag(GameTest.Tags.suiteDefault);
+                                                //                     overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simplayers:sim_player${simcount} false 1`);
+                                                //                     simcount++;
+                                                //                 } catch (e) {
+                                                //                     p.sendMessage("§cError, couldn't delete the chest.");
+                                                //                     p.playSound("au.error");
+                                                //                     console.warn(e);
+                                                //                 }
+                                                //             }
+                                                //         }
+                                                //     });
+                                                // }
                                             });
                                         }
                                     }
@@ -3541,316 +3537,316 @@ function seeInventoryMenu(p) {
     });
 }
 
-function simPlayer(p) {
-    const form = new ActionFormData()
-        .title("Create a simulated player")
-        .body("What would you like the simulated player to do?")
-        .button("§l<-- Back", "textures/icons/back.png")
-        .button("Attack and follow a player", "textures/icons/simAttack.png")
-        .button("Follow a player", "textures/icons/simFollow.png")
-        .button("Idle", "textures/icons/simIdle.png")
-    form.show(p).then((response) => {
-        switch (response.selection) {
-            case 0: { //Back
-                adminUtils(p);
-            } break;
-            case 1: { //Attack and follow a player 
-                let playersArray = players.map(pname => pname.name);
-                let locPlayers = players;
-                const form = new ActionFormData()
-                    .title("Attack and follow a player")
-                    .body("Select an online player to attack and follow")
-                    .button("§l<-- Back", "textures/icons/back.png")
-                    .button("Type an online player instead", "textures/icons/pencil.png");
-                for (const player of playersArray) {
-                    form.button(player, "textures/icons/steve_icon.png");
-                }
-
-                form.show(p).then((response) => {
-                    if (response.selection === 0) {
-                        simPlayer(p);
-                    } else if (response.selection === 1) {
-                        let form = new ModalFormData()
-                            .title("Attack and follow a player")
-                            .textField("Type below the victim's name", "Online player's name")
-                            .textField("Type below the name of the simulated player", "Simulated player's name")
-                            .slider("Time in seconds the simulated player should attack", 2, 600, 1, 15);
-
-                        form.show(p).then(async result => {
-                            if (result.canceled === true) return;
-                            let victim = result.formValues[0];
-                            const query = {
-                                name: victim
-                            };
-                            let victimEntity = [...world.getPlayers(query)][0];
-
-                            let simName = result.formValues[1];
-                            let timeInTicks = result.formValues[2] * 20;
-
-                            if (isValidUsername(victim)) {
-                                const { successCount } = await runCmd(p, `testfor "${victim}"`);
-                                if (successCount !== 0) {
-                                    GameTest.register("SimPlayers", `sim_player${simcount}`, (test) => {
-                                        const spawnLoc = new Vector(1, 2, 1);
-                                        const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
-                                        player.addEffect(EffectTypes.get('speed'), 99999 * TicksPerSecond, { amplifier: 4, showParticles: false });
-                                        player.addEffect(EffectTypes.get('jump_boost'), 99999 * TicksPerSecond, { amplifier: 1, showParticles: false });
-                                        player.addEffect(EffectTypes.get('strength'), 99999 * TicksPerSecond, { amplifier: 2, showParticles: false });
-                                        overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
-                                        /*const { successCount } = overworld.runCommand('testfor @e[type=au:tickingarea, x=1234567, y=225, z=-1234567, r=20]');
-                                        if (successCount === 0) {
-                                            overworld.runCommand('summon au:tickingarea 1234567 225 -1234567');
-                                        }*/
-
-                                        test
-                                            .startSequence()
-                                            .thenExecuteFor(timeInTicks, async () => {
-                                                player.lookAtEntity(victimEntity);
-                                                player.navigateToEntity(victimEntity);
-                                                player.attackEntity(victimEntity);
-
-                                                const { successCount } = await runCmd(player, `testfor @a[name="${victim}", r=10]`);
-                                                if (successCount === 0) {
-                                                    await runCmd(player, `tp @s "${victim}"`);
-                                                }
-                                            })
-                                    })
-                                        .maxTicks(timeInTicks)
-                                        .setupTicks(0)
-                                        .structureName("AdminUtils:simplayer")
-                                        .tag(GameTest.Tags.suiteDefault);
-                                    overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simplayers:sim_player${simcount} false 1`);
-                                    simcount++;
-                                } else {
-                                    await runTellraw(p, '§cError, the player you entered is not online.');
-                                    p.playSound("au.error");
-                                }
-                            } else {
-                                await runTellraw(p, '§cError, the username you entered is invalid.');
-                                p.playSound("au.error");
-                            }
-                        });
-                    } else if (response.selection > 1) {
-                        //El array no sirve en el mundo si cambian los jugadores (solucionado) 
-                        let form = new ModalFormData()
-                            .title("Attack and follow a player")
-                            .textField("Type below the name of the simulated player", "Simulated player's name")
-                            .slider("Time in seconds the simulated player should attack", 2, 600, 1, 15);
-                        form.show(p).then(async result => {
-                            if (result.canceled === true) return;
-                            let simName = result.formValues[0];
-                            let timeInTicks = result.formValues[1] * 20;
-                            let selectedPlayerRaw = locPlayers[response.selection - 2];
-
-                            const { successCount } = await runCmd(p, `testfor "${selectedPlayerRaw.name}"`);
-                            if (successCount !== 0) {
-                                GameTest.register("SimPlayers", `sim_player${simcount}`, (test) => {
-                                    const spawnLoc = new Vector(1, 2, 1);
-                                    const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
-                                    player.addEffect(EffectTypes.get('speed'), 99999 * TicksPerSecond, { amplifier: 4, showParticles: false });
-                                    player.addEffect(EffectTypes.get('jump_boost'), 99999 * TicksPerSecond, { amplifier: 1, showParticles: false });
-                                    player.addEffect(EffectTypes.get('strength'), 99999 * TicksPerSecond, { amplifier: 2, showParticles: false });
-                                    overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
-
-                                    test
-                                        .startSequence()
-                                        .thenExecuteFor(timeInTicks, async () => {
-                                            player.lookAtEntity(selectedPlayerRaw);
-                                            player.navigateToEntity(selectedPlayerRaw);
-                                            player.attackEntity(selectedPlayerRaw);
-
-                                            const { successCount } = await runCmd(player, `testfor @a[name="${selectedPlayerRaw.name}", r=10]`);
-                                            if (successCount === 0) {
-                                                await runCmd(player, `tp @s "${selectedPlayerRaw.name}"`);
-                                            }
-                                        })
-                                })
-                                    .maxTicks(timeInTicks)
-                                    .setupTicks(0)
-                                    .structureName("AdminUtils:simplayer")
-                                    .tag(GameTest.Tags.suiteDefault);
-                                overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simplayers:sim_player${simcount} false 1`);
-                                simcount++;
-                            } else {
-                                await runTellraw(p, '§cError, the player you selected is now offline.');
-                                p.playSound("au.error");
-                            }
-                        });
-                    }
-                });
-            } break;
-            case 2: { //Follow a player 
-                let playersArray = players.map(pname => pname.name);
-                let locPlayers = players;
-                const form = new ActionFormData()
-                    .title("Follow a player")
-                    .body("Select an online player to follow")
-                    .button("§l<-- Back", "textures/icons/back.png")
-                    .button("Type an online player instead", "textures/icons/pencil.png");
-                for (const player of playersArray) {
-                    form.button(player, "textures/icons/steve_icon.png");
-                }
-
-                form.show(p).then((response) => {
-                    if (response.selection === 0) {
-                        simPlayer(p);
-                    } else if (response.selection === 1) {
-                        let form = new ModalFormData()
-                            .title("Follow a player")
-                            .textField("Type below the target's name", "Online player's name")
-                            .textField("Type below the name of the simulated player", "Simulated player's name")
-                            .slider("Time in seconds the simulated player should follow the target", 2, 600, 1, 15);
-
-                        form.show(p).then(async result => {
-                            if (result.canceled === true) return;
-                            let victim = result.formValues[0];
-                            const query = {
-                                name: victim
-                            };
-                            let victimEntity = [...world.getPlayers(query)][0];
-
-                            let simName = result.formValues[1];
-                            let timeInTicks = result.formValues[2] * 20;
-
-                            if (isValidUsername(victim)) {
-                                const { successCount } = await runCmd(overworld, `testfor "${victim}"`);
-                                if (successCount !== 0) {
-                                    GameTest.register("SimPlayers", `sim_player${simcount}`, (test) => {
-                                        const spawnLoc = new Vector(1, 2, 1);
-                                        const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
-                                        player.addEffect(EffectTypes.get('speed'), 99999 * TicksPerSecond, { amplifier: 4, showParticles: false });
-                                        player.addEffect(EffectTypes.get('jump_boost'), 99999 * TicksPerSecond, { amplifier: 1, showParticles: false });
-                                        overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
-
-                                        test
-                                            .startSequence()
-                                            .thenExecuteFor(timeInTicks, async () => {
-                                                player.lookAtEntity(victimEntity);
-                                                player.navigateToEntity(victimEntity);
-
-                                                const { successCount } = await runCmd(player, `testfor @a[name="${victim}", r=10]`);
-                                                if (successCount === 0) {
-                                                    await runCmd(player, `tp @s "${victim}"`);
-                                                }
-                                            })
-                                    })
-                                        .maxTicks(timeInTicks)
-                                        .setupTicks(0)
-                                        .structureName("AdminUtils:simplayer")
-                                        .tag(GameTest.Tags.suiteDefault);
-                                    overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simplayers:sim_player${simcount} false 1`);
-                                    simcount++;
-                                } else {
-                                    await runTellraw(p, '§cError, the player you entered is not online.');
-                                    p.playSound("au.error");
-                                }
-                            } else {
-                                await runTellraw(p, '§cError, the username you entered is invalid.');
-                                p.playSound("au.error");
-                            }
-                        });
-                    } else if (response.selection > 1) {
-                        let form = new ModalFormData()
-                            .title("Follow a player")
-                            .textField("Type below the name of the simulated player", "Simulated player's name")
-                            .slider("Time in seconds the simulated player should follow the target", 2, 600, 1, 15);
-
-                        form.show(p).then(async result => {
-                            if (result.canceled === true) return;
-                            let simName = result.formValues[0];
-                            let timeInTicks = result.formValues[1] * 20;
-                            let selectedPlayerRaw = locPlayers[response.selection - 2];
-
-                            const { successCount } = await runCmd(p, `testfor "${selectedPlayerRaw.name}"`);
-                            if (successCount !== 0) {
-                                GameTest.register("SimPlayers", `sim_player${simcount}`, (test) => {
-                                    const spawnLoc = new Vector(1, 2, 1);
-                                    const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
-                                    player.addEffect(EffectTypes.get('speed'), 99999 * TicksPerSecond, { amplifier: 4, showParticles: false });
-                                    player.addEffect(EffectTypes.get('jump_boost'), 99999 * TicksPerSecond, { amplifier: 1, showParticles: false });
-                                    overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
-
-                                    test
-                                        .startSequence()
-                                        .thenExecuteFor(timeInTicks, async () => {
-                                            player.lookAtEntity(selectedPlayerRaw);
-                                            player.navigateToEntity(selectedPlayerRaw);
-
-                                            const { successCount } = await runCmd(player, `testfor @a[name="${selectedPlayerRaw.name}", r=10]`);
-                                            if (successCount === 0) {
-                                                await runCmd(player, `tp @s "${selectedPlayerRaw.name}"`);
-                                            }
-                                        })
-                                })
-                                    .maxTicks(timeInTicks)
-                                    .setupTicks(0)
-                                    .structureName("AdminUtils:simplayer")
-                                    .tag(GameTest.Tags.suiteDefault);
-                                overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simplayers:sim_player${simcount} false 1`);
-                                simcount++;
-                            } else {
-                                await runTellraw(p, '§cError, the player you selected is now offline.');
-                                p.playSound("au.error");
-                            }
-                        });
-                    }
-                });
-            } break;
-            case 3: { //Idle 
-                let form = new ModalFormData()
-                    .title("Idle")
-                    .textField("Type below the name of the simulated player", "Simulated player's name")
-                    .slider("Time in seconds the simulated player should follow the target", 2, 600, 1, 15)
-                    .toggle("Look at close players", true);
-
-                form.show(p).then(async result => {
-                    if (result.canceled === true) return;
-                    let simName = result.formValues[0];
-                    let timeInTicks = result.formValues[1] * 20;
-                    let lookClosePlayer = result.formValues[2];
-                    let tpped = false;
-
-                    GameTest.register("SimPlayers", `sim_player${simcount}`, (test) => {
-                        const spawnLoc = new Vector(1, 2, 1);
-                        const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
-                        overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
-
-                        test
-                            .startSequence()
-                            .thenExecuteFor(timeInTicks, async () => {
-                                if (lookClosePlayer === true) {
-                                    let closestP = [];
-                                    let playerLoc = new Vector(player.location.x, player.location.y, player.location.z);
-                                    const query = {
-                                        closest: 1,
-                                        maxDistance: 15,
-                                        excludeNames: [player.name],
-                                        location: playerLoc
-                                    };
-                                    try { closestP = [...player.dimension.getPlayers(query)][0] } catch (e) { }
-                                    try { player.lookAtEntity(closestP) } catch (e) { }
-                                }
-                                if (!tpped) {
-                                    try {
-                                        await runCmd(player, `tp "${p.name}"`);
-                                        tpped = true;
-                                    } catch (e) { }
-                                }
-                            })
-                    })
-                        .maxTicks(timeInTicks)
-                        .setupTicks(0)
-                        .structureName("AdminUtils:simplayer")
-                        .tag(GameTest.Tags.suiteDefault);
-                    overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simplayers:sim_player${simcount} false 1`);
-                    simcount++;
-                });
-            } break;
-            default:
-                break;
-        }
-    });
-}
+// function simPlayer(p) {
+//     const form = new ActionFormData()
+//         .title("Create a simulated player")
+//         .body("What would you like the simulated player to do?")
+//         .button("§l<-- Back", "textures/icons/back.png")
+//         .button("Attack and follow a player", "textures/icons/simAttack.png")
+//         .button("Follow a player", "textures/icons/simFollow.png")
+//         .button("Idle", "textures/icons/simIdle.png")
+//     form.show(p).then((response) => {
+//         switch (response.selection) {
+//             case 0: { //Back
+//                 adminUtils(p);
+//             } break;
+//             case 1: { //Attack and follow a player
+//                 let playersArray = players.map(pname => pname.name);
+//                 let locPlayers = players;
+//                 const form = new ActionFormData()
+//                     .title("Attack and follow a player")
+//                     .body("Select an online player to attack and follow")
+//                     .button("§l<-- Back", "textures/icons/back.png")
+//                     .button("Type an online player instead", "textures/icons/pencil.png");
+//                 for (const player of playersArray) {
+//                     form.button(player, "textures/icons/steve_icon.png");
+//                 }
+//
+//                 form.show(p).then((response) => {
+//                     if (response.selection === 0) {
+//                         simPlayer(p);
+//                     } else if (response.selection === 1) {
+//                         let form = new ModalFormData()
+//                             .title("Attack and follow a player")
+//                             .textField("Type below the victim's name", "Online player's name")
+//                             .textField("Type below the name of the simulated player", "Simulated player's name")
+//                             .slider("Time in seconds the simulated player should attack", 2, 600, 1, 15);
+//
+//                         form.show(p).then(async result => {
+//                             if (result.canceled === true) return;
+//                             let victim = result.formValues[0];
+//                             const query = {
+//                                 name: victim
+//                             };
+//                             let victimEntity = [...world.getPlayers(query)][0];
+//
+//                             let simName = result.formValues[1];
+//                             let timeInTicks = result.formValues[2] * 20;
+//
+//                             if (isValidUsername(victim)) {
+//                                 const { successCount } = await runCmd(p, `testfor "${victim}"`);
+//                                 if (successCount !== 0) {
+//                                     GameTest.register("SimPlayers", `sim_player${simcount}`, (test) => {
+//                                         const spawnLoc = { x: 1, y: 2, z: 1 };
+//                                         const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
+//                                         player.addEffect(EffectTypes.get('speed'), 99999 * TicksPerSecond, { amplifier: 4, showParticles: false });
+//                                         player.addEffect(EffectTypes.get('jump_boost'), 99999 * TicksPerSecond, { amplifier: 1, showParticles: false });
+//                                         player.addEffect(EffectTypes.get('strength'), 99999 * TicksPerSecond, { amplifier: 2, showParticles: false });
+//                                         overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
+//                                         /*const { successCount } = overworld.runCommand('testfor @e[type=au:tickingarea, x=1234567, y=225, z=-1234567, r=20]');
+//                                         if (successCount === 0) {
+//                                             overworld.runCommand('summon au:tickingarea 1234567 225 -1234567');
+//                                         }*/
+//
+//                                         test
+//                                             .startSequence()
+//                                             .thenExecuteFor(timeInTicks, async () => {
+//                                                 player.lookAtEntity(victimEntity);
+//                                                 player.navigateToEntity(victimEntity);
+//                                                 player.attackEntity(victimEntity);
+//
+//                                                 const { successCount } = await runCmd(player, `testfor @a[name="${victim}", r=10]`);
+//                                                 if (successCount === 0) {
+//                                                     await runCmd(player, `tp @s "${victim}"`);
+//                                                 }
+//                                             })
+//                                     })
+//                                         .maxTicks(timeInTicks)
+//                                         .setupTicks(0)
+//                                         .structureName("AdminUtils:simplayer")
+//                                         .tag(GameTest.Tags.suiteDefault);
+//                                     overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simplayers:sim_player${simcount} false 1`);
+//                                     simcount++;
+//                                 } else {
+//                                     await runTellraw(p, '§cError, the player you entered is not online.');
+//                                     p.playSound("au.error");
+//                                 }
+//                             } else {
+//                                 await runTellraw(p, '§cError, the username you entered is invalid.');
+//                                 p.playSound("au.error");
+//                             }
+//                         });
+//                     } else if (response.selection > 1) {
+//                         //El array no sirve en el mundo si cambian los jugadores (solucionado)
+//                         let form = new ModalFormData()
+//                             .title("Attack and follow a player")
+//                             .textField("Type below the name of the simulated player", "Simulated player's name")
+//                             .slider("Time in seconds the simulated player should attack", 2, 600, 1, 15);
+//                         form.show(p).then(async result => {
+//                             if (result.canceled === true) return;
+//                             let simName = result.formValues[0];
+//                             let timeInTicks = result.formValues[1] * 20;
+//                             let selectedPlayerRaw = locPlayers[response.selection - 2];
+//
+//                             const { successCount } = await runCmd(p, `testfor "${selectedPlayerRaw.name}"`);
+//                             if (successCount !== 0) {
+//                                 GameTest.register("SimPlayers", `sim_player${simcount}`, (test) => {
+//                                     const spawnLoc = { x: 1, y: 2, z: 1 };
+//                                     const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
+//                                     player.addEffect(EffectTypes.get('speed'), 99999 * TicksPerSecond, { amplifier: 4, showParticles: false });
+//                                     player.addEffect(EffectTypes.get('jump_boost'), 99999 * TicksPerSecond, { amplifier: 1, showParticles: false });
+//                                     player.addEffect(EffectTypes.get('strength'), 99999 * TicksPerSecond, { amplifier: 2, showParticles: false });
+//                                     overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
+//
+//                                     test
+//                                         .startSequence()
+//                                         .thenExecuteFor(timeInTicks, async () => {
+//                                             player.lookAtEntity(selectedPlayerRaw);
+//                                             player.navigateToEntity(selectedPlayerRaw);
+//                                             player.attackEntity(selectedPlayerRaw);
+//
+//                                             const { successCount } = await runCmd(player, `testfor @a[name="${selectedPlayerRaw.name}", r=10]`);
+//                                             if (successCount === 0) {
+//                                                 await runCmd(player, `tp @s "${selectedPlayerRaw.name}"`);
+//                                             }
+//                                         })
+//                                 })
+//                                     .maxTicks(timeInTicks)
+//                                     .setupTicks(0)
+//                                     .structureName("AdminUtils:simplayer")
+//                                     .tag(GameTest.Tags.suiteDefault);
+//                                 overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simplayers:sim_player${simcount} false 1`);
+//                                 simcount++;
+//                             } else {
+//                                 await runTellraw(p, '§cError, the player you selected is now offline.');
+//                                 p.playSound("au.error");
+//                             }
+//                         });
+//                     }
+//                 });
+//             } break;
+//             case 2: { //Follow a player
+//                 let playersArray = players.map(pname => pname.name);
+//                 let locPlayers = players;
+//                 const form = new ActionFormData()
+//                     .title("Follow a player")
+//                     .body("Select an online player to follow")
+//                     .button("§l<-- Back", "textures/icons/back.png")
+//                     .button("Type an online player instead", "textures/icons/pencil.png");
+//                 for (const player of playersArray) {
+//                     form.button(player, "textures/icons/steve_icon.png");
+//                 }
+//
+//                 form.show(p).then((response) => {
+//                     if (response.selection === 0) {
+//                         simPlayer(p);
+//                     } else if (response.selection === 1) {
+//                         let form = new ModalFormData()
+//                             .title("Follow a player")
+//                             .textField("Type below the target's name", "Online player's name")
+//                             .textField("Type below the name of the simulated player", "Simulated player's name")
+//                             .slider("Time in seconds the simulated player should follow the target", 2, 600, 1, 15);
+//
+//                         form.show(p).then(async result => {
+//                             if (result.canceled === true) return;
+//                             let victim = result.formValues[0];
+//                             const query = {
+//                                 name: victim
+//                             };
+//                             let victimEntity = [...world.getPlayers(query)][0];
+//
+//                             let simName = result.formValues[1];
+//                             let timeInTicks = result.formValues[2] * 20;
+//
+//                             if (isValidUsername(victim)) {
+//                                 const { successCount } = await runCmd(overworld, `testfor "${victim}"`);
+//                                 if (successCount !== 0) {
+//                                     GameTest.register("SimPlayers", `sim_player${simcount}`, (test) => {
+//                                         const spawnLoc = { x: 1, y: 2, z: 1 };
+//                                         const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
+//                                         player.addEffect(EffectTypes.get('speed'), 99999 * TicksPerSecond, { amplifier: 4, showParticles: false });
+//                                         player.addEffect(EffectTypes.get('jump_boost'), 99999 * TicksPerSecond, { amplifier: 1, showParticles: false });
+//                                         overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
+//
+//                                         test
+//                                             .startSequence()
+//                                             .thenExecuteFor(timeInTicks, async () => {
+//                                                 player.lookAtEntity(victimEntity);
+//                                                 player.navigateToEntity(victimEntity);
+//
+//                                                 const { successCount } = await runCmd(player, `testfor @a[name="${victim}", r=10]`);
+//                                                 if (successCount === 0) {
+//                                                     await runCmd(player, `tp @s "${victim}"`);
+//                                                 }
+//                                             })
+//                                     })
+//                                         .maxTicks(timeInTicks)
+//                                         .setupTicks(0)
+//                                         .structureName("AdminUtils:simplayer")
+//                                         .tag(GameTest.Tags.suiteDefault);
+//                                     overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simplayers:sim_player${simcount} false 1`);
+//                                     simcount++;
+//                                 } else {
+//                                     await runTellraw(p, '§cError, the player you entered is not online.');
+//                                     p.playSound("au.error");
+//                                 }
+//                             } else {
+//                                 await runTellraw(p, '§cError, the username you entered is invalid.');
+//                                 p.playSound("au.error");
+//                             }
+//                         });
+//                     } else if (response.selection > 1) {
+//                         let form = new ModalFormData()
+//                             .title("Follow a player")
+//                             .textField("Type below the name of the simulated player", "Simulated player's name")
+//                             .slider("Time in seconds the simulated player should follow the target", 2, 600, 1, 15);
+//
+//                         form.show(p).then(async result => {
+//                             if (result.canceled === true) return;
+//                             let simName = result.formValues[0];
+//                             let timeInTicks = result.formValues[1] * 20;
+//                             let selectedPlayerRaw = locPlayers[response.selection - 2];
+//
+//                             const { successCount } = await runCmd(p, `testfor "${selectedPlayerRaw.name}"`);
+//                             if (successCount !== 0) {
+//                                 GameTest.register("SimPlayers", `sim_player${simcount}`, (test) => {
+//                                     const spawnLoc = { x: 1, y: 2, z: 1 };
+//                                     const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
+//                                     player.addEffect(EffectTypes.get('speed'), 99999 * TicksPerSecond, { amplifier: 4, showParticles: false });
+//                                     player.addEffect(EffectTypes.get('jump_boost'), 99999 * TicksPerSecond, { amplifier: 1, showParticles: false });
+//                                     overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
+//
+//                                     test
+//                                         .startSequence()
+//                                         .thenExecuteFor(timeInTicks, async () => {
+//                                             player.lookAtEntity(selectedPlayerRaw);
+//                                             player.navigateToEntity(selectedPlayerRaw);
+//
+//                                             const { successCount } = await runCmd(player, `testfor @a[name="${selectedPlayerRaw.name}", r=10]`);
+//                                             if (successCount === 0) {
+//                                                 await runCmd(player, `tp @s "${selectedPlayerRaw.name}"`);
+//                                             }
+//                                         })
+//                                 })
+//                                     .maxTicks(timeInTicks)
+//                                     .setupTicks(0)
+//                                     .structureName("AdminUtils:simplayer")
+//                                     .tag(GameTest.Tags.suiteDefault);
+//                                 overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simplayers:sim_player${simcount} false 1`);
+//                                 simcount++;
+//                             } else {
+//                                 await runTellraw(p, '§cError, the player you selected is now offline.');
+//                                 p.playSound("au.error");
+//                             }
+//                         });
+//                     }
+//                 });
+//             } break;
+//             case 3: { //Idle
+//                 let form = new ModalFormData()
+//                     .title("Idle")
+//                     .textField("Type below the name of the simulated player", "Simulated player's name")
+//                     .slider("Time in seconds the simulated player should follow the target", 2, 600, 1, 15)
+//                     .toggle("Look at close players", true);
+//
+//                 form.show(p).then(async result => {
+//                     if (result.canceled === true) return;
+//                     let simName = result.formValues[0];
+//                     let timeInTicks = result.formValues[1] * 20;
+//                     let lookClosePlayer = result.formValues[2];
+//                     let tpped = false;
+//
+//                     GameTest.register("SimPlayers", `sim_player${simcount}`, (test) => {
+//                         const spawnLoc = { x: 1, y: 2, z: 1 };
+//                         const player = test.spawnSimulatedPlayer(spawnLoc, simName, GameMode.creative);
+//                         overworld.runCommand('fill 1234564 0 -1234561 1234570 319 -1234567 air');
+//
+//                         test
+//                             .startSequence()
+//                             .thenExecuteFor(timeInTicks, async () => {
+//                                 if (lookClosePlayer === true) {
+//                                     let closestP = [];
+//                                     let playerLoc = { x: player.location.x, y: player.location.y, z: player.location.z };
+//                                     const query = {
+//                                         closest: 1,
+//                                         maxDistance: 15,
+//                                         excludeNames: [player.name],
+//                                         location: playerLoc
+//                                     };
+//                                     try { closestP = [...player.dimension.getPlayers(query)][0] } catch (e) { }
+//                                     try { player.lookAtEntity(closestP) } catch (e) { }
+//                                 }
+//                                 if (!tpped) {
+//                                     try {
+//                                         await runCmd(player, `tp "${p.name}"`);
+//                                         tpped = true;
+//                                     } catch (e) { }
+//                                 }
+//                             })
+//                     })
+//                         .maxTicks(timeInTicks)
+//                         .setupTicks(0)
+//                         .structureName("AdminUtils:simplayer")
+//                         .tag(GameTest.Tags.suiteDefault);
+//                     overworld.runCommand(`execute @e[c=1] 1234567 318 -1234567 gametest run simplayers:sim_player${simcount} false 1`);
+//                     simcount++;
+//                 });
+//             } break;
+//             default:
+//                 break;
+//         }
+//     });
+// }
 
 function runCmd(obj, cmd) {
     return obj.runCommandAsync(cmd);
