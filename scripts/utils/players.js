@@ -10,4 +10,10 @@ world.beforeEvents.playerLeave.subscribe(event => {
     data.lastGameMode = player.getGameMode();
     
     databases.playerData.set(player.name, data);
+
+    let freeCam = databases.freeCam.get(player.name);
+    if (freeCam) {
+        freeCam.autoChunkLoad.lastLoadLoc = {};
+        databases.freeCam.set(player.name, freeCam);
+    }
 });

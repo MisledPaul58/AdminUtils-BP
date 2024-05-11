@@ -1,7 +1,7 @@
-import {Dimension, EasingType, EffectTypes, Player, TicksPerSecond, system, world} from "@minecraft/server";
-import {ActionFormData, MessageFormData, ModalFormData} from "@minecraft/server-ui";
-import {databases, adminUtils, areObjectsEqual, delay, isValidUsername, toDimId, toFancyDim} from "../main";
-import {utils} from "../utils/utils";
+import { Dimension, EasingType, EffectTypes, Player, TicksPerSecond, system, world } from "@minecraft/server";
+import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
+import { databases, adminUtils, areObjectsEqual, delay, isValidUsername, toDimId, toFancyDim } from "../main";
+import { utils } from "../utils/utils";
 import moment from "../moment/moment";
 
 class FreeCam {
@@ -10,7 +10,7 @@ class FreeCam {
      */
     init(p) {
         world.sendMessage(`${world.getDynamicPropertyIds()}`);
-        world.sendMessage(`${JSON.stringify(databases.freeCam.getTable())}`);
+        world.sendMessage(`${world.getDynamicProperty("0_Freecam")}`);
         let extraButton = 0;
         const form = new ActionFormData()
             .title("Freecam menu")
@@ -21,10 +21,10 @@ class FreeCam {
             extraButton++;
         }
         form.button("Spectator Freecam")
-            .button("Freecam [Experimental]") //warn users that if they are in Creative mode they mustnt fly
+            .button("Freecam [Experimental]") //warn users that if they are in Creative mode they mustn't fly
             .show(p).then((response) => {
             if (response.canceled === true) return;
-            const {selection} = response;
+            const { selection } = response;
             // if (buttons === 4) {
 
             // } else {
@@ -140,7 +140,7 @@ class FreeCam {
 
         form.show(p).then((response) => {
             if (response.canceled === true) return;
-            const {selection} = response;
+            const { selection } = response;
 
             if (selection === 0) { //Back
                 this.#specFreeCamGUI(p);
@@ -167,7 +167,7 @@ class FreeCam {
 
                     } else {
                         try {
-                            const rawPlayer = world.getPlayers({name: specifiedPlayer})[0];
+                            const rawPlayer = world.getPlayers({ name: specifiedPlayer })[0];
                             let data = {};
                             if (rawPlayer) {
                                 data = {
@@ -244,6 +244,7 @@ class FreeCam {
                                 };
                                 databases.freeCam.set(p.name, data);
                                 p.sendMessage(`§bSpectator Freecam§a has been enabled successfully for you.`);
+                                p.sendMessage("§l§cAU §6>>§r §sIn order to open the admin panel while you're in Spectator Freecam, please use the command: §b§l§o-au§r");
                                 p.playSound("au.success");
                             } catch (e) {
                                 console.warn(e);
@@ -275,7 +276,7 @@ class FreeCam {
 
                     } else {
                         try {
-                            const rawPlayer = world.getPlayers({name: selectedPlayer})[0];
+                            const rawPlayer = world.getPlayers({ name: selectedPlayer })[0];
                             let data = {};
                             if (rawPlayer) {
                                 data = {
@@ -330,7 +331,7 @@ class FreeCam {
 
         form.show(p).then((response) => {
             if (response.canceled === true) return;
-            const {selection} = response;
+            const { selection } = response;
 
             if (selection === 0) { //Back
                 this.#specFreeCamGUI(p);
@@ -357,7 +358,7 @@ class FreeCam {
 
                     } else {
                         try {
-                            const rawPlayer = world.getPlayers({name: specifiedPlayer})[0];
+                            const rawPlayer = world.getPlayers({ name: specifiedPlayer })[0];
                             if (rawPlayer) {
                                 rawPlayer.setGameMode(databases.freeCam.get(specifiedPlayer).lastGameMode);
                                 databases.freeCam.delete(specifiedPlayer);
@@ -420,7 +421,7 @@ class FreeCam {
 
                     } else {
                         try {
-                            const rawPlayer = world.getPlayers({name: selectedPlayer})[0];
+                            const rawPlayer = world.getPlayers({ name: selectedPlayer })[0];
                             if (rawPlayer) {
                                 rawPlayer.setGameMode(databases.freeCam.get(selectedPlayer).lastGameMode);
                                 databases.freeCam.delete(selectedPlayer);
@@ -464,7 +465,7 @@ class FreeCam {
 
         form.show(p).then((response) => {
             if (response.canceled === true) return;
-            const {selection} = response;
+            const { selection } = response;
 
             if (selection === 0) { //Back
                 this.#expFreeCamGUI(p);
@@ -491,7 +492,7 @@ class FreeCam {
 
                     } else {
                         try {
-                            const rawPlayer = world.getPlayers({name: specifiedPlayer})[0];
+                            const rawPlayer = world.getPlayers({ name: specifiedPlayer })[0];
                             let data = {};
                             if (rawPlayer) {
                                 data = {
@@ -503,9 +504,10 @@ class FreeCam {
                                     autoChunkLoad: {
                                         enabled: true,
                                         loading: false,
-                                        radius: 6,
+                                        radius: 8,
                                         loadTime: 7,
-                                        lastLoadLoc: {}
+                                        lastLoadLoc: {},
+                                        forceLoad: false
                                     },
                                     hasToLeaveFreeCam: false
                                 };
@@ -519,9 +521,10 @@ class FreeCam {
                                     autoChunkLoad: {
                                         enabled: true,
                                         loading: false,
-                                        radius: 6,
+                                        radius: 8,
                                         loadTime: 7,
-                                        lastLoadLoc: {}
+                                        lastLoadLoc: {},
+                                        forceLoad: false
                                     },
                                     hasToLeaveFreeCam: false
                                 };
@@ -584,9 +587,10 @@ class FreeCam {
                                     autoChunkLoad: {
                                         enabled: true,
                                         loading: false,
-                                        radius: 6,
+                                        radius: 8,
                                         loadTime: 7,
-                                        lastLoadLoc: {}
+                                        lastLoadLoc: {},
+                                        forceLoad: false
                                     },
                                     hasToLeaveFreeCam: false
                                 };
@@ -623,7 +627,7 @@ class FreeCam {
 
                     } else {
                         try {
-                            const rawPlayer = world.getPlayers({name: selectedPlayer})[0];
+                            const rawPlayer = world.getPlayers({ name: selectedPlayer })[0];
                             let data = {};
                             if (rawPlayer) {
                                 data = {
@@ -635,9 +639,10 @@ class FreeCam {
                                     autoChunkLoad: {
                                         enabled: true,
                                         loading: false,
-                                        radius: 6,
+                                        radius: 8,
                                         loadTime: 7,
-                                        lastLoadLoc: {}
+                                        lastLoadLoc: {},
+                                        forceLoad: false
                                     },
                                     hasToLeaveFreeCam: false
                                 };
@@ -651,9 +656,10 @@ class FreeCam {
                                     autoChunkLoad: {
                                         enabled: true,
                                         loading: false,
-                                        radius: 6,
+                                        radius: 8,
                                         loadTime: 7,
-                                        lastLoadLoc: {}
+                                        lastLoadLoc: {},
+                                        forceLoad: false
                                     },
                                     hasToLeaveFreeCam: false
                                 };
@@ -694,7 +700,7 @@ class FreeCam {
 
         form.show(p).then((response) => {
             if (response.canceled === true) return;
-            const {selection} = response;
+            const { selection } = response;
 
             if (selection === 0) { //Back
                 this.#expFreeCamGUI(p);
@@ -809,11 +815,12 @@ class FreeCam {
                 new ActionFormData()
                     .title("§lManage §bSpectator Freecam")
                     .body("Select an option")
-                    .button("§l<-- Back", "textures/icons/back.png")
-                    .button("Teleport freecam to the starting location")
-                    .button("Teleport freecam to a specific location")
-                    .button("Exit freecam and teleport to the starting location")
-                    .button("Exit freecam at current location")
+                    .button("§l<-- Back", "textures/icons/back.png") //0
+                    .button("Teleport freecam to the starting location") //1
+                    .button("Teleport freecam to a specific location") //2
+                    .button("Teleport freecam to a player") //3
+                    .button("Exit freecam and teleport to the starting location") //4
+                    .button("Exit freecam at current location")//5
                     .show(p).then((response) => {
                     if (response.canceled === true) return;
 
@@ -822,7 +829,7 @@ class FreeCam {
                         p.playSound("au.error");
 
                     } else {
-                        const {selection} = response;
+                        const { selection } = response;
 
                         switch (selection) {
                             case 0:
@@ -830,7 +837,7 @@ class FreeCam {
                                 break;
 
                             case 1: { //Tp to starting location
-                                const {startLoc} = databases.freeCam.get(p.name);
+                                const { startLoc } = databases.freeCam.get(p.name);
                                 new MessageFormData()
                                     .title("§lTeleport to the starting loc.")
                                     .body(`Are you sure you want to teleport your freecam to the starting location?\n§l§bStarting location:\n§rX: ${startLoc.x.toFixed(2)}, Y: ${startLoc.y.toFixed(2)}, Z: ${startLoc.z.toFixed(2)}, ${toFancyDim(databases.freeCam.get(p.name).lastDimension)}`)
@@ -848,7 +855,7 @@ class FreeCam {
                                             const data = databases.freeCam.get(p.name);
                                             p.runCommand("camera @s fade time 2 1 1 color 0 0 0");
                                             await delay(40);
-                                            p.teleport(data.startLoc, {dimension: world.getDimension(data.lastDimension)});
+                                            p.teleport(data.startLoc, { dimension: world.getDimension(data.lastDimension) });
                                             await delay(20);
                                             p.sendMessage("§bTeleported!");
                                             p.playSound("au.success");
@@ -897,7 +904,7 @@ class FreeCam {
                                                     x: coords[0],
                                                     y: coords[1],
                                                     z: coords[2]
-                                                }, {dimension: world.getDimension(dimension)});
+                                                }, { dimension: world.getDimension(dimension) });
                                                 await delay(20);
                                                 p.sendMessage("§bTeleported!");
                                                 p.playSound("au.success");
@@ -909,11 +916,55 @@ class FreeCam {
                                         }
                                     }
                                 });
-                            }
-                                break;
+                            } break;
 
-                            case 3: { //Exit and tp to starting location
-                                const {startLoc} = databases.freeCam.get(p.name);
+                            case 3: { //Teleport freecam to a player
+                                const rawPlayers = world.getPlayers().filter(player => player.name !== p.name);
+                                console.warn(rawPlayers.toString());
+                                if (rawPlayers.length === 0) {
+                                    p.sendMessage("§l§cAU §6>>§r §4No players were found!");
+                                    p.playSound("au.error");
+                                    return this.#manageFreeCamGUI(p);
+                                }
+                                const players = rawPlayers.map(player => player.name);
+                                new ModalFormData()
+                                    .title("§lTeleport freecam to a player")
+                                    .dropdown("Choose a player", players)
+                                    .show(p).then(async result => {
+                                        if (result.canceled === true) return this.#manageFreeCamGUI(p);
+
+                                        const selectedRawPlayer = rawPlayers[result.formValues[0]];
+                                        const player = selectedRawPlayer.name;
+
+                                        if (!this.isInSpecFreeCam(p.name)) {
+                                            p.sendMessage("§cError, another user has recently disabled your freecam.");
+                                            p.playSound("au.error");
+
+                                        } else if (!selectedRawPlayer.isValid()) {
+                                            p.sendMessage(`§cError, §4${player}§c has recently left.`);
+                                            p.playSound("au.error");
+
+                                        } else {
+                                            try {
+                                                p.runCommand("camera @s fade time 2 1 1 color 0 0 0");
+                                                await delay(40);
+
+                                                p.teleport(selectedRawPlayer.location);
+                                                await delay(20);
+
+                                                p.sendMessage("§bTeleported!");
+                                                p.playSound("au.success");
+                                            } catch (e) {
+                                                console.warn(e);
+                                                p.sendMessage(`§cError, couldn't teleport you to §4${player}§c.`);
+                                                p.playSound("au.error");
+                                            }
+                                        }
+                                    });
+                            } break;
+
+                            case 4: { //Exit and tp to starting location
+                                const { startLoc } = databases.freeCam.get(p.name);
                                 new MessageFormData()
                                     .title("§lExit and tp to the starting loc.")
                                     .body(`Are you sure you want to exit and teleport your freecam to the starting location?\n§l§bStarting location:\n§rX: ${startLoc.x.toFixed(2)}, Y: ${startLoc.y.toFixed(2)}, Z: ${startLoc.z.toFixed(2)}, ${toFancyDim(databases.freeCam.get(p.name).lastDimension)}`)
@@ -929,9 +980,9 @@ class FreeCam {
                                     } else {
                                         try {
                                             const data = databases.freeCam.get(p.name);
-                                            p.runCommtryand("camera @s fade time 2 1 1 color 0 0 0");
+                                            p.runCommand("camera @s fade time 2 1 1 color 0 0 0");
                                             await delay(40);
-                                            p.teleport(data.startLoc, {dimension: world.getDimension(data.lastDimension)});
+                                            p.teleport(data.startLoc, { dimension: world.getDimension(data.lastDimension) });
                                             p.setGameMode(data.lastGameMode);
                                             databases.freeCam.delete(p.name);
                                             await delay(20);
@@ -947,7 +998,7 @@ class FreeCam {
                             }
                                 break;
 
-                            case 4: { //Exit at current location
+                            case 5: { //Exit at current location
                                 new MessageFormData()
                                     .title("§lExit at current location")
                                     .body("Are you sure you want to §bexit§r the freecam mode at your §bcurrent location§r?")
@@ -1000,7 +1051,7 @@ class FreeCam {
                         p.playSound("au.error");
 
                     } else {
-                        const {selection} = response;
+                        const { selection } = response;
 
                         switch (selection) {
                             case 0:
@@ -1066,7 +1117,7 @@ class FreeCam {
                     p.playSound("au.error");
 
                 } else {
-                    const {selection} = response;
+                    const { selection } = response;
 
                     switch (selection) {
                         case 0: //Back
@@ -1156,7 +1207,7 @@ class FreeCam {
             const startLoc = databases.freeCam.get(p.name).startLoc;
             new MessageFormData()
                 .title("§lTeleport to the starting loc.")
-                .body(`Are you sure you want to teleport your freecam to the starting location?\n§l§bStarting location:\n§rX: ${startLoc.x.toFixed(2)}, Y: ${startLoc.y.toFixed(2)}, Z: ${startLoc.x.toFixed(2)}, ${toFancyDim(databases.freeCam.get(p.name).lastDimension)}`)
+                .body(`Are you sure you want to teleport your freecam to the starting location?\n§l§bStarting location:\n§rX: ${startLoc.x.toFixed(2)}, Y: ${startLoc.y.toFixed(2)}, Z: ${startLoc.z.toFixed(2)}, ${toFancyDim(databases.freeCam.get(p.name).lastDimension)}`)
                 .button1("No")
                 .button2("Yes")
                 .show(p).then(async result => {
@@ -1179,7 +1230,7 @@ class FreeCam {
 
                         await new Promise(async tp => {
                             while (databases.freeCam.get(p.name).locOverride) {
-                                p.runCommand("camera @s fade time 0 0.1 1 color 0 0 0");
+                                p.runCommand("camera @s fade time 0 0.3 1 color 0 0 0");
                                 await delay(2);
                             }
                             tp();
@@ -1198,7 +1249,7 @@ class FreeCam {
          * @param { Player } p
          */
         tpSpecificLoc: (p) => {
-            const {lastCamLoc} = databases.freeCam.get(p.name);
+            const { lastCamLoc } = databases.freeCam.get(p.name);
             new ModalFormData()
                 .title(`§lTp to a specific loc. in your dim.`)
                 .textField(`§bYour current freecam coordinates are:§r\nX: ${lastCamLoc.x.toFixed(2)}, Y: ${lastCamLoc.y.toFixed(2)}, Z: ${lastCamLoc.z.toFixed(2)}\n\nWrite below the coordinates you want to teleport to. For example: -165 68 250 or -164.50 68.00 250.50`, "e.g. -165 68 250")
@@ -1227,11 +1278,11 @@ class FreeCam {
                             p.runCommand("camera @s fade time 2 1 1 color 0 0 0");
                             await delay(40);
                             const data = databases.freeCam.get(p.name);
-                            data.locOverride = {x: coords[0], y: coords[1], z: coords[2]};
+                            data.locOverride = { x: coords[0], y: coords[1], z: coords[2] };
                             databases.freeCam.set(p.name, data);
                             await new Promise(async tp => {
                                 while (databases.freeCam.get(p.name).locOverride) {
-                                    p.runCommand("camera @s fade time 0 0.1 1 color 0 0 0");
+                                    p.runCommand("camera @s fade time 0 0.3 1 color 0 0 0");
                                     await delay(2);
                                 }
                                 tp();
@@ -1285,7 +1336,7 @@ class FreeCam {
 
                         await new Promise(async tp => {
                             while (databases.freeCam.get(p.name).locOverride) {
-                                p.runCommand("camera @s fade time 0 0.1 1 color 0 0 0");
+                                p.runCommand("camera @s fade time 0 0.3 1 color 0 0 0");
                                 await delay(2);
                             }
                             tp();
@@ -1305,7 +1356,7 @@ class FreeCam {
          * @param { Player } p
          */
         startLocExit: (p) => {
-            const {startLoc} = databases.freeCam.get(p.name);
+            const { startLoc } = databases.freeCam.get(p.name);
             new MessageFormData()
                 .title("§lExit at the starting location")
                 .body(`Are you sure you want to exit your freecam at the starting location?\n§l§bStarting location:\n§rX: ${startLoc.x.toFixed(2)}, Y: ${startLoc.y.toFixed(2)}, Z: ${startLoc.z.toFixed(2)}`)
@@ -1329,7 +1380,7 @@ class FreeCam {
 
                         await new Promise(async res => {
                             while (databases.freeCam.get(p.name)) {
-                                p.runCommand("camera @s fade time 0 0.1 1 color 0 0 0");
+                                p.runCommand("camera @s fade time 0 0.3 1 color 0 0 0");
                                 await delay(2);
                             }
                             res();
@@ -1349,7 +1400,7 @@ class FreeCam {
          * @param { Player } p
          */
         tpExit: (p) => {
-            const {lastCamLoc} = databases.freeCam.get(p.name);
+            const { lastCamLoc } = databases.freeCam.get(p.name);
             new MessageFormData()
                 .title("§lExit at current freecam loc.")
                 .body(`Are you sure you want to §bexit§r the freecam mode at your §bcurrent freecam location§r?\n§l§bCurrent freecam location:\n§rX: ${lastCamLoc.x.toFixed(2)}, Y: ${lastCamLoc.y.toFixed(2)}, Z: ${lastCamLoc.z.toFixed(2)}`)
@@ -1377,7 +1428,7 @@ class FreeCam {
 
                         await new Promise(async res => {
                             while (databases.freeCam.get(p.name)) {
-                                p.runCommand("camera @s fade time 0 0.1 1 color 0 0 0");
+                                p.runCommand("camera @s fade time 0 0.3 1 color 0 0 0");
                                 await delay(2);
                             }
                             res();
@@ -1429,7 +1480,7 @@ let activeExpFreeCams = [];
 system.runInterval(() => {
     if (!databases.loaded) return;
     for (const player in databases.freeCam.getTable()) {
-        const rawPlayer = world.getPlayers({name: player})[0];
+        const rawPlayer = world.getPlayers({ name: player })[0];
         const playerData = databases.freeCam.get(player);
 
         if (rawPlayer) {
@@ -1472,12 +1523,13 @@ system.runInterval(() => {
 /**
  *
  * @param { Player } rawPlayer
- * @param { Vector3 } startLoc
+ * @param { Vector3 } startLocation
  */
-async function handleExpFreecam(rawPlayer, startLoc, dimension) {
+async function handleExpFreecam(rawPlayer, startLocation, dimension) {
     const player = rawPlayer.name;
+    const startLoc = {};
+    Object.assign(startLoc, startLocation);
     let currentCamLoc = {};
-    let backupStartLoc = {};
 
     if (!databases.freeCam.get(player).lastCamLoc.x) {
         Object.assign(currentCamLoc, startLoc);
@@ -1518,8 +1570,23 @@ async function handleExpFreecam(rawPlayer, startLoc, dimension) {
             rawPlayer.setGameMode(gamemode);
         }
 
+        if (gamemode !== rawPlayer.getGameMode() && rawPlayer.getGameMode() === "creative" && !data.autoChunkLoad.loading) {
+            rawPlayer.sendMessage("§4Warning, §cif you're in Creative mode, make sure not to fly, as you won't be able to ascend with the freecam.");
+        }
+
         if (data.autoChunkLoad.enabled) {
-            if (!data.autoChunkLoad.loading) {
+            if (data.autoChunkLoad.forceLoad && !data.autoChunkLoad.loading) {
+                data.autoChunkLoad.loading = true;
+                data.autoChunkLoad.lastLoadLoc = currentCamLoc;
+                data.autoChunkLoad.forceLoad = false;
+                databases.freeCam.set(player, data);
+
+                //Begin loading
+                rawPlayer.setGameMode("spectator");
+                Object.assign(startLoc, currentCamLoc);
+                rawPlayer.teleport(currentCamLoc);
+
+            } else if (!data.autoChunkLoad.loading) {
                 const radius = data.autoChunkLoad.radius;
                 const lastLoadLoc = Object.keys(data.autoChunkLoad.lastLoadLoc).length === 0 ? startLoc : data.autoChunkLoad.lastLoadLoc;
                 const cameraLoc = currentCamLoc;
@@ -1533,15 +1600,13 @@ async function handleExpFreecam(rawPlayer, startLoc, dimension) {
 
                     //Begin loading
                     rawPlayer.setGameMode("spectator");
-                    Object.assign(backupStartLoc, startLoc);
                     Object.assign(startLoc, cameraLoc);
                     rawPlayer.teleport(cameraLoc);
                 }
             } else {
                 //If loading is complete
                 if (ticks >= data.autoChunkLoad.loadTime * TicksPerSecond) {
-                    Object.assign(startLoc, backupStartLoc);
-                    Object.assign(backupStartLoc, {});
+                    Object.assign(startLoc, data.startLoc);
                     rawPlayer.teleport(startLoc);
                     rawPlayer.setGameMode(data.lastGameMode);
 
@@ -1552,6 +1617,10 @@ async function handleExpFreecam(rawPlayer, startLoc, dimension) {
                 } else { //If it's still loading
                     //Continue loading
                     rawPlayer.setGameMode("spectator");
+                    if (!rawPlayer.dimension.getPlayers({ name: player, location: data.autoChunkLoad.lastLoadLoc, maxDistance: 3 })[0]) {
+                        Object.assign(startLoc, data.autoChunkLoad.lastLoadLoc);
+                        rawPlayer.teleport(startLoc);
+                    }
 
                     ticks++;
                 }
@@ -1568,7 +1637,7 @@ async function handleExpFreecam(rawPlayer, startLoc, dimension) {
             let data = databases.freeCam.get(player);
             Object.assign(currentCamLoc, data.locOverride);
             lastVelCount = 0;
-            lastVelocity = {x: 0, y: 0, z: 0};
+            lastVelocity = { x: 0, y: 0, z: 0 };
             delete data.locOverride;
             databases.freeCam.set(player, data);
 
@@ -1581,17 +1650,15 @@ async function handleExpFreecam(rawPlayer, startLoc, dimension) {
         }
 
         if (rawPlayer.isJumping) {
-            world.sendMessage("jumping");
-            Object.assign(currentCamLoc, {y: currentCamLoc.y + 0.35 * slotControls.speed});
+            Object.assign(currentCamLoc, { y: currentCamLoc.y + 0.35 * slotControls.speed });
 
         } else if (rawPlayer.isSneaking) {
-            world.sendMessage("sneaking");
-            Object.assign(currentCamLoc, {y: currentCamLoc.y - 0.35 * slotControls.speed});
+            Object.assign(currentCamLoc, { y: currentCamLoc.y - 0.35 * slotControls.speed });
         }
 
-        rawPlayer.camera.setCamera("au:tpanimation", {
+        rawPlayer.camera.setCamera("au:freecam", {
             location: currentCamLoc,
-            easeOptions: {easeTime: 0.05, easeType: EasingType.InOutSine},
+            easeOptions: { easeTime: 0.05, easeType: EasingType.InOutSine },
             rotation: pRot
         });
 
@@ -1606,7 +1673,7 @@ async function handleExpFreecam(rawPlayer, startLoc, dimension) {
             rawPlayer.teleport(startLoc);
         } else if (lastVelCount >= 3) {
             lastVelCount = 0;
-            lastVelocity = {x: 0.00, y: 0.00, z: 0.00};
+            lastVelocity = { x: 0.00, y: 0.00, z: 0.00 };
         }
         if ((lastVelCount >= 2 && areObjectsEqual(pVelocity, {
             x: 0.00,
@@ -1614,18 +1681,15 @@ async function handleExpFreecam(rawPlayer, startLoc, dimension) {
             z: 0.00
         })) || (lastVelocity.x > 0.05 && pVelocity.x < -0.05) || (lastVelocity.x < -0.05 && pVelocity.x > 0.05) || (lastVelocity.z > 0.05 && pVelocity.z < -0.05) || (lastVelocity.z < -0.05 && pVelocity.z > 0.05)) {
             lastVelCount = 0;
-            lastVelocity = {x: 0.00, y: 0.00, z: 0.00};
+            lastVelocity = { x: 0.00, y: 0.00, z: 0.00 };
 
-        } else if (!areObjectsEqual(lastVelocity, {x: 0.00, y: 0.00, z: 0.00})) {
+        } else if (!areObjectsEqual(lastVelocity, { x: 0.00, y: 0.00, z: 0.00 })) {
             lastVelCount++;
         }
 
-        const actionBar = `X: ${currentCamLoc.x.toFixed(2)}, Y: ${currentCamLoc.y.toFixed(2)}, Z: ${currentCamLoc.z.toFixed(2)}, ${dimension}\n§l§6Speed: §r§p${slotControls.speed.toFixed(1)}${rawPlayer.isFlying && rawPlayer.getGameMode() !== "spectator" ? "\n§cYou can't ascend if your character is flying." : ""}`;
+        const actionBar = `X: ${currentCamLoc.x.toFixed(2)}, Y: ${currentCamLoc.y.toFixed(2)}, Z: ${currentCamLoc.z.toFixed(2)}, ${dimension}\n§l§bSpeed: §r§s${slotControls.speed.toFixed(1)}${rawPlayer.isFlying && rawPlayer.getGameMode() !== "spectator" ? "\n§cYou can't ascend if your character is flying." : ""}`;
         rawPlayer.onScreenDisplay.setActionBar(actionBar);
 
-        if (gamemode !== rawPlayer.getGameMode() && rawPlayer.getGameMode() === "creative") {
-            rawPlayer.sendMessage("§4Warning, §cif you're in Creative mode, make sure not to fly, as you won't be able to ascend with the freecam.");
-        }
         gamemode = rawPlayer.getGameMode();
     }, 1);
 }
@@ -1636,11 +1700,10 @@ function handleSlotControls(rawPlayer, slotControls) {
     const momentISO = moment(newISO, moment.ISO_8601);
 
     if (slotControls.slot !== rawPlayer.selectedSlot) { //If the slot has changed
-        world.sendMessage("Ha cambiado el slot");
         newISO = "";
     } else {
         // world.sendMessage(`${JSON.stringify(momentISO)}`);
-        if (rawPlayer.selectedSlot === 7 || rawPlayer.selectedSlot === 8) {
+        if (rawPlayer.selectedSlot === 7 || rawPlayer.selectedSlot === 8 || rawPlayer.selectedSlot === 6) {
             if (momentISO.isValid()) {
                 const now = moment();
                 const diff = now.diff(momentISO, 'seconds', true);
@@ -1648,21 +1711,30 @@ function handleSlotControls(rawPlayer, slotControls) {
                     const secondsMod = diff % 1;
 
                     if (secondsMod <= slotControls.lastSec) {
-                        let step = 0.2;
-                        if (diff >= 10) {
-                            step = 1;
-                        } else if (diff >= 6) {
-                            step = 0.5;
-                        }
-
-                        if (rawPlayer.selectedSlot === 7) {
-                            newSpeed = Math.round((slotControls.speed + step) * 100) / 100;
+                        if (rawPlayer.selectedSlot === 6) {
+                            const data = databases.freeCam.get(rawPlayer.name);
+                            data.autoChunkLoad.forceLoad = true;
+                            databases.freeCam.set(rawPlayer.name, data);
+                            rawPlayer.selectedSlot = 5;
                         } else {
-                            if (slotControls.speed > step) {
-                                newSpeed = Math.round((slotControls.speed - step) * 100) / 100;
+                            let step = 0.2;
+                            if (diff >= 15) {
+                                step = 5;
+                            } else if (diff >= 10) {
+                                step = 1;
+                            } else if (diff >= 6) {
+                                step = 0.5;
+                            }
+
+                            if (rawPlayer.selectedSlot === 7) {
+                                newSpeed = Math.round((slotControls.speed + step) * 100) / 100;
+                            } else {
+                                if (slotControls.speed > step) {
+                                    newSpeed = Math.round((slotControls.speed - step) * 100) / 100;
+                                }
                             }
                         }
-                        // rawPlayer.dimension.playSound("note.bd", databases.freeCam.get(rawPlayer.name).lastCamLoc);
+                        rawPlayer.playSound("note.bell");
                     }
                     slotControls.lastSec = secondsMod;
                 }

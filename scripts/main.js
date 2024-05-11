@@ -51,7 +51,7 @@ system.runInterval(async () => {
         async function asyncText() {
             while (await async function () {
                 const { successCount } = await overworld.runCommandAsync('testfor @a');
-                if (successCount === 1) return false
+                if (successCount >= 1) return false
                 else return true;
             }()) {
                 await delay(10);
@@ -364,8 +364,10 @@ world.beforeEvents.chatSend.subscribe(event => {
             const form = new ActionFormData()
                 .title("§l§4§kkdk§r§l§cAdmin§aUtils §bGUI§4§kkdk")
                 .body("Select an option")
-                .button("Admin settings", "textures/icons/settings1.png")
-                .button("Admin utils", "textures/icons/adminUtils.png");
+                .button("Admin settings\n" +
+                    "§8[ §b§oClick to open§r §8]§r", "textures/icons/settings1.png")
+                .button("Admin utils\n" +
+                    "§8[ §b§oClick to open§r §8]§r", "textures/icons/adminUtils.png");
 
             if (!pendingMenuPlayers.includes(sender.name)) waitForUser();
 
@@ -519,7 +521,7 @@ world.afterEvents.playerJoin.subscribe(async event => {
                     const jailedBy = getJailedBy(playerName);
                     const releaseISO = getReleaseISO(playerName);
 
-                    if (!isJailLocSet()) { //If the jail location isn't set 
+                    if (!isJailLocSet()) { //If the jail location isn't set
                         if (!stuckJailedPlayers.includes(playerName)) {
                             stuckJailedPlayers.push(playerName);
                             waitForJailLoc();
@@ -721,8 +723,10 @@ function adminUtilsGui(p) {
     const form = new ActionFormData()
         .title("§l§4§kkdk§r§l§cAdmin§aUtils §bGUI§4§kkdk")
         .body("Select an option")
-        .button("Admin settings", "textures/icons/settings1.png")
-        .button("Admin utils", "textures/icons/adminUtils.png");
+        .button("Admin settings\n" +
+            "§8[ §b§oClick to open§r §8]§r", "textures/icons/settings1.png")
+        .button("Admin utils\n" +
+            "§8[ §b§oClick to open§r §8]§r", "textures/icons/adminUtils.png");
     form.show(p).then((response) => {
         switch (response.selection) {
             case 0: {
@@ -748,7 +752,7 @@ function adminSettings(p) {
         .button("Show admins", "textures/icons/users.png");
     form.show(p).then((response) => {
         switch (response.selection) {
-            case 0: { //Back 
+            case 0: { //Back
                 adminUtilsGui(p);
             } break;
             case 1: { //Set an admin
@@ -790,7 +794,7 @@ function adminSettings(p) {
                                     p.playSound("au.error");
 
                                 } else {
-                                    try { //Quizás intentar añadir alguna forma para poder asignar a varios admins a la vez 
+                                    try { //Quizás intentar añadir alguna forma para poder asignar a varios admins a la vez
                                         for (const admin of admins) {
                                             if (isOwner(p.name) || !isOwner(admin)) {
                                                 world.scoreboard.getObjective('-au').removeParticipant(admin);
@@ -1054,7 +1058,7 @@ function adminSettings(p) {
 export function adminUtils(p) {
     const form = new ActionFormData()
         .title("§l§b§kkdk§r§l§cAdmin §autils§b§kkdk")
-        .body("Select an option")
+        .body("")
         .button("<-- Back", "textures/icons/back.png") //0
         .button("§lBan or unban menu", "textures/icons/ban.png") //1
         .button("§lJail menu", "textures/icons/jail.png") //2
@@ -1068,10 +1072,10 @@ export function adminUtils(p) {
         .button("§lLaunch a player", "textures/icons/launch.png") //9
     form.show(p).then((response) => {
         switch (response.selection) {
-            case 0: { //Back 
+            case 0: { //Back
                 adminUtilsGui(p);
             } break;
-            case 1: { //Ban or unban menu 
+            case 1: { //Ban or unban menu
                 banUnbanMenu(p);
             } break;
             case 2: { //Jail menu
@@ -3219,8 +3223,8 @@ function disableVanishGUI(p) {
 }
 
 /**
- * 
- * @param { Player } p 
+ *
+ * @param { Player } p
  */
 
 function seeInventoryMenu(p) {
@@ -4004,8 +4008,8 @@ function getJailReason(player) {
 }
 
 /**
- * 
- * @param { String } player 
+ *
+ * @param { String } player
  * @returns { String | undefined }
  */
 
@@ -4059,8 +4063,8 @@ function getJailExitLoc() {
 }
 
 /**
- * 
- * @param { String } player 
+ *
+ * @param { String } player
  * @returns { Boolean }
  */
 
@@ -4122,8 +4126,8 @@ function isFrozen(player) {
 }
 
 /**
- * 
- * @param { String } player 
+ *
+ * @param { String } player
  * @returns { Boolean }
  */
 
@@ -4218,7 +4222,7 @@ function getInvSees() {
 }
 
 /**
- * 
+ *
  * @param { { dimension: string, target: string, pos1: number[], pos2: number[], signPos: number[], scoreboard: string } } chestObject
  * @param { [{ invItems: [], equipments: [] }, { invItems: [], equipments: [] }] } lastTargetData
  * @param { [{ invItems: [], equipments: [] }, { invItems: [], equipments: [] }] } lastChestData
@@ -4434,7 +4438,7 @@ export function areObjectsEqual(obj1, obj2) {
 }
 
 /**
- * 
+ *
  * @param { ItemStack } itemStack1
  * @param { ItemStack } itemStack2
  * @returns { Boolean }
@@ -4480,7 +4484,7 @@ function areItemsEqual(itemStack1, itemStack2) {
 }
 
 /**
- * 
+ *
  * @param { "minecraft:overworld" | "minecraft:nether" | "minecraft:the_end" } dimensionId
  * @returns { "§bOverworld" | "§cNether" | "§5The End" }
  */
@@ -4497,8 +4501,8 @@ export function toFancyDim(dimensionId) {
 }
 
 /**
- * 
- * @param { "§bOverworld" | "§cNether" | "§5The End" } fancyDim 
+ *
+ * @param { "§bOverworld" | "§cNether" | "§5The End" } fancyDim
  * @returns { "minecraft:overworld" | "minecraft:nether" | "minecraft:the_end" }
  */
 export function toDimId(fancyDim) {
