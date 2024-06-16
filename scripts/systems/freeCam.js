@@ -9,19 +9,17 @@ class FreeCam {
      * @param { Player } p
      */
     init(p) {
-        world.sendMessage(`${world.getDynamicPropertyIds()}`);
-        world.sendMessage(`${world.getDynamicProperty("0_Freecam")}`);
         let extraButton = 0;
         const form = new ActionFormData()
             .title("Freecam menu")
             .body("Select an option")
             .button("§l<-- Back", "textures/icons/back.png");
         if (this.isInFreeCam(p.name)) {
-            form.button("§lCurrent freecam\n§r§8[ §b§oClick to manage§r§8 ]");
+            form.button("§lCurrent freecam\n§r§8[ §b§oClick to manage§r§8 ]", "textures/icons/settings1.png");
             extraButton++;
         }
-        form.button("Spectator Freecam")
-            .button("Freecam [Experimental]") //warn users that if they are in Creative mode they mustn't fly
+        form.button("Spectator Freecam", "textures/icons/vanish.png")
+            .button("Freecam [Experimental]", "textures/icons/camera.png") //warn users that if they are in Creative mode they mustn't fly
             .show(p).then((response) => {
             if (response.canceled === true) return;
             const { selection } = response;
@@ -68,8 +66,8 @@ class FreeCam {
             .title("§lSpectator Freecam")
             .body("Select an option")
             .button("§l<-- Back", "textures/icons/back.png")
-            .button("Enable Spectator Freecam for a player")
-            .button("Disable Spectator Freecam for a player")
+            .button("Enable Spectator Freecam for a player", "textures/icons/tick.png")
+            .button("Disable Spectator Freecam for a player", "textures/icons/cross.png")
             .show(p).then((response) => {
             if (response.canceled === true) return;
 
@@ -89,7 +87,6 @@ class FreeCam {
         });
     }
 
-
     /**
      * @param { Player } p
      */
@@ -98,8 +95,9 @@ class FreeCam {
             .title("§lExperimental Freecam")
             .body("Select an option")
             .button("§l<-- Back", "textures/icons/back.png")
-            .button("Enable Experimental Freecam for a player")
-            .button("Disable Experimental Freecam for a player")
+            .button("Enable Experimental Freecam for a player", "textures/icons/tick.png")
+            .button("Disable Experimental Freecam for a player", "textures/icons/cross.png")
+            .button("How to use", "textures/icons/howToUse.png")
             .show(p).then((response) => {
             if (response.canceled === true) return;
 
@@ -113,10 +111,28 @@ class FreeCam {
                 case 2:
                     this.#disableExpFreeCamGUI(p);
                     break;
+                case 3:
+                    this.#expFreecamHowTo(p);
+                    break;
                 default:
                     break;
             }
         });
+    }
+
+    /**
+     * @param { Player } p
+     */
+    #expFreecamHowTo(p) {
+        p.sendMessage("§l§o§6§k====§r§l§o§6============================§k====§r\n" +
+            "§aWith this freecam you can §bclip through blocks§a at the speed you want. You can do §b3 different things§a depending on the hotbar slot you have selected:\n" +
+            "  §7* §mSlot 7: §3force chunk load.\n" +
+            "  §7* §mSlot 8: §3increase freecam speed.\n" +
+            "  §7* §mSlot 9: §3decrease freecam speed.\n" +
+            "\n" +
+            "§aYou can find plenty of §boptions and settings§a in the Freecam menu, such as exiting the freecam or customizing the §aAuto chunk load system.\n" +
+            "§l§6§k====§r§l§o§6============================§k====§r");
+        p.playSound("random.levelup", { volume: 0.6 });
     }
 
     /**
@@ -129,7 +145,7 @@ class FreeCam {
             .body("Select an option")
             .button("§l<-- Back", "textures/icons/back.png")
             .button("Type an offline/online player instead", "textures/icons/pencil.png")
-            .button("Enable for myself");
+            .button("Enable for myself", "textures/icons/tick.png");
 
         for (const player of world.getPlayers().map(player => player.name)) {
             if (!this.isInFreeCam(player) && player !== p.name) {
@@ -320,7 +336,7 @@ class FreeCam {
             .body("Select an option")
             .button("§l<-- Back", "textures/icons/back.png")
             .button("Type an offline/online player instead", "textures/icons/pencil.png")
-            .button("Disable for myself");
+            .button("Disable for myself", "textures/icons/cross.png");
 
         for (const player of databases.freeCam.keys()) {
             if (this.isInSpecFreeCam(player) && player !== p.name) {
@@ -381,6 +397,7 @@ class FreeCam {
                 if (!this.isInFreeCam(p.name)) {
                     p.sendMessage("§cYou are not in a freecam mode.");
                     p.playSound("au.error");
+                    this.#disableSpecFreeCamGUI(p);
 
                 } else {
                     new MessageFormData()
@@ -454,7 +471,7 @@ class FreeCam {
             .body("Select an option")
             .button("§l<-- Back", "textures/icons/back.png")
             .button("Type an offline/online player instead", "textures/icons/pencil.png")
-            .button("Enable for myself");
+            .button("Enable for myself", "textures/icons/tick.png");
 
         for (const player of world.getPlayers().map(player => player.name)) {
             if (!this.isInFreeCam(player) && player !== p.name) {
@@ -569,12 +586,14 @@ class FreeCam {
                         if (result.canceled === true || result.selection === 0) return this.#enableExpFreeCamGUI(p);
 
                         if (this.isInExpFreeCam(p.name)) { //In case another player enabled it for them
-                            p.sendMessage("§cError, you are already in Experimental Freecam.");
+                            p.sendMessage("§cError, you are already in §4Experimental Freecam.");
                             p.playSound("au.error");
+                            this.#enableExpFreeCamGUI(p);
 
                         } else if (this.isInSpecFreeCam(p.name)) {
                             p.sendMessage("§cError, another user has recently enabled Spectator Freecam for you.");
                             p.playSound("au.error");
+                            this.#enableExpFreeCamGUI(p);
 
                         } else {
                             try {
@@ -689,7 +708,7 @@ class FreeCam {
             .body("Select an option")
             .button("§l<-- Back", "textures/icons/back.png")
             .button("Type an offline/online player instead", "textures/icons/pencil.png")
-            .button("Disable for myself");
+            .button("Disable for myself", "textures/icons/cross.png");
 
         for (const player of databases.freeCam.keys()) {
             if (this.isInExpFreeCam(player) && player !== p.name) {
@@ -745,6 +764,7 @@ class FreeCam {
                 if (!this.isInFreeCam(p.name)) {
                     p.sendMessage("§cYou are not in a freecam mode.");
                     p.playSound("au.error");
+                    this.#disableExpFreeCamGUI(p);
 
                 } else {
                     new MessageFormData()
@@ -1542,7 +1562,7 @@ async function handleExpFreecam(rawPlayer, startLocation, dimension) {
     let lastVelCount = 0;
     let slotControls = {
         speed: databases.freeCam.get(player).speed,
-        slot: rawPlayer.selectedSlot,
+        slot: rawPlayer.selectedSlotIndex,
         lastSec: 0,
         slotISO: ""
     };
@@ -1699,11 +1719,11 @@ function handleSlotControls(rawPlayer, slotControls) {
     let newISO = slotControls.slotISO;
     const momentISO = moment(newISO, moment.ISO_8601);
 
-    if (slotControls.slot !== rawPlayer.selectedSlot) { //If the slot has changed
+    if (slotControls.slot !== rawPlayer.selectedSlotIndex) { //If the slot has changed
         newISO = "";
     } else {
         // world.sendMessage(`${JSON.stringify(momentISO)}`);
-        if (rawPlayer.selectedSlot === 7 || rawPlayer.selectedSlot === 8 || rawPlayer.selectedSlot === 6) {
+        if (rawPlayer.selectedSlotIndex === 7 || rawPlayer.selectedSlotIndex === 8 || rawPlayer.selectedSlotIndex === 6) {
             if (momentISO.isValid()) {
                 const now = moment();
                 const diff = now.diff(momentISO, 'seconds', true);
@@ -1711,11 +1731,11 @@ function handleSlotControls(rawPlayer, slotControls) {
                     const secondsMod = diff % 1;
 
                     if (secondsMod <= slotControls.lastSec) {
-                        if (rawPlayer.selectedSlot === 6) {
+                        if (rawPlayer.selectedSlotIndex === 6) {
                             const data = databases.freeCam.get(rawPlayer.name);
                             data.autoChunkLoad.forceLoad = true;
                             databases.freeCam.set(rawPlayer.name, data);
-                            rawPlayer.selectedSlot = 5;
+                            rawPlayer.selectedSlotIndex = 5;
                         } else {
                             let step = 0.2;
                             if (diff >= 15) {
@@ -1726,7 +1746,7 @@ function handleSlotControls(rawPlayer, slotControls) {
                                 step = 0.5;
                             }
 
-                            if (rawPlayer.selectedSlot === 7) {
+                            if (rawPlayer.selectedSlotIndex === 7) {
                                 newSpeed = Math.round((slotControls.speed + step) * 100) / 100;
                             } else {
                                 if (slotControls.speed > step) {
@@ -1745,7 +1765,7 @@ function handleSlotControls(rawPlayer, slotControls) {
             newISO = "";
         }
     }
-    slotControls.slot = rawPlayer.selectedSlot;
+    slotControls.slot = rawPlayer.selectedSlotIndex;
     slotControls.speed = newSpeed;
     slotControls.slotISO = newISO;
 }

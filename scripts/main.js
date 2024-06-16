@@ -1046,7 +1046,9 @@ function adminSettings(p) {
                     new ModalFormData()
                         .title("Admin settings: show admins")
                         .dropdown("Admins list", adminsArray)
-                        .show(p);
+                        .show(p).then(result => {
+                            adminSettings(p);
+                        });
                 }
             } break;
             default:
@@ -1065,7 +1067,7 @@ export function adminUtils(p) {
         .button("§lVanish menu", "textures/icons/vanish.png") //3
         .button("§lFreeze menu", "textures/icons/freeze.png") //4
         .button("§lSee an inventory", "textures/icons/chest.png") //5
-        .button("§lFreecam menu") //6
+        .button("§lFreecam menu", "textures/icons/camera.png") //6
         // .button("§lSimulated player", "textures/icons/simPlayers.png")
         .button("§lProjectile powers", "textures/icons/projPowers.png") //7
         .button("§lKill a player", "textures/icons/simAttack.png") //8
