@@ -1,19 +1,23 @@
-import { world, GameMode, system, TicksPerSecond, EffectTypes, Player, Entity, BlockType, BlockPermutation, Container, EntityEquippableComponent, ItemStack, EasingType, ItemComponentTypes } from "@minecraft/server";
-import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/server-ui";
+import {
+    EffectTypes,
+    GameMode,
+    ItemComponentTypes,
+    ItemStack,
+    Player,
+    system,
+    TicksPerSecond,
+    world
+} from "@minecraft/server";
+import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
 import moment from "./moment/moment";
 import { freeCam } from "./systems/freeCam.js";
-import { Database } from "./utils/database.js";
+// import "./database/index";
 import "./utils/players.js";
+import "ui/index";
+import { server } from "./utils/server";
 
 const overworld = world.getDimension("overworld"); //Hacer una cárcel con tiempo y un vanish, sendcommandfeedback?, cambiar los /camera para que se apliquen los efectos de poción?, cancelar ItemUse con beforeEvents para los encarcelados?, invSee?!
 export const delay = ticks => new Promise(res => system.runTimeout(res, ticks));
-
-/**
- * @type { { loaded: Boolean, freeCam: Database, playerData: Database } }
- */
-export let databases = {
-    loaded: false
-};
 
 let playerJoined = false;
 let worldLoaded = false;
@@ -51,15 +55,11 @@ system.runInterval(async () => {
         async function asyncText() {
             while (await async function () {
                 const { successCount } = await overworld.runCommandAsync('testfor @a');
-                if (successCount >= 1) return false
-                else return true;
+                return successCount < 1;
             }()) {
                 await delay(10);
             }
             playerJoined = true;
-            databases.freeCam = new Database("Freecam");
-            databases.playerData = new Database("PlayerData");
-            databases.loaded = true;
             await delay(6 * TicksPerSecond);
             world.sendMessage("§l§4§kqww§r§l§bThanks for using Admin Utils! §aMade by §6MisledPaul58§4§kqww");
             worldLoaded = true;
@@ -359,42 +359,9 @@ world.beforeEvents.chatSend.subscribe(event => {
         event.cancel = true;
         const { sender } = event;
 
-        system.run(async () => {
-            sender.playSound("au.menuOpen", { location: { x: sender.location.x, y: sender.location.y + 1, z: sender.location.z } });
-            const form = new ActionFormData()
-                .title("§l§4§kkdk§r§l§cAdmin§aUtils §bGUI§4§kkdk")
-                .body("Select an option")
-                .button("Admin settings\n" +
-                    "§8[ §b§oClick to open§r §8]§r", "textures/icons/settings1.png")
-                .button("Admin utils\n" +
-                    "§8[ §b§oClick to open§r §8]§r", "textures/icons/adminUtils.png");
-
-            if (!pendingMenuPlayers.includes(sender.name)) waitForUser();
-
-            async function waitForUser() {
-                pendingMenuPlayers.push(sender.name);
-
-                while (pendingMenuPlayers.includes(sender.name)) {
-                    const response = await form.show(sender);
-
-                    if (response?.cancelationReason !== "UserBusy") {
-                        pendingMenuPlayers.splice(pendingMenuPlayers.indexOf(sender.name), 1);
-
-                        switch (response.selection) {
-                            case 0: {
-                                adminSettings(sender);
-                                break;
-                            }
-                            case 1: {
-                                adminUtils(sender);
-                                break;
-                            }
-                        }
-                    } else {
-                        await delay(4);
-                    }
-                }
-            }
+        system.run(() => {
+            sender.playSound("au.menuOpen");
+            server.ui.show("mainMenu", sender, true);
         });
     }
 });
@@ -621,7 +588,8 @@ world.beforeEvents.itemUse.subscribe(data => {
         player.applyKnockback(player.getViewDirection().x, player.getViewDirection().z, 1, 1);
         */
         system.run(async () => {
-            adminUtilsGui(player);
+            // adminUtilsGui(player);
+            server.ui.show("mainMenu", player);
             player.playSound("au.menuOpen", { location: { x: player.location.x, y: player.location.y + 1, z: player.location.z } });
         });
 
@@ -1075,7 +1043,7 @@ export function adminUtils(p) {
     form.show(p).then((response) => {
         switch (response.selection) {
             case 0: { //Back
-                adminUtilsGui(p);
+                server.ui.show("mainMenu", p);
             } break;
             case 1: { //Ban or unban menu
                 banUnbanMenu(p);
@@ -1936,12 +1904,12 @@ function jailPlayer(p) {
                     const jailedBy = p.name;
 
                     if (isPermaJailed === true) {
-                        if (reason.trim() === "") {
-                            await runTellraw(p, `§cError, you must enter a reason.`);
+                        if (!isValidUsername(player)) {
+                            await runTellraw(p, `§cError, the username you entered is invalid.`);
                             p.playSound("au.error");
 
-                        } else if (!isValidUsername(player)) {
-                            await runTellraw(p, `§cError, the username you entered is invalid.`);
+                        } else if (reason.trim() === "") {
+                            await runTellraw(p, `§cError, you must enter a reason.`);
                             p.playSound("au.error");
 
                         } else if (isBanned(player)) {
@@ -2028,16 +1996,16 @@ function jailPlayer(p) {
 
                         const releaseISO = releaseDate.toISOString(); //Date when you will get released
 
-                        if (reason.trim() === "") {
+                        if (!isValidUsername(player)) {
+                            await runTellraw(p, `§cError, the username you entered is invalid.`);
+                            p.playSound("au.error");
+
+                        } else if (reason.trim() === "") {
                             await runTellraw(p, `§cError, you must enter a reason.`);
                             p.playSound("au.error");
 
                         } else if (result.formValues.slice(3).every(value => value === 0)) {
                             await runTellraw(p, `§cError, you must specify a jail time.`);
-                            p.playSound("au.error");
-
-                        } else if (!isValidUsername(player)) {
-                            await runTellraw(p, `§cError, the username you entered is invalid.`);
                             p.playSound("au.error");
 
                         } else if (isBanned(player)) {

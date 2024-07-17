@@ -1,14 +1,19 @@
 import { Dimension, EasingType, EffectTypes, Player, TicksPerSecond, system, world } from "@minecraft/server";
 import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
-import { databases, adminUtils, areObjectsEqual, delay, isValidUsername, toDimId, toFancyDim } from "../main";
+import { adminUtils, areObjectsEqual, delay, isValidUsername, toDimId, toFancyDim } from "../main";
+import { server } from "../utils/server";
+import "../utils/server";
 import { utils } from "../utils/utils";
 import moment from "../moment/moment";
+import { databases } from "../database/index";
 
 class FreeCam {
     /**
      * @param { Player } p
      */
     init(p) {
+        p.sendSuccess('test.msg', ['24', '58']);
+        p.sendMessage(`%back.button.text\n§r§8[ §b§o%settings.main.title§r§8 ]`);
         let extraButton = 0;
         const form = new ActionFormData()
             .title("Freecam menu")
@@ -940,7 +945,7 @@ class FreeCam {
 
                             case 3: { //Teleport freecam to a player
                                 const rawPlayers = world.getPlayers().filter(player => player.name !== p.name);
-                                console.warn(rawPlayers.toString());
+                                // console.warn(rawPlayers.toString());
                                 if (rawPlayers.length === 0) {
                                     p.sendMessage("§l§cAU §6>>§r §4No players were found!");
                                     p.playSound("au.error");
@@ -1731,7 +1736,7 @@ function handleSlotControls(rawPlayer, slotControls) {
                     const secondsMod = diff % 1;
 
                     if (secondsMod <= slotControls.lastSec) {
-                        if (rawPlayer.selectedSlotIndex === 6) {
+                        if (rawPlayer.selectedSlotIndex === 6) { //Slot 7, force chunk load
                             const data = databases.freeCam.get(rawPlayer.name);
                             data.autoChunkLoad.forceLoad = true;
                             databases.freeCam.set(rawPlayer.name, data);
@@ -1746,9 +1751,9 @@ function handleSlotControls(rawPlayer, slotControls) {
                                 step = 0.5;
                             }
 
-                            if (rawPlayer.selectedSlotIndex === 7) {
+                            if (rawPlayer.selectedSlotIndex === 7) { //Slot 8, increase freecam speed
                                 newSpeed = Math.round((slotControls.speed + step) * 100) / 100;
-                            } else {
+                            } else { //Slot 9, decrease freecam speed
                                 if (slotControls.speed > step) {
                                     newSpeed = Math.round((slotControls.speed - step) * 100) / 100;
                                 }
