@@ -9,14 +9,15 @@ import {
     world
 } from "@minecraft/server";
 import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
-import moment from "./moment/moment";
-import { freeCam } from "./systems/freeCam.js";
-// import "./database/index";
+import { database } from "./database/index";
+import { server } from "./server";
+import "./events/events";
+import "./ui/index";
 import "./utils/players.js";
-import "ui/index";
-import { server } from "./utils/server";
+import { freeCam } from "./systems/freeCam.js";
+import moment from "./utils/moment/moment";
 
-const overworld = world.getDimension("overworld"); //Hacer una cárcel con tiempo y un vanish, sendcommandfeedback?, cambiar los /camera para que se apliquen los efectos de poción?, cancelar ItemUse con beforeEvents para los encarcelados?, invSee?!
+const overworld = world.getDimension("overworld"); //sendcommandfeedback?, cancelar ItemUse con beforeEvents para los encarcelados?
 export const delay = ticks => new Promise(res => system.runTimeout(res, ticks));
 
 let playerJoined = false;
@@ -24,15 +25,13 @@ let worldLoaded = false;
 let scoreboardsLoaded = false;
 let players = []; //Hacer que vuelva a la lista de jugadores en projectilePowers después de darle a submit?, recordarte el jugador que has seleccionado en el ModalFormData?
 let admins = []; //Usar una entidad para el invsee en vez de cofres?
-let simcount = 0;
 let tntFlag = "-autnt0";
 let stuckJailedPlayers = [];
 let invChests = [];
-let pendingMenuPlayers = [];
 
 system.beforeEvents.watchdogTerminate.subscribe(watchdog => { watchdog.cancel = true });
 
-system.runInterval(async () => {
+server.on("tick",async () => {
     players = [...world.getPlayers()];
 
     try { admins = [...world.scoreboard.getObjective('-au').getParticipants().map(admin => admin.displayName)] } catch (e) { }
@@ -53,10 +52,7 @@ system.runInterval(async () => {
         scoreboardsLoaded = true;
         asyncText();
         async function asyncText() {
-            while (await async function () {
-                const { successCount } = await overworld.runCommandAsync('testfor @a');
-                return successCount < 1;
-            }()) {
+            while (world.getAllPlayers().length === 0) {
                 await delay(10);
             }
             playerJoined = true;
@@ -66,23 +62,6 @@ system.runInterval(async () => {
         }
     }
 
-    /*const block = overworld.getBlock({ x: -171, y: 77, z: -99 });
-    if (block.typeId === 'minecraft:chest' && chest === false) {
-        chest = true;
-        waitForBreak()
-        async function waitForBreak() {
-            while (block.typeId === 'minecraft:chest') {
-                await delay(1);
-            }
-            chest = false;
-            overworld.runCommand('kill @e[type=item, x=-171, y=77, z=-99, r=1.7]');
-        }
-    }
-    if (block.typeId === 'minecraft:chest' && overworld.getBlock({ x: -171, y: 77, z: -98 }).typeId === 'minecraft:chest' && overworld.getBlock({ x: -171, y: 77, z: -98 }).permutation === BlockPermutation.resolve("minecraft:chest", { facing_direction: 4 })) {
-        const container = block.getComponent("minecraft:inventory").container;
-        world.sendMessage(`${container.size}`);
-    }
-    */
     if (worldLoaded === true) {
         if (getInvSees()) {
             for (const invChest of getInvSees()) {
@@ -201,31 +180,35 @@ system.runInterval(async () => {
     // players[0].runCommand('execute @s ~ ~1.5 ~ tp @e[type=au:nopvp, c=1] ^ ^ ^0.1');
     // overworld.getEntities({ type: "au:nopvp" })[0].teleport(players[0].location)
     // if (!worldLoaded) return;
+    const ownerTag = database.config?.get("ownerTag");
+    const adminTag = database.config?.get("adminTag");
     for (const player of players) {
-        if (player.hasTag("owner")) {
-            if (world.scoreboard.getObjective('-auOwner').getParticipants()[0]) {
-                player.removeTag("owner");
-                world.sendMessage(`§cError, §4${world.scoreboard.getObjective('-auOwner').getParticipants()[0].displayName.match(/(?<=^-au)[^]+(?=-au$)/)[0]}§c is already the owner.`);
+        if (typeof ownerTag === "string" && typeof adminTag === "string") {
+            if (player.hasTag(ownerTag)) {
+                if (world.scoreboard.getObjective('-auOwner').getParticipants()[0]) {
+                    player.removeTag(ownerTag);
+                    world.sendMessage(`§cError, §4${world.scoreboard.getObjective('-auOwner').getParticipants()[0].displayName.match(/(?<=^-au)[^]+(?=-au$)/)[0]}§c is already the owner.`);
 
-            } else if (!world.scoreboard.getObjective('-auOwner').getParticipants()[0]) {
-                player.removeTag("owner");
-                try {
-                    world.scoreboard.getObjective('-auOwner').setScore(`-au${player.name}-au`, 0);
-                    world.sendMessage(`§aThe player §b${player.name}§a has been set successfully as the owner.`);
-                } catch (e) {
-                    world.sendMessage(`§Error, couldn't set §4${player.name}§c as the owner.`);
+                } else if (!world.scoreboard.getObjective('-auOwner').getParticipants()[0]) {
+                    player.removeTag(ownerTag);
+                    try {
+                        world.scoreboard.getObjective('-auOwner').setScore(`-au${player.name}-au`, 0);
+                        world.sendMessage(`§aThe player §b${player.name}§a has been set successfully as the owner.`);
+                    } catch (e) {
+                        world.sendMessage(`§Error, couldn't set §4${player.name}§c as the owner.`);
+                    }
                 }
+
             }
 
-        }
-
-        if (player.hasTag("-auadmin")) {
-            player.removeTag("-auadmin");
-            try {
-                await runCmd(overworld, `scoreboard players set "-au${player.name}-au" -au 0`);
-                await runCmd(overworld, `execute @a ~~~ tellraw @s {"rawtext": [{ "text": "§aThe player §b${player.name}§a has been added successfully as an admin." }]}`);
-            } catch (e) {
-                await runCmd(overworld, `execute @a ~~~ tellraw @s {"rawtext": [{ "text": "§cError, couldn't add ${player.name} as an admin, probably they already are." }]}`);
+            if (player.hasTag(adminTag)) {
+                player.removeTag(adminTag);
+                try {
+                    await runCmd(overworld, `scoreboard players set "-au${player.name}-au" -au 0`);
+                    await runCmd(overworld, `execute @a ~~~ tellraw @s {"rawtext": [{ "text": "§aThe player §b${player.name}§a has been added successfully as an admin." }]}`);
+                } catch (e) {
+                    await runCmd(overworld, `execute @a ~~~ tellraw @s {"rawtext": [{ "text": "§cError, couldn't add ${player.name} as an admin, probably they already are." }]}`);
+                }
             }
         }
 
@@ -352,7 +335,7 @@ system.runInterval(async () => {
             }
         }
     }
-}, 1);
+});
 
 world.beforeEvents.chatSend.subscribe(event => {
     if (isAdmin(event.sender.name) && event.message.toLowerCase() === "-au") {

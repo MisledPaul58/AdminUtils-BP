@@ -1,4 +1,4 @@
-import { server } from "../utils/server";
+import { server } from "../server";
 import { adminUtils } from "../main";
 
 const register = (name, form) => server.ui.register(name, form);

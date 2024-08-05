@@ -1,5 +1,5 @@
-class Utils {
-    deepClone(obj, visited = new WeakMap()) {
+export default class Utils {
+    static deepClone(obj, visited = new WeakMap()) {
         if (obj === null || typeof obj !== 'object') {
             return obj;
         }
@@ -33,5 +33,3 @@ class Utils {
         return clone;
     }
 }
-
-export const utils = new Utils();

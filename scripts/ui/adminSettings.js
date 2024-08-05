@@ -1,5 +1,6 @@
-import { server } from "../utils/server";
+import { server } from "../server";
 import { world } from "@minecraft/server";
+import { database } from "../database/index";
 
 const register = (name, form) => server.ui.register(name, form);
 
@@ -19,7 +20,7 @@ register("mainSettings", {
             subText: "%ui.subText.manage",
             icon: "textures/icons/settings2.png",
             action: (player) => {
-                server.ui.show("manageAdmins", player);
+                server.ui.show("", player);
             }
         }
     ],
@@ -40,11 +41,25 @@ register("config", {
         thanksMessage: {
             type: "toggle",
             name: "%settings.config.input1.name",
-            placeholder: "",
-            default: (player) => {
-
-            }
+            default: () => database.config.get("thanksMessage")
+        },
+        adminTag: {
+            type: "textField",
+            name: "%settings.config.input2.name",
+            placeholder: "-auadmin",
+            default: () => database.config.get("adminTag")
+        },
+        ownerTag: {
+            type: "textField",
+            name: "%settings.config.input3.name",
+            placeholder: "owner",
+            default: () => database.config.get("ownerTag")
         }
+    },
+    submitText: "%ui.submitText.confirm",
+    submit: (inputs, player) => {
+        database.config.assign(inputs);
+        server.ui.show("mainSettings", player);
     },
     cancel: (player) => {
         server.ui.show("mainSettings", player);

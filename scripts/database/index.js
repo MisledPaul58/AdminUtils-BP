@@ -1,16 +1,21 @@
-import { world } from "@minecraft/server";
 import { Database } from "./database";
 
 /**
  * @type { { loaded: Boolean, freeCam: Database, playerData: Database } }
  */
-export let databases = {
+export let database = {
     loaded: false
 };
 
-world.afterEvents.worldInitialize.subscribe(event => {
-    databases.freeCam = new Database("Freecam");
-    databases.playerData = new Database("PlayerData");
+database.loadData = new Database("LoadData");
 
-    databases.loaded = true;
-});
+database.config = new Database("Config");
+database.playerData = new Database("PlayerData");
+database.freeCam = new Database("Freecam");
+
+database.loaded = true;
+
+// for (const db in database) {
+//     if (db === "loaded") continue;
+//     database[db].deleteAll();
+// }

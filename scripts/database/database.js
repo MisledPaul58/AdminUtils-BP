@@ -36,6 +36,7 @@ export class Database {
         if (!this.#memory) throw new Error("Data tried to be set before load!");
         this.#memory[key] = value;
         this.#saveData();
+        return this;
     }
 
     /**
@@ -64,6 +65,15 @@ export class Database {
     values() {
         if (!this.#memory) throw new Error("Data not loaded!");
         return Object.values(this.#memory);
+    }
+
+    /**
+     * Assign the values of an object to their respective keys in the database memory.
+     * @param { Object } source
+     */
+    assign(source) {
+        Object.assign(this.#memory, source);
+        this.#saveData();
     }
 
     #saveData() {
@@ -96,7 +106,7 @@ export class Database {
     }
 
     /**
-     * Deletes a key from a table.
+     * Deletes a key from the table.
      * @param { String } key 
      */
     delete(key) {
@@ -104,6 +114,17 @@ export class Database {
         const status = delete this.#memory[key];
         this.#saveData();
         return status;
+    }
+
+    /**
+     * Delete all the keys from the table.
+     */
+    deleteAll() {
+        if (!this.#memory) throw new Error("Data not loaded!");
+
+        this.#memory = {};
+        this.#saveData();
+        return true;
     }
     
     /**

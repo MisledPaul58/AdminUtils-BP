@@ -10,7 +10,7 @@ import {
     WEEK,
     WEEKDAY,
 } from '../units/constants';
-import getParsingFlags from '../create/parsing-flags';
+import getParsingFlags from './parsing-flags';
 
 export default function checkOverflow(m) {
     var overflow,

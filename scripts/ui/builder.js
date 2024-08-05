@@ -125,7 +125,7 @@ class ModalUIForm extends UIForm {
         this.submitAction = form.submit;
     }
 
-    #build(player) {
+    _build(player) {
         this.inputNames = [];
         const resolveElement = (element) => this.resolve(element, player);
 
@@ -168,7 +168,7 @@ class ModalUIForm extends UIForm {
                 inputs[inputNames[i]] = response.formValues[i];
             }
 
-            this.submitAction?.(player, inputs);
+            this.submitAction?.(inputs, player);
         });
     }
 
@@ -183,7 +183,7 @@ class MessageUIForm extends UIForm {
         this.actions = [];
     }
 
-    #build(player) {
+    _build(player) {
         this.actions = [];
         const resolveElement = (element) => this.resolve(element, player);
 

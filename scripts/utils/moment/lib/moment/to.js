@@ -1,13 +1,13 @@
 import { createDuration } from '../duration/create';
 import { createLocal } from '../create/local';
-import { isMoment } from '../moment/constructor';
+import { isMoment } from './constructor';
 
-export function from(time, withoutSuffix) {
+export function to(time, withoutSuffix) {
     if (
         this.isValid() &&
         ((isMoment(time) && time.isValid()) || createLocal(time).isValid())
     ) {
-        return createDuration({ to: this, from: time })
+        return createDuration({ from: this, to: time })
             .locale(this.locale())
             .humanize(!withoutSuffix);
     } else {
@@ -15,6 +15,6 @@ export function from(time, withoutSuffix) {
     }
 }
 
-export function fromNow(withoutSuffix) {
-    return this.from(createLocal(), withoutSuffix);
+export function toNow(withoutSuffix) {
+    return this.to(createLocal(), withoutSuffix);
 }
