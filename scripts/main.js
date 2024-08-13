@@ -10,10 +10,10 @@ import {
 } from "@minecraft/server";
 import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
 import { database } from "./database/index";
+import "./utils/players.js";
 import { server } from "./server";
 import "./events/events";
 import "./ui/index";
-import "./utils/players.js";
 import { freeCam } from "./systems/freeCam.js";
 import moment from "./utils/moment/moment";
 
@@ -68,7 +68,7 @@ server.on("tick",async () => {
                 if (!invChests.includes(invChest.scoreboard)) {
                     invChests.push(invChest.scoreboard);
                     chestTick();
-                    async function chestTick() { //Poner un try catch a todo?
+                    async function chestTick() {
                         const dimension = world.getDimension(invChest.dimension);
                         const run = system.runInterval(() => { //Controls if any block is broken
                             const chest1 = dimension.getBlock({ x: invChest.pos1[0], y: invChest.pos1[1], z: invChest.pos1[2] });
@@ -111,7 +111,7 @@ server.on("tick",async () => {
                                 equipments: []
                             }
                         ];
-                        let recentChangedSlots = {
+                        let recentlyChangedSlots = {
                             inv: [],
                             equip: []
                         };
@@ -151,19 +151,19 @@ server.on("tick",async () => {
                                 } else if (replaceInvWhenJoin === true) {
                                     const rawTarget = world.getPlayers({ name: invChest.target })[0];
                                     if (rawTarget) {
-                                        await handleInventories(invChest, lastTargetData, lastChestData, recentChangedSlots, "inv");
+                                        await handleInventories(invChest, lastTargetData, lastChestData, recentlyChangedSlots, "inv");
                                         replaceInvWhenJoin = false;
                                     }
                                 } else if (replaceChestWhenLoad === true) {
                                     const rawTarget = world.getPlayers({ name: invChest.target })[0];
                                     if (rawTarget) {
-                                        await handleInventories(invChest, lastTargetData, lastChestData, recentChangedSlots, "chest");
+                                        await handleInventories(invChest, lastTargetData, lastChestData, recentlyChangedSlots, "chest");
                                         replaceChestWhenLoad = false;
                                     }
                                 } else {
                                     const rawTarget = world.getPlayers({ name: invChest.target })[0];
                                     if (rawTarget) {
-                                        await handleInventories(invChest, lastTargetData, lastChestData, recentChangedSlots);
+                                        await handleInventories(invChest, lastTargetData, lastChestData, recentlyChangedSlots);
                                     }
                                 }
                             } else if (world.getPlayers({ name: invChest.target })[0]) {
@@ -3073,7 +3073,7 @@ function disableVanishGUI(p) {
         .button("§l<-- Back", "textures/icons/back.png")
         .button("Type an offline/online player instead", "textures/icons/pencil.png")
         .button("Disable vanish mode for myself", "textures/icons/unVanish.png");
-    for (const player of players.map(pname => pname.name)) {
+    for (const player of getVanishedPlayers()) {
         if (isVanished(player) && player !== p.name) {
             form.button(player, "textures/icons/steve_icon.png");
             availablePlayers.push(player);
@@ -3224,7 +3224,7 @@ function seeInventoryMenu(p) {
                         if (result.selection === 0) {
                             seeInventoryMenu(p);
                         } else if (result.selection === 1) {
-                            createChestInv();
+                            createChestInv(player);
                         }
                     });
 
@@ -3822,8 +3822,7 @@ export function isValidUsername(username) {
 }
 
 function isAdmin(username) {
-    if (admins.includes(`-au${username}-au`)) return true
-    else return false;
+    return admins.includes(`-au${username}-au`);
 }
 
 function isOwner(username) {
@@ -4023,13 +4022,12 @@ function getJailExitLoc() {
 
 function isVanished(player) {
     const vanishedPlayers = getVanishedPlayers();
-    if (vanishedPlayers.includes(player)) return true
-    else return false;
+    return vanishedPlayers?.includes(player);
 }
 
 function getVanishedPlayers() {
     try {
-        return world.scoreboard.getObjective('-auVanished').getParticipants().map(participant => participant.displayName.match(/(?<=^-au)[^]+/)[0]);
+        return world.scoreboard.getObjective('-auVanished').getParticipants().map(participant => participant.displayName.match(/(?<=^-au)[^]+/)?.[0]).filter(p => p);
     } catch (e) {
         return;
     }
@@ -4179,12 +4177,12 @@ function getInvSees() {
  * @param { { dimension: string, target: string, pos1: number[], pos2: number[], signPos: number[], scoreboard: string } } chestObject
  * @param { [{ invItems: [], equipments: [] }, { invItems: [], equipments: [] }] } lastTargetData
  * @param { [{ invItems: [], equipments: [] }, { invItems: [], equipments: [] }] } lastChestData
- * @param { { inv: [], equip: [] } } recentChangedSlots
+ * @param { { inv: [], equip: [] } } recentlyChangedSlots
  * @param { "inv" | "chest" } forceReplace Useful when you want to override the inventory with the chest, for example, if the player has just joined and you can't compare the containers to identify a change.
  * Default is false.
  */
 
-async function handleInventories(chestObject, lastTargetData, lastChestData, recentChangedSlots, forceReplace = false) {
+async function handleInventories(chestObject, lastTargetData, lastChestData, recentlyChangedSlots, forceReplace = false) {
     const rawTarget = world.getPlayers({ name: chestObject.target })[0];
     const dimension = world.getDimension(chestObject.dimension);
     const chest1 = dimension.getBlock({ x: chestObject.pos1[0], y: chestObject.pos1[1], z: chestObject.pos1[2] });
@@ -4266,7 +4264,7 @@ async function handleInventories(chestObject, lastTargetData, lastChestData, rec
                 //Means the item of the inventory at 'i' has changed, update chest
                 chestContainer.setItem(i + 18, newTargetInv[i]);
                 changedSlots.inv.push(i);
-            } else if (!recentChangedSlots.inv.includes(i) && areItemsEqual(lastTargetData[0].invItems[i], oldTargetInv[i]) === false && areItemsEqual(lastTargetData[0].invItems[i], lastTargetData[1].invItems[i]) === true) {
+            } else if (!recentlyChangedSlots.inv.includes(i) && areItemsEqual(lastTargetData[0].invItems[i], oldTargetInv[i]) === false && areItemsEqual(lastTargetData[0].invItems[i], lastTargetData[1].invItems[i]) === true) {
                 //Means the item of the inventory at 'i' changed last time this function was called but when the variables where already filled, so no change was detected
                 chestContainer.setItem(i + 18, newTargetInv[i]);
                 changedSlots.inv.push(i);
@@ -4280,7 +4278,7 @@ async function handleInventories(chestObject, lastTargetData, lastChestData, rec
                     targetInventory.setItem(translatedSlot, newChestInv[i]);
                 }
                 changedSlots.inv.push(i);
-            } else if (!recentChangedSlots.inv.includes(i) && areItemsEqual(lastChestData[0].invItems[i], oldChestInv[i]) === false && areItemsEqual(lastChestData[0].invItems[i], lastChestData[1].invItems[i]) === true) {
+            } else if (!recentlyChangedSlots.inv.includes(i) && areItemsEqual(lastChestData[0].invItems[i], oldChestInv[i]) === false && areItemsEqual(lastChestData[0].invItems[i], lastChestData[1].invItems[i]) === true) {
                 //Means the item of the chest at 'i' changed last time this function was called but when the variables where already filled, so no change was detected
                 if (i >= 27) { //Translate the slot from the array to the slot in the inventory
                     const translatedSlot = i - 27;
@@ -4299,7 +4297,7 @@ async function handleInventories(chestObject, lastTargetData, lastChestData, rec
                 //Means the equipment item of the inventory at 'i' has changed, update chest
                 chestContainer.setItem(chestEquipSlots[i], newTargetEquip[i]);
                 changedSlots.equip.push(i);
-            } else if (!recentChangedSlots.equip.includes(i) && areItemsEqual(lastTargetData[0].equipments[i], oldTargetEquip[i]) === false && areItemsEqual(lastTargetData[0].equipments[i], lastTargetData[1].equipments[i]) === true) {
+            } else if (!recentlyChangedSlots.equip.includes(i) && areItemsEqual(lastTargetData[0].equipments[i], oldTargetEquip[i]) === false && areItemsEqual(lastTargetData[0].equipments[i], lastTargetData[1].equipments[i]) === true) {
                 //Means the equipment item of the inventory at 'i' changed last time this function was called but when the variables where already filled, so no change was detected
                 chestContainer.setItem(chestEquipSlots[i], newTargetEquip[i]);
                 changedSlots.equip.push(i);
@@ -4307,7 +4305,7 @@ async function handleInventories(chestObject, lastTargetData, lastChestData, rec
                 //Means the equipment item of the chest at 'i' has changed, update inventory
                 targetEquipments.setEquipment(targetEquipSlots[i], newChestEquip[i]);
                 changedSlots.equip.push(i);
-            } else if (!recentChangedSlots.equip.includes(i) && areItemsEqual(lastChestData[0].equipments[i], oldChestEquip[i]) === false && areItemsEqual(lastChestData[0].equipments[i], lastChestData[1].equipments[i]) === true) {
+            } else if (!recentlyChangedSlots.equip.includes(i) && areItemsEqual(lastChestData[0].equipments[i], oldChestEquip[i]) === false && areItemsEqual(lastChestData[0].equipments[i], lastChestData[1].equipments[i]) === true) {
                 //Means the equipment item of the chest at 'i' changed last time this function was called but when the variables where already filled, so no change was detected
                 targetEquipments.setEquipment(targetEquipSlots[i], newChestEquip[i]);
                 changedSlots.equip.push(i);
@@ -4348,7 +4346,7 @@ async function handleInventories(chestObject, lastTargetData, lastChestData, rec
     lastChestData[0].invItems = newChestInv;
     lastChestData[0].equipments = newChestEquip;
 
-    Object.assign(recentChangedSlots, changedSlots);
+    Object.assign(recentlyChangedSlots, changedSlots);
 }
 
 export function convertToRegExpFriendly(str) {

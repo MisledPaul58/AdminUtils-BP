@@ -27,22 +27,7 @@ class FreeCam {
             .show(p).then((response) => {
             if (response.canceled === true) return;
             const { selection } = response;
-            // if (buttons === 4) {
 
-            // } else {
-
-            // }
-
-            // if (selection === 0) {
-            //     adminUtils(player);
-            // } else if (selection === 1 && buttons === 4) {
-
-
-            // } else if (selection === 1 && buttons === 3) {
-
-            // } else if () {
-
-            // }
             switch (selection) {
                 case 0: //Back
                     adminUtils(p);
@@ -128,14 +113,7 @@ class FreeCam {
      * @param { Player } p
      */
     #expFreecamHowTo(p) {
-        p.sendMessage("§l§o§6§k====§r§l§o§6============================§k====§r\n" +
-            "§aWith this freecam you can §bclip through blocks§a at the speed you want. You can do §b3 different things§a depending on the hotbar slot you have selected:\n" +
-            "  §7* §mSlot 7: §3force chunk load.\n" +
-            "  §7* §mSlot 8: §3increase freecam speed.\n" +
-            "  §7* §mSlot 9: §3decrease freecam speed.\n" +
-            "\n" +
-            "§aYou can find plenty of §boptions and settings§a in the Freecam menu, such as exiting the freecam or customizing the §aAuto chunk load system.\n" +
-            "§l§6§k====§r§l§o§6============================§k====§r");
+        p.sendMessage("§l§o§6§k====§r§l§o§6============================§k====§r\n" + "§aWith this freecam you can §bclip through blocks§a at the speed you want. You can do §b3 different things§a depending on the hotbar slot you have selected:\n" + "  §7* §mSlot 7: §3force chunk load.\n" + "  §7* §mSlot 8: §3increase freecam speed.\n" + "  §7* §mSlot 9: §3decrease freecam speed.\n" + "\n" + "§aYou can find plenty of §boptions and settings§a in the Freecam menu, such as exiting the freecam or customizing the §aAuto chunk load system.\n" + "§l§6§k====§r§l§o§6============================§k====§r");
         p.playSound("random.levelup", { volume: 0.6 });
     }
 
@@ -925,9 +903,7 @@ class FreeCam {
                                                 p.runCommand("camera @s fade time 2 1 1 color 0 0 0");
                                                 await delay(40);
                                                 p.teleport({
-                                                    x: coords[0],
-                                                    y: coords[1],
-                                                    z: coords[2]
+                                                    x: coords[0], y: coords[1], z: coords[2]
                                                 }, { dimension: world.getDimension(dimension) });
                                                 await delay(20);
                                                 p.sendMessage("§bTeleported!");
@@ -940,7 +916,8 @@ class FreeCam {
                                         }
                                     }
                                 });
-                            } break;
+                            }
+                                break;
 
                             case 3: { //Teleport freecam to a player
                                 const rawPlayers = world.getPlayers().filter(player => player.name !== p.name);
@@ -955,37 +932,38 @@ class FreeCam {
                                     .title("§lTeleport freecam to a player")
                                     .dropdown("Choose a player", players)
                                     .show(p).then(async result => {
-                                        if (result.canceled === true) return this.#manageFreeCamGUI(p);
+                                    if (result.canceled === true) return this.#manageFreeCamGUI(p);
 
-                                        const selectedRawPlayer = rawPlayers[result.formValues[0]];
-                                        const player = selectedRawPlayer.name;
+                                    const selectedRawPlayer = rawPlayers[result.formValues[0]];
+                                    const player = selectedRawPlayer.name;
 
-                                        if (!this.isInSpecFreeCam(p.name)) {
-                                            p.sendMessage("§cError, another user has recently disabled your freecam.");
+                                    if (!this.isInSpecFreeCam(p.name)) {
+                                        p.sendMessage("§cError, another user has recently disabled your freecam.");
+                                        p.playSound("au.error");
+
+                                    } else if (!selectedRawPlayer.isValid()) {
+                                        p.sendMessage(`§cError, §4${player}§c has recently left.`);
+                                        p.playSound("au.error");
+
+                                    } else {
+                                        try {
+                                            p.runCommand("camera @s fade time 2 1 1 color 0 0 0");
+                                            await delay(40);
+
+                                            p.teleport(selectedRawPlayer.location);
+                                            await delay(20);
+
+                                            p.sendMessage("§bTeleported!");
+                                            p.playSound("au.success");
+                                        } catch (e) {
+                                            console.warn(e);
+                                            p.sendMessage(`§cError, couldn't teleport you to §4${player}§c.`);
                                             p.playSound("au.error");
-
-                                        } else if (!selectedRawPlayer.isValid()) {
-                                            p.sendMessage(`§cError, §4${player}§c has recently left.`);
-                                            p.playSound("au.error");
-
-                                        } else {
-                                            try {
-                                                p.runCommand("camera @s fade time 2 1 1 color 0 0 0");
-                                                await delay(40);
-
-                                                p.teleport(selectedRawPlayer.location);
-                                                await delay(20);
-
-                                                p.sendMessage("§bTeleported!");
-                                                p.playSound("au.success");
-                                            } catch (e) {
-                                                console.warn(e);
-                                                p.sendMessage(`§cError, couldn't teleport you to §4${player}§c.`);
-                                                p.playSound("au.error");
-                                            }
                                         }
-                                    });
-                            } break;
+                                    }
+                                });
+                            }
+                                break;
 
                             case 4: { //Exit and tp to starting location
                                 const { startLoc } = database.freeCam.get(p.name);
@@ -1125,13 +1103,10 @@ class FreeCam {
                 .title("§lAuto chunk load")
                 .body("Select an option")
                 .button("§l<-- Back", "textures/icons/back.png")
-                .button(`§lState:§r ${data.autoChunkLoad.enabled ? "§aON" : "§cOFF"}§r\n` +
-                    "§8[ §b§oClick to toggle§r §8]§r");
+                .button(`§lState:§r ${data.autoChunkLoad.enabled ? "§aON" : "§cOFF"}§r\n` + "§8[ §b§oClick to toggle§r §8]§r");
             if (data.autoChunkLoad.enabled) {
-                form.button(`Radius: §6${data.autoChunkLoad.radius}§r\n` +
-                    "§8[ §b§oClick to edit§r §8]§r")
-                    .button(`Load time: §6${data.autoChunkLoad.loadTime}§r\n` +
-                        "§8[ §b§oClick to edit§r §8]§r");
+                form.button(`Radius: §6${data.autoChunkLoad.radius}§r\n` + "§8[ §b§oClick to edit§r §8]§r")
+                    .button(`Load time: §6${data.autoChunkLoad.loadTime}§r\n` + "§8[ §b§oClick to edit§r §8]§r");
             }
             form.show(p).then((response) => {
                 if (response.canceled === true) return;
@@ -1223,8 +1198,7 @@ class FreeCam {
                     }
                 }
             });
-        },
-        /**
+        }, /**
          * @param { Player } p
          */
         tpStartLoc: (p) => {
@@ -1268,8 +1242,7 @@ class FreeCam {
                     }
                 }
             });
-        },
-        /**
+        }, /**
          * @param { Player } p
          */
         tpSpecificLoc: (p) => {
@@ -1321,8 +1294,7 @@ class FreeCam {
                     }
                 }
             });
-        },
-        /**
+        }, /**
          * @param { Player } p
          */
         tpToPlayerSameDim: (p) => {
@@ -1375,8 +1347,7 @@ class FreeCam {
                     }
                 }
             });
-        },
-        /**
+        }, /**
          * @param { Player } p
          */
         startLocExit: (p) => {
@@ -1419,8 +1390,7 @@ class FreeCam {
                     }
                 }
             });
-        },
-        /**
+        }, /**
          * @param { Player } p
          */
         tpExit: (p) => {
@@ -1501,7 +1471,7 @@ export const freeCam = new FreeCam();
 
 let activeExpFreeCams = [];
 
-server.on("tick",() => {
+server.on("tick", () => {
     if (!database.loaded) return;
     for (const player in database.freeCam.getTable()) {
         const rawPlayer = world.getPlayers({ name: player })[0];
@@ -1565,10 +1535,7 @@ async function handleExpFreecam(rawPlayer, startLocation, dimension) {
     let lastVelocity = { x: 0.00, y: 0.00, z: 0.00 };
     let lastVelCount = 0;
     let slotControls = {
-        speed: database.freeCam.get(player).speed,
-        slot: rawPlayer.selectedSlotIndex,
-        lastSec: 0,
-        slotISO: ""
+        speed: database.freeCam.get(player).speed, slot: rawPlayer.selectedSlotIndex, lastSec: 0, slotISO: ""
     };
     let gamemode = "";
 
@@ -1641,7 +1608,9 @@ async function handleExpFreecam(rawPlayer, startLocation, dimension) {
                 } else { //If it's still loading
                     //Continue loading
                     rawPlayer.setGameMode("spectator");
-                    if (!rawPlayer.dimension.getPlayers({ name: player, location: data.autoChunkLoad.lastLoadLoc, maxDistance: 3 })[0]) {
+                    if (!rawPlayer.dimension.getPlayers({
+                        name: player, location: data.autoChunkLoad.lastLoadLoc, maxDistance: 3
+                    })[0]) {
                         Object.assign(startLoc, data.autoChunkLoad.lastLoadLoc);
                         rawPlayer.teleport(startLoc);
                     }
@@ -1681,9 +1650,7 @@ async function handleExpFreecam(rawPlayer, startLocation, dimension) {
         }
 
         rawPlayer.camera.setCamera("au:freecam", {
-            location: currentCamLoc,
-            easeOptions: { easeTime: 0.05, easeType: EasingType.InOutSine },
-            rotation: pRot
+            location: currentCamLoc, easeOptions: { easeTime: 0.05, easeType: EasingType.InOutSine }, rotation: pRot
         });
 
         //Save the current camera location
@@ -1700,9 +1667,7 @@ async function handleExpFreecam(rawPlayer, startLocation, dimension) {
             lastVelocity = { x: 0.00, y: 0.00, z: 0.00 };
         }
         if ((lastVelCount >= 2 && areObjectsEqual(pVelocity, {
-            x: 0.00,
-            y: 0.00,
-            z: 0.00
+            x: 0.00, y: 0.00, z: 0.00
         })) || (lastVelocity.x > 0.05 && pVelocity.x < -0.05) || (lastVelocity.x < -0.05 && pVelocity.x > 0.05) || (lastVelocity.z > 0.05 && pVelocity.z < -0.05) || (lastVelocity.z < -0.05 && pVelocity.z > 0.05)) {
             lastVelCount = 0;
             lastVelocity = { x: 0.00, y: 0.00, z: 0.00 };

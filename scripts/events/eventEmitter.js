@@ -2,71 +2,71 @@ export class EventEmitter {
     /**
      * @type Array
      */
-    #callbacks;
-    #maxCallbacks;
+    #listeners;
+    #maxListeners;
 
     constructor() {
-        this.#callbacks = [];
-        this.#maxCallbacks = 256;
+        this.#listeners = [];
+        this.#maxListeners = 256;
     }
 
-    on(eventName, callback) {
-        this.#addCallback(eventName, callback);
+    on(eventName, listener) {
+        this.#addListener(eventName, listener);
         return this;
     }
 
-    once(eventName, callback) {
-        this.#addCallback(eventName, callback, true);
+    once(eventName, listener) {
+        this.#addListener(eventName, listener, true);
         return this;
     }
 
-    off(eventName, callback) {
-        this.#removeCallback(eventName, callback);
+    off(eventName, listener) {
+        this.#removeListener(eventName, listener);
         return this;
     }
 
     emit(eventName, ...args) {
         let status = false;
-        for (const callbackObject of this.#callbacks) {
-            if (callbackObject.eventName === eventName) {
-                if (callbackObject.once && callbackObject.executed) return;
+        for (const listenerObject of this.#listeners) {
+            if (listenerObject.eventName === eventName) {
+                if (listenerObject.once && listenerObject.executed) return;
 
-                callbackObject.callback(...args);
+                listenerObject.listener(...args);
                 status = true;
-                callbackObject.executed = true;
+                listenerObject.executed = true;
             }
         }
 
         return status;
     }
 
-    #addCallback(eventName, callback, once = false) {
-        const callbackCount = this.#callbackCount(eventName);
-        if (callbackCount >= this.#maxCallbacks) {
-            throw `Warning, possible EventEmitter memory leak detected and prevented. Current callbacks for the event ${eventName}: ${callbackCount}.`
+    #addListener(eventName, listener, once = false) {
+        const listenerCount = this.#listenerCount(eventName);
+        if (listenerCount >= this.#maxListeners) {
+            throw `Warning, possible EventEmitter memory leak detected and prevented. Current listeners for the event ${eventName}: ${listenerCount}.`
         }
 
         const data = {
             eventName,
-            callback,
+            listener,
             once,
             executed: false
         };
-        this.#callbacks.push(data);
+        this.#listeners.push(data);
     }
 
-    #removeCallback(eventName, callback) {
-        if (typeof callback === "number") {
-            this.#callbacks.splice(callback, 1);
+    #removeListener(eventName, listener) {
+        if (typeof listener === "number") {
+            this.#listeners.splice(listener, 1);
         } else {
-            const index = this.#callbacks.findIndex(callback => callback.eventName === eventName && callback.callback === callback);
+            const index = this.#listeners.findIndex(listenerObject => listenerObject.eventName === eventName && listenerObject.listener === listenerObject);
             if (index !== -1) {
-                this.#callbacks.splice(index, 1);
+                this.#listeners.splice(index, 1);
             }
         }
     }
 
-    #callbackCount(eventName) {
-        return eventName ? this.#callbacks.filter(callback => callback.eventName === eventName).length : this.#callbacks.length;
+    #listenerCount(eventName) {
+        return eventName ? this.#listeners.filter(listener => listener.eventName === eventName).length : this.#listeners.length;
     }
 }

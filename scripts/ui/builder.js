@@ -33,27 +33,39 @@ class UIForm {
 
         // world.sendMessage(`${UI.queue.get(player).id}  ${UI.inQueue(player, UI.forms.get(this.form.id))}`)
         // world.sendMessage(`${UI.queue.get(player) === this}  ${UI.inQueue(player, this)}`)
+
         while (player.isValid() && UI.inQueue(player, this)) {
-            // world.sendMessage(`while ${UI.inQueue(player, this)}`)
-            const form = this._build(player); //Check
+            world.sendMessage(`while ${UI.inQueue(player, this)}`)
+            /**
+             * @type ActionFormData || ModalFormData || MessageFormData
+             */
+            const form = this._build(player);
             const buildData = this.getBuildData();
-            // if (!wait) {
-            //     form.show(player).then((response) => {
-            //
-            //     });
-            // } else {
-            //
-            // }
-            UI.active.set(player, this); //Arreglar con currentTick?
-            const response = await form.show(player);
-            if (!wait || response?.cancelationReason !== "UserBusy") {
+
+            let state = "pending";
+
+            const responsePromise = form.show(player).then((response) => {
+                if (!wait || response?.cancelationReason !== "UserBusy") {
+                    state = "responded";
+                    world.sendMessage("responded xd")
+                    UI.queue.delete(player);
+                    UI.active.delete(player);
+                    onShow(response, buildData);
+                }
+                state = "busy";
+            });
+
+            await system.waitTicks(2);
+            if (state === "pending" && UI.inQueue(player, this)) {
                 UI.queue.delete(player);
-                UI.active.delete(player);
-                onShow(response, buildData);
+                UI.active.set(player, this);
+                world.sendMessage("shown xdd")
                 return true;
             }
-            UI.active.delete(player);
-            await system.waitTicks(2);
+
+            await responsePromise;
+            if (state === "responded") return true;
+
         }
         // UI.queue.delete(player);
         return false;
@@ -251,7 +263,6 @@ class UIBuilder {
             this.queue.set(player, form);
             form.enter(player, wait);
 
-            // this.active.set(player, form);
             return true;
         }
     }
