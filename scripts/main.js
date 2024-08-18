@@ -23,8 +23,11 @@ export const delay = ticks => new Promise(res => system.runTimeout(res, ticks));
 let playerJoined = false;
 let worldLoaded = false;
 let scoreboardsLoaded = false;
-let players = []; //Hacer que vuelva a la lista de jugadores en projectilePowers después de darle a submit?, recordarte el jugador que has seleccionado en el ModalFormData?
-let admins = []; //Usar una entidad para el invsee en vez de cofres?
+/**
+ * @type { Player[] }
+ */
+let players = [];
+let admins = [];
 let tntFlag = "-autnt0";
 let stuckJailedPlayers = [];
 let invChests = [];
@@ -32,7 +35,7 @@ let invChests = [];
 system.beforeEvents.watchdogTerminate.subscribe(watchdog => { watchdog.cancel = true });
 
 server.on("tick",async () => {
-    players = [...world.getPlayers()];
+    players = world.getAllPlayers();
 
     try { admins = [...world.scoreboard.getObjective('-au').getParticipants().map(admin => admin.displayName)] } catch (e) { }
 
@@ -177,9 +180,6 @@ server.on("tick",async () => {
         }
     }
 
-    // players[0].runCommand('execute @s ~ ~1.5 ~ tp @e[type=au:nopvp, c=1] ^ ^ ^0.1');
-    // overworld.getEntities({ type: "au:nopvp" })[0].teleport(players[0].location)
-    // if (!worldLoaded) return;
     const ownerTag = database.config?.get("ownerTag");
     const adminTag = database.config?.get("adminTag");
     for (const player of players) {
@@ -235,6 +235,10 @@ server.on("tick",async () => {
         if (isVanished(player.name)) {
             player.addEffect(EffectTypes.get('invisibility'), 1 * TicksPerSecond, { amplifier: 1, showParticles: false });
             player.playAnimation('animation.player.vanish', { blendOutTime: 1 });
+        }
+
+        if (player.getComponent("minecraft:inventory").container.getItem(player.selectedSlotIndex)?.typeId === "au:wand") {
+            player.runCommand("enchant @s unbreaking 3");
         }
     }
 
