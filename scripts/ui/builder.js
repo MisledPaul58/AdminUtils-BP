@@ -9,11 +9,6 @@ class UIForm {
         this.cancelAction = form.cancel;
     }
 
-    isCanceled(response) {
-        if (response.canceled) return true;
-
-    }
-
     /**
      *
      * @param { Player } player
@@ -21,21 +16,7 @@ class UIForm {
      * @param onShow
      */
     async _show(player, wait, onShow) {
-        // const run = system.runInterval(() => {
-        //     if (!player.isValid() || !UI.queue.has(player)) {
-        //         UI.queue.delete(player);
-        //         return system.clearRun(run);
-        //     }
-        //
-        //     const form = this.#build(player); //Check
-        //     const response =
-        // }, 2);
-
-        // world.sendMessage(`${UI.queue.get(player).id}  ${UI.inQueue(player, UI.forms.get(this.form.id))}`)
-        // world.sendMessage(`${UI.queue.get(player) === this}  ${UI.inQueue(player, this)}`)
-
         while (player.isValid() && UI.inQueue(player, this)) {
-            world.sendMessage(`while ${UI.inQueue(player, this)}`)
             /**
              * @type ActionFormData || ModalFormData || MessageFormData
              */
@@ -47,7 +28,6 @@ class UIForm {
             const responsePromise = form.show(player).then((response) => {
                 if (!wait || response?.cancelationReason !== "UserBusy") {
                     state = "responded";
-                    world.sendMessage("responded xd")
                     UI.queue.delete(player);
                     UI.active.delete(player);
                     onShow(response, buildData);
@@ -59,7 +39,6 @@ class UIForm {
             if (state === "pending" && UI.inQueue(player, this)) {
                 UI.queue.delete(player);
                 UI.active.set(player, this);
-                world.sendMessage("shown xdd")
                 return true;
             }
 
@@ -67,15 +46,7 @@ class UIForm {
             if (state === "responded") return true;
 
         }
-        // UI.queue.delete(player);
         return false;
-
-
-        // const form = this.#build(player);
-        // const buildData = this.getBuildData();
-        // form.show(player).then((response) => {
-        //
-        // });
     }
 
     resolve(element, player) {
@@ -273,7 +244,7 @@ class UIBuilder {
      * @param { String } ui
      * @return { Boolean }
      */
-    displayingUI(player, ui = undefined) { //.get === .get (change)
+    displayingUI(player, ui = undefined) {
         if (!this.active.has(player)) return false;
 
         if (ui && this.forms.has(ui)) {

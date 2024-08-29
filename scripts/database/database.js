@@ -1,5 +1,4 @@
 import { world } from "@minecraft/server";
-import { convertToRegExpFriendly } from "../main";
 
 export class Database {
     
@@ -12,19 +11,58 @@ export class Database {
     }
 
     #fetch() {
-        const regexp = new RegExp(`^\\d+_${convertToRegExpFriendly(this.#tableName)}$`);
-        const properties = world.getDynamicPropertyIds();
-        let tableProperties = [];
-        for (let i = 0; i < properties.length; i++) {
-            if (regexp.test(properties[i])) tableProperties.push(properties[i]);
+        const chunksLength = world.getDynamicProperty(`db_${this.#tableName}_length`) ?? 0;
+        if (typeof chunksLength !== "number") {
+            console.warn(`[DATABASE]: '${this.#tableName}' has improper setup. Wiping data.`);
+
+            this.wipe();
+            return {};
         }
 
-        if (tableProperties.length === 0) return {};
-        let table = "";
-        for (const property of tableProperties) {
-            table += world.getDynamicProperty(property);
+        if (chunksLength <= 0) return {};
+
+        let collectedData = "";
+        for (let i = 0; i < chunksLength; i++) {
+            const dataChunk = world.getDynamicProperty(`db_${this.#tableName}_${i}`);
+            if (typeof dataChunk !== "string") {
+                console.warn(`[DATABASE]: When fetching db_${this.#tableName}_${i}, improper data was found. Wiping data.`);
+
+                this.wipe();
+                return {};
+            }
+
+            collectedData += dataChunk;
         }
-        return JSON.parse(table);
+
+        if (!collectedData.startsWith("{") || !collectedData.endsWith("}")) {
+            console.warn(`[DATABASE]: When fetching '${this.#tableName}', improper data was found. Wiping data.`);
+
+            this.wipe();
+            return {};
+        }
+        return JSON.parse(collectedData);
+    }
+
+    #saveData() {
+        const chunks = JSON.stringify(this.#memory).match(/.{1,30000}/g);
+        if (!chunks?.[0]) return false;
+
+        const oldChunksLength = world.getDynamicProperty(`db_${this.#tableName}_length`);
+        const chunksLength = chunks.length;
+        // Update chunks length
+        world.setDynamicProperty(`db_${this.#tableName}_length`, chunksLength);
+
+        // Save the memory in stringified chunks
+        for (const [i, chunk] of chunks.entries()) {
+            world.setDynamicProperty(`db_${this.#tableName}_${i}`, chunk);
+        }
+
+        if (oldChunksLength > chunksLength) {
+            for (let i = chunksLength; i < oldChunksLength; i++) { //Delete the old chunks in case they aren't needed anymore because the data is smaller.
+                world.setDynamicProperty(`db_${this.#tableName}_${i}`, undefined);
+            }
+        }
+        return true;
     }
 
     /**
@@ -45,7 +83,6 @@ export class Database {
      * @returns the value associated with the given key in the database table.
      */
     get(key) {
-        if (!this.#memory) throw new Error("Data not loaded!");
         return this.#memory[key];
     }
 
@@ -54,7 +91,6 @@ export class Database {
      * @returns { String[] }
      */
     keys() {
-        if (!this.#memory) throw new Error("Data not loaded!");
         return Object.keys(this.#memory);
     }
 
@@ -63,36 +99,16 @@ export class Database {
      * @returns { [] } values in the table
      */
     values() {
-        if (!this.#memory) throw new Error("Data not loaded!");
         return Object.values(this.#memory);
     }
 
     /**
-     * Assign the values of an object to their respective keys in the database memory.
+     * Assigns the values of an object to their respective keys in the database memory.
      * @param { Object } source
      */
     assign(source) {
         Object.assign(this.#memory, source);
         this.#saveData();
-    }
-
-    #saveData() {
-        const regexp = new RegExp(`^\\d+_${convertToRegExpFriendly(this.#tableName)}$`);
-        const properties = world.getDynamicPropertyIds();
-        let oldChunksLength = 0;
-        for (let i = 0; i < properties.length; i++) {
-            if (regexp.test(properties[i])) oldChunksLength++;
-        }
-        
-        const chunks = JSON.stringify(this.#memory).match(/.{1,30000}/g);
-        for (const i in chunks) {
-            world.setDynamicProperty(`${i}_${this.#tableName}`, chunks[i]);
-        }
-        if (oldChunksLength > chunks.length) {
-            for (let i = chunks.length; i < oldChunksLength; i++) { //Delete the old tables from the old chunks
-                world.setDynamicProperty(`${i}_${this.#tableName}`, undefined);
-            }
-        }
     }
 
     /**
@@ -101,7 +117,6 @@ export class Database {
      * @returns { Boolean }
      */
     has(key) {
-        if (!this.#memory) throw new Error("Data not loaded!");
         return Object.keys(this.#memory).includes(key);
     }
 
@@ -117,14 +132,21 @@ export class Database {
     }
 
     /**
-     * Delete all the keys from the table.
+     * Deletes all the keys from the table and resets its data.
      */
-    deleteAll() {
-        if (!this.#memory) throw new Error("Data not loaded!");
+    wipe() {
+        const ids = world.getDynamicPropertyIds();
+        for (const id of ids) {
+            if (id.startsWith(`db_${this.#tableName}`)) world.setDynamicProperty(id, undefined);
+        }
+    }
 
+    /**
+     * Clears all the keys in the table.
+     */
+    clear() {
         this.#memory = {};
         this.#saveData();
-        return true;
     }
     
     /**
@@ -132,16 +154,10 @@ export class Database {
      * @returns { object }
      */
     getTable() {
-        if (!this.#memory) throw new Error("Data not loaded!");
         return this.#memory;
     }
 
-    /**
-     * Gets the name of the table.
-     * @returns { String }
-     */
-    getTableName() {
-        if (!this.#memory) throw new Error("Data not loaded!");
+    get tableName() {
         return this.#tableName;
     }
 }

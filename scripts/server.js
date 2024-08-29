@@ -24,7 +24,7 @@ class Server extends EventEmitter {
     }
 
     fetchDefaultConfig() {
-        database.config.deleteAll();
+        database.config.clear();
         database.config.assign(defaultConfig);
     }
 }

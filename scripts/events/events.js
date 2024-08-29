@@ -19,21 +19,21 @@ system.runInterval(() => {
             .set("ready", true)
             .set("lastTickLoadTime", tickCount)
             .set("lastMsLoadTime", msLoadTime);
+
+        const firstLoad = database.loadData.get("loadedAtLeastOnce");
+        if (!firstLoad) {
+            /**
+             * Emit to "firstLoad" event.
+             */
+            server.emit("firstLoad");
+            database.loadData.set("loadedAtLeastOnce", true);
+        }
     }
 
-    /**
-     * Emit to "tick" event.
-     */
-    server.emit("tick", { currentTick: tickCount,  });
+    if (worldReady) {
+        /**
+         * Emit to "tick" event.
+         */
+        server.emit("tick", { currentTick: tickCount });
+    }
 }, 1);
-
-/**
- * Emit to "firstLoad" event.
- */
-server.on("ready", (data) => {
-    const firstLoad = database.loadData.get("loadedAtLeastOnce");
-    if (!firstLoad) {
-        server.emit("firstLoad");
-        database.loadData.set("loadedAtLeastOnce", true);
-    }
-});

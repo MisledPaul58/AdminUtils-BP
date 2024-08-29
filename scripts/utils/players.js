@@ -20,7 +20,7 @@ world.beforeEvents.playerLeave.subscribe(event => {
 
 /**
  * Send a custom message (AU >> ...).
- * @param { String  } msg
+ * @param { String } msg
  * @param { Array } args
  */
 Player.prototype.sendCustomMessage = function (msg, args) {

@@ -1,6 +1,5 @@
 scripts/database.ts
 scripts/database2.ts
-/node_modules/
 /package.json
 /package-lock.json
 /scripts/xd.ts
