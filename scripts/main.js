@@ -22,9 +22,10 @@ export const delay = ticks => new Promise(res => system.runTimeout(res, ticks));
 
 let scoreboardsLoaded = false;
 /**
- * @type { Player[] }
+ * @type Player[]
  */
 let players = [];
+
 let admins = [];
 let tntFlag = "-autnt0";
 let stuckJailedPlayers = [];
@@ -215,7 +216,6 @@ server.on("tick", async () => {
                         world.sendMessage(`§Error, couldn't set §4${player.name}§c as the owner.`);
                     }
                 }
-
             }
 
             if (player.hasTag(adminTag)) {
