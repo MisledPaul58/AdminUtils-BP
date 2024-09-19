@@ -14,8 +14,3 @@ database.playerData = new Database("PlayerData");
 database.freeCam = new Database("Freecam");
 
 database.loaded = true;
-
-// for (const db in database) {
-//     if (db === "loaded") continue;
-//     database[db].deleteAll();
-// }

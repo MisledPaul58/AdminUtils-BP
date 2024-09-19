@@ -30,6 +30,7 @@ let admins = [];
 let tntFlag = "-autnt0";
 let stuckJailedPlayers = [];
 let invChests = [];
+let pendingMenuPlayers = [];
 
 system.beforeEvents.watchdogTerminate.subscribe(watchdog => {
     watchdog.cancel = true
@@ -198,34 +199,30 @@ server.on("tick", async () => {
         }
     }
 
-    const ownerTag = database.config?.get("ownerTag");
-    const adminTag = database.config?.get("adminTag");
     for (const player of players) {
-        if (typeof ownerTag === "string" && typeof adminTag === "string") {
-            if (player.hasTag(ownerTag)) {
-                if (world.scoreboard.getObjective('-auOwner').getParticipants()[0]) {
-                    player.removeTag(ownerTag);
-                    world.sendMessage(`§cError, §4${world.scoreboard.getObjective('-auOwner').getParticipants()[0].displayName.match(/(?<=^-au)[^]+(?=-au$)/)[0]}§c is already the owner.`);
+        if (player.hasTag("owner")) {
+            if (world.scoreboard.getObjective('-auOwner').getParticipants()[0]) {
+                player.removeTag("owner");
+                world.sendMessage(`§cError, §4${world.scoreboard.getObjective('-auOwner').getParticipants()[0].displayName.match(/(?<=^-au)[^]+(?=-au$)/)[0]}§c is already the owner.`);
 
-                } else if (!world.scoreboard.getObjective('-auOwner').getParticipants()[0]) {
-                    player.removeTag(ownerTag);
-                    try {
-                        world.scoreboard.getObjective('-auOwner').setScore(`-au${player.name}-au`, 0);
-                        world.sendMessage(`§aThe player §b${player.name}§a has been set successfully as the owner.`);
-                    } catch (e) {
-                        world.sendMessage(`§Error, couldn't set §4${player.name}§c as the owner.`);
-                    }
+            } else if (!world.scoreboard.getObjective('-auOwner').getParticipants()[0]) {
+                player.removeTag("owner");
+                try {
+                    world.scoreboard.getObjective('-auOwner').setScore(`-au${player.name}-au`, 0);
+                    world.sendMessage(`§aThe player §b${player.name}§a has been set successfully as the owner.`);
+                } catch (e) {
+                    world.sendMessage(`§Error, couldn't set §4${player.name}§c as the owner.`);
                 }
             }
+        }
 
-            if (player.hasTag(adminTag)) {
-                player.removeTag(adminTag);
-                try {
-                    world.scoreboard.getObjective("-au").setScore(`-au${player.name}-au`, 0);
-                    world.sendMessage(`§aThe player §b${player.name}§a has been added successfully as an admin.`);
-                } catch (e) {
-                    world.sendMessage(`§cError, couldn't add ${player.name} as an admin, probably they already are.`);
-                }
+        if (player.hasTag("-auadmin")) {
+            player.removeTag("-auadmin");
+            try {
+                world.scoreboard.getObjective("-au").setScore(`-au${player.name}-au`, 0);
+                world.sendMessage(`§aThe player §b${player.name}§a has been added successfully as an admin.`);
+            } catch (e) {
+                world.sendMessage(`§cError, couldn't add ${player.name} as an admin, probably they already are.`);
             }
         }
 
@@ -394,9 +391,42 @@ world.beforeEvents.chatSend.subscribe(event => {
         event.cancel = true;
         const { sender } = event;
 
-        system.run(() => {
-            sender.playSound("au.menuOpen");
-            server.ui.show("mainMenu", sender, true);
+        system.run(async () => {
+            sender.playSound("au.menuOpen", { location: { x: sender.location.x, y: sender.location.y + 1, z: sender.location.z } });
+            const form = new ActionFormData()
+                .title("§l§4§kkdk§r§l§cAdmin§aUtils §bGUI§4§kkdk")
+                .body("Select an option")
+                .button("Admin settings\n" +
+                    "§8[ §b§oClick to open§r §8]§r", "textures/icons/settings1.png")
+                .button("Admin utils\n" +
+                    "§8[ §b§oClick to open§r §8]§r", "textures/icons/adminUtils.png");
+
+            if (!pendingMenuPlayers.includes(sender.name)) waitForUser();
+
+            async function waitForUser() {
+                pendingMenuPlayers.push(sender.name);
+
+                while (pendingMenuPlayers.includes(sender.name)) {
+                    const response = await form.show(sender);
+
+                    if (response?.cancelationReason !== "UserBusy") {
+                        pendingMenuPlayers.splice(pendingMenuPlayers.indexOf(sender.name), 1);
+
+                        switch (response.selection) {
+                            case 0: {
+                                adminSettings(sender);
+                                break;
+                            }
+                            case 1: {
+                                adminUtils(sender);
+                                break;
+                            }
+                        }
+                    } else {
+                        await delay(4);
+                    }
+                }
+            }
         });
     }
 });
@@ -646,7 +676,7 @@ world.beforeEvents.itemUse.subscribe(data => {
         data.cancel = true;
     } else if (data.itemStack.typeId === "au:wand" && isAdmin(player.name)) {
         system.run(() => {
-            server.ui.show("mainMenu", player);
+            adminUtilsGui(player);
             player.playSound("au.menuOpen", {
                 location: {
                     x: player.location.x,
@@ -1073,7 +1103,7 @@ export function adminUtils(p) {
     form.show(p).then((response) => {
         switch (response.selection) {
             case 0: { //Back
-                server.ui.show("mainMenu", p);
+                adminUtilsGui(p);
             }
                 break;
             case 1: { //Ban or unban menu

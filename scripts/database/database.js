@@ -1,7 +1,7 @@
 import { world } from "@minecraft/server";
 
 export class Database {
-    
+
     #tableName;
     #memory;
 
@@ -67,8 +67,8 @@ export class Database {
 
     /**
      * Sets the specified `key` to the given `value` in the database table.
-     * @param { String } key 
-     * @param { {} } value 
+     * @param { String } key
+     * @param { {} } value
      */
     set(key, value) {
         if (!this.#memory) throw new Error("Data tried to be set before load!");
@@ -79,7 +79,7 @@ export class Database {
 
     /**
      * Gets a value from this table.
-     * @param { String } key 
+     * @param { String } key
      * @returns the value associated with the given key in the database table.
      */
     get(key) {
@@ -113,7 +113,7 @@ export class Database {
 
     /**
      * Checks if the key exists in the table.
-     * @param { String } key 
+     * @param { String } key
      * @returns { Boolean }
      */
     has(key) {
@@ -122,7 +122,7 @@ export class Database {
 
     /**
      * Deletes a key from the table.
-     * @param { String } key 
+     * @param { String } key
      */
     delete(key) {
         if (!this.#memory) return false;
@@ -148,7 +148,7 @@ export class Database {
         this.#memory = {};
         this.#saveData();
     }
-    
+
     /**
      * Returns the table object with all its keys and values.
      * @returns { object }

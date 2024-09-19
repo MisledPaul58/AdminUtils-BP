@@ -11,8 +11,6 @@ class FreeCam {
      * @param { Player } p
      */
     init(p) {
-        // p.sendSuccess('test.msg', ['24', '58']);
-        // p.sendMessage(`%back.button.text\n§r§8[ §b§o%settings.main.title§r§8 ]`);
         let extraButton = 0;
         const form = new ActionFormData()
             .title("Freecam menu")
