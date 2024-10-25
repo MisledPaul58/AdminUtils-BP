@@ -323,7 +323,6 @@ server.on("tick", async () => {
                         });
                         await runCmd(jailedPlayerRaw, "playsound beacon.activate @s ~ ~ ~ 100");
                     } catch (e) {
-                        //Lo que pasaría si se desconecta el jugador mientras está siendo liberado
                         if (!world.scoreboard.getObjective('-auTempUnjailed').hasParticipant('/' + jailedPlayer)) {
                             world.scoreboard.getObjective('-auTempUnjailed').setScore('/' + jailedPlayer, 0);
                         }
