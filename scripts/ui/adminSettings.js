@@ -1,9 +1,6 @@
 import { server } from "../server";
-import { world } from "@minecraft/server";
 import { database } from "../database/index";
-
 const register = (name, form) => server.ui.register(name, form);
-
 register("mainSettings", {
     title: "%settings.main.title",
     buttons: [
@@ -34,7 +31,6 @@ register("mainSettings", {
     //     world.sendMessage(`${server.ui.displayingUI(player)}`);
     // }
 });
-
 register("config", {
     title: "%settings.config.title",
     inputs: {
@@ -65,7 +61,6 @@ register("config", {
         server.ui.show("mainSettings", player);
     }
 });
-
 register("manageAdmins", {
     title: "%settings.admins.main.title",
     body: "%settings.admins.main.body",
@@ -74,11 +69,9 @@ register("manageAdmins", {
             text: "%settings.admins.main.button1.text",
             icon: "",
             action: (player) => {
-                
             }
         }
     ],
     back: "mainSettings"
 });
-
 //TODO: cambiar el texto del submit button de show admins a Ok

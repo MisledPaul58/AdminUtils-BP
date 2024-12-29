@@ -1,8 +1,6 @@
 import { server } from "../server";
 import { adminUtils } from "../main";
-
 const register = (name, form) => server.ui.register(name, form);
-
 register("mainMenu", {
     title: "%mainMenu.title",
     buttons: [
