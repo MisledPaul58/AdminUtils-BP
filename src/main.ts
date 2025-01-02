@@ -399,9 +399,6 @@ world.beforeEvents.chatSend.subscribe(event => {
         system.run(() => {
             sender.playSound("au.menuOpen");
             server.ui.show("mainMenu", sender, true);
-
-            world.sendMessage(`§lCommand:\n§rActive: ${JSON.stringify(Array.from(server.ui.active.keys())?.map(player => player.name))}`);
-            world.sendMessage(`Queue: ${JSON.stringify(Array.from(server.ui.queue.keys())?.map(player => player.name))}`);
         });
     }
 });
@@ -659,8 +656,6 @@ world.beforeEvents.itemUse.subscribe(data => {
                     z: player.location.z
                 }
             });
-            world.sendMessage(`§lWand:\n§rActive: ${JSON.stringify(Array.from(server.ui.active.keys())?.map(player => player.name))}`);
-            world.sendMessage(`Queue: ${JSON.stringify(Array.from(server.ui.queue.keys())?.map(player => player.name))}`);
         });
     }
 });

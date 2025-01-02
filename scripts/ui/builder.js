@@ -48,7 +48,7 @@ class UIForm {
         return false;
     }
     resolve(element, player) {
-        return element instanceof Function ? element(player) : element;
+        return element instanceof Function ? element(player) : element; //TODO replace : element with : element ?? ""
     }
 }
 class ActionUIForm extends UIForm {
@@ -91,10 +91,10 @@ class ActionUIForm extends UIForm {
     }
 }
 class ModalUIForm extends UIForm {
-    constructor(form, name) {
-        super(form, name);
+    constructor() {
+        super(...arguments);
         this.inputNames = [];
-        this.submitAction = form.submit;
+        this.submitAction = this.form.submit;
     }
     _build(player) {
         this.inputNames = [];
@@ -131,8 +131,8 @@ class ModalUIForm extends UIForm {
             if (response.canceled)
                 return this.cancelAction?.(player);
             const inputs = {};
-            for (const i in response.formValues) {
-                inputs[inputNames[i]] = response.formValues[i];
+            for (const [index, value] of response.formValues.entries()) {
+                inputs[inputNames[index]] = value;
             }
             this.submitAction?.(inputs, player);
         });
@@ -141,28 +141,28 @@ class ModalUIForm extends UIForm {
         return this.inputNames;
     }
 }
+//TODO make an easy way of creating confirmation forms (MessageUIForm)
 class MessageUIForm extends UIForm {
     constructor() {
         super(...arguments);
-        this.actions = [];
+        this.actions = [
+            this.form.button2.action,
+            this.form.button1.action
+        ];
     }
     _build(player) {
-        this.actions = [];
         const resolveElement = (element) => this.resolve(element, player);
-        const formData = new MessageFormData()
+        return new MessageFormData()
             .title(resolveElement(this.form.title))
             .body(resolveElement(this.form.body) ?? "")
             .button2(resolveElement(this.form.button1.text))
             .button1(resolveElement(this.form.button2.text));
-        this.actions.push(this.form.button1.action);
-        this.actions.push(this.form.button2.action);
-        return formData;
     }
     enter(player, wait) {
         return this._show(player, wait, (response, actions) => {
             if (response.canceled)
                 return this.cancelAction?.(player);
-            actions[0 - response.selection]?.(player);
+            actions[response.selection](player);
         });
     }
     getBuildData() {
@@ -219,11 +219,6 @@ export class UIManager {
             return this.active.has(player);
         }
     }
-    /**
-     *
-     * @param { Player } player
-     * @param form
-     */
     inQueue(player, form) {
         if (!this.queue.has(player))
             return false;
