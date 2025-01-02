@@ -1,5 +1,6 @@
 import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
 import { system } from "@minecraft/server";
+import { server } from "../server";
 class UIForm {
     constructor(form, name) {
         this.id = name;
@@ -13,31 +14,36 @@ class UIForm {
      * @param onShow
      */
     async _show(player, wait, onShow) {
-        while (player.isValid() && UI.inQueue(player, this)) {
-            /**
-             * @type ActionFormData || ModalFormData || MessageFormData
-             */
+        while (player.isValid() && server.ui.inQueue(player, this)) {
             const form = this._build(player);
             const buildData = this.getBuildData();
-            let state = "pending";
+            let state = "pending"; //TODO make state an actual object
             const responsePromise = form.show(player).then((response) => {
                 if (!wait || response?.cancelationReason !== "UserBusy") {
                     state = "responded";
-                    UI.queue.delete(player);
-                    UI.active.delete(player);
+                    server.ui.queue.delete(player);
+                    server.ui.active.delete(player);
                     onShow(response, buildData);
                 }
-                state = "busy";
+                else {
+                    state = "busy";
+                }
             });
             await system.waitTicks(2);
-            if (state === "pending" && UI.inQueue(player, this)) {
-                UI.queue.delete(player);
-                UI.active.set(player, this);
-                return true;
+            // If there's still no response it must mean the UI has been opened
+            if (state === "pending" && server.ui.inQueue(player, this)) {
+                server.ui.queue.delete(player);
+                server.ui.active.set(player, this);
             }
             await responsePromise;
-            if (state === "responded")
+            if (state === "responded") {
                 return true;
+            }
+            else if (server.ui.displayingUI(player, this.id)) { // If something went wrong
+                // Reset UI states
+                server.ui.active.delete(player);
+                server.ui.queue.set(player, this);
+            }
         }
         return false;
     }
@@ -58,7 +64,7 @@ class ActionUIForm extends UIForm {
         formData.body(resolveElement(this.form.body) ?? "");
         if (this.form.back) {
             formData.button("§l<-- %back.button.text", "textures/icons/back.png");
-            this.actions.push((player) => UI.show(this.form.back, player));
+            this.actions.push((player) => server.ui.show(this.form.back, player));
         }
         for (const button of resolveElement(this.form.buttons)) {
             const text = button.subText ? `${button.text}\n§r§8[ §b§o${button.subText}§r§8 ]` : button.text;
@@ -85,8 +91,8 @@ class ActionUIForm extends UIForm {
     }
 }
 class ModalUIForm extends UIForm {
-    constructor(form) {
-        super(form);
+    constructor(form, name) {
+        super(form, name);
         this.inputNames = [];
         this.submitAction = form.submit;
     }
@@ -163,7 +169,7 @@ class MessageUIForm extends UIForm {
         return this.actions;
     }
 }
-class UIBuilder {
+export class UIManager {
     constructor() {
         this.forms = new Map();
         this.queue = new Map();
@@ -203,12 +209,6 @@ class UIBuilder {
             return true;
         }
     }
-    /**
-     *
-     * @param { Player } player
-     * @param { String } ui
-     * @return { Boolean }
-     */
     displayingUI(player, ui = undefined) {
         if (!this.active.has(player))
             return false;
@@ -230,4 +230,3 @@ class UIBuilder {
         return this.queue.get(player) === form;
     }
 }
-export const UI = new UIBuilder();

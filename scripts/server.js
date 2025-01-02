@@ -1,4 +1,4 @@
-import { UI } from "./ui/builder";
+import { UIManager } from "./ui/builder";
 import { defaultConfig } from "./config/defaultConfig";
 import { database } from "./database/index";
 import { EventEmitter } from "./events/eventEmitter";
@@ -6,7 +6,7 @@ import { world } from "@minecraft/server";
 class Server extends EventEmitter {
     constructor() {
         super();
-        this.ui = UI;
+        this.ui = new UIManager();
     }
     /**
      * Send a custom message (AU >> ...) to the world.

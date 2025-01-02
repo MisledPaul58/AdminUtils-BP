@@ -416,6 +416,8 @@ world.beforeEvents.chatSend.subscribe(event => {
         system.run(() => {
             sender.playSound("au.menuOpen");
             server.ui.show("mainMenu", sender, true);
+            world.sendMessage(`§lCommand:\n§rActive: ${JSON.stringify(Array.from(server.ui.active.keys())?.map(player => player.name))}`);
+            world.sendMessage(`Queue: ${JSON.stringify(Array.from(server.ui.queue.keys())?.map(player => player.name))}`);
         });
     }
 });
@@ -474,7 +476,7 @@ world.afterEvents.playerJoin.subscribe(async (event) => {
             }
         }
     }
-    else if (world.scoreboard.getObjective('-auTempUnjailed').hasParticipant('/' + playerName)) {
+    else if (world.scoreboard.getObjective('-auTempUnjailed')?.hasParticipant('/' + playerName)) {
         waitForTestFor();
         async function waitForTestFor() {
             while (function () {
@@ -667,6 +669,8 @@ world.beforeEvents.itemUse.subscribe(data => {
                     z: player.location.z
                 }
             });
+            world.sendMessage(`§lWand:\n§rActive: ${JSON.stringify(Array.from(server.ui.active.keys())?.map(player => player.name))}`);
+            world.sendMessage(`Queue: ${JSON.stringify(Array.from(server.ui.queue.keys())?.map(player => player.name))}`);
         });
     }
 });
@@ -3681,14 +3685,14 @@ function isAdmin(username) {
     return admins.includes(`-au${username}-au`);
 }
 function isOwner(username) {
-    if (world.scoreboard.getObjective('-auOwner').getParticipants()[0]?.displayName === `-au${username}-au`)
+    if (world.scoreboard.getObjective('-auOwner')?.getParticipants()[0]?.displayName === `-au${username}-au`)
         return true;
     else
         return false;
 }
 function isBanned(player) {
     const bannedPlayers = getBannedPlayers();
-    if (bannedPlayers.includes(player))
+    if (bannedPlayers?.includes(player))
         return true;
     else
         return false;
@@ -3716,7 +3720,7 @@ function isBanTimeOver(player) {
 }
 function getBannedPlayers() {
     try {
-        return world.scoreboard.getObjective('-auBan').getParticipants().map(participant => participant.displayName.match(/^[^]+(?=-aureason)/)[0]);
+        return world.scoreboard.getObjective('-auBan')?.getParticipants().map(participant => participant.displayName.match(/^[^]+(?=-aureason)/)[0]);
     }
     catch (e) {
         return;
@@ -3752,9 +3756,9 @@ function getUnBanISO(player) {
 }
 function isJailed(player) {
     //MisledPaul58976-aureason.....-aujailedby......-autime.....
-    const jailedPlayers = world.scoreboard.getObjective('-auJailed').getParticipants();
+    const jailedPlayers = world.scoreboard.getObjective('-auJailed')?.getParticipants();
     const regexp = new RegExp(`^${convertToRegExpFriendly(player)}(?=-aureason)`); //Revisar lo de ^ para que sea la primera palabra en las demás funciones
-    if (jailedPlayers.some(player => regexp.test(player.displayName)))
+    if (jailedPlayers?.some(player => regexp.test(player.displayName)))
         return true;
     else
         return false;
@@ -3934,7 +3938,7 @@ async function setPower(pname, projectile, power, state) {
 }
 function isFrozen(player) {
     try {
-        if (world.scoreboard.getObjective('-auFrozen').getParticipants().map(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1]).includes(player))
+        if (world.scoreboard.getObjective('-auFrozen').getParticipants().map(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1])?.includes(player))
             return true;
         else
             return false;
@@ -4023,7 +4027,7 @@ function isEnoughSpace(rawPlayer) {
 function getInvSees() {
     //-auoverworld -auPaul58 -au-46 -au64 -au79 -au-46 -au64 -au80
     try {
-        const participants = world.scoreboard.getObjective('-auInvSees').getParticipants().map(participant => participant.displayName);
+        const participants = world.scoreboard.getObjective('-auInvSees')?.getParticipants().map(participant => participant.displayName);
         if (!participants[0]) {
             return;
         }

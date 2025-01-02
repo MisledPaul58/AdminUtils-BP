@@ -1,13 +1,15 @@
-import { UI } from "./ui/builder";
+import { UIManager } from "./ui/builder";
 import { defaultConfig } from "./config/defaultConfig";
 import { database } from "./database/index";
 import { EventEmitter } from "./events/eventEmitter";
 import { world, Player, system } from "@minecraft/server";
 
 class Server extends EventEmitter {
+    public ui: UIManager;
+
     constructor() {
         super();
-        this.ui = UI;
+        this.ui = new UIManager();
     }
 
     /**

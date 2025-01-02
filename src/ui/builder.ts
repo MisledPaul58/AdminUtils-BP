@@ -1,13 +1,26 @@
 import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
 import { Player, system, world } from "@minecraft/server";
+import { server } from "../server";
 
-class UIForm {
+export type FormData = ActionFormData | ModalFormData | MessageFormData;
+export type UIAction<T> = (player: Player) => T;
 
-    constructor(form, name) {
+abstract class UIForm {
+    readonly id: string;
+    protected readonly form: any;
+    protected readonly cancelAction: any;
+
+    protected constructor(form: any, name: string) {
         this.id = name;
         this.form = form;
         this.cancelAction = form.cancel;
     }
+
+    protected abstract _build(player: Player): FormData;
+
+    abstract enter(player: Player, wait: boolean): any;
+
+    protected abstract getBuildData(): any;
 
     /**
      *
@@ -15,35 +28,39 @@ class UIForm {
      * @param wait
      * @param onShow
      */
-    async _show(player, wait, onShow) {
-        while (player.isValid() && UI.inQueue(player, this)) {
-            /**
-             * @type ActionFormData || ModalFormData || MessageFormData
-             */
-            const form = this._build(player);
+    protected async _show(player: Player, wait: boolean, onShow) {
+        while (player.isValid() && server.ui.inQueue(player, this)) {
+            const form: FormData = this._build(player);
             const buildData = this.getBuildData();
 
-            let state = "pending";
+            let state = "pending"; //TODO make state an actual object
 
             const responsePromise = form.show(player).then((response) => {
                 if (!wait || response?.cancelationReason !== "UserBusy") {
                     state = "responded";
-                    UI.queue.delete(player);
-                    UI.active.delete(player);
+                    server.ui.queue.delete(player);
+                    server.ui.active.delete(player);
                     onShow(response, buildData);
+                } else {
+                    state = "busy";
                 }
-                state = "busy";
             });
 
             await system.waitTicks(2);
-            if (state === "pending" && UI.inQueue(player, this)) {
-                UI.queue.delete(player);
-                UI.active.set(player, this);
-                return true;
+            // If there's still no response it must mean the UI has been opened
+            if (state === "pending" && server.ui.inQueue(player, this)) {
+                server.ui.queue.delete(player);
+                server.ui.active.set(player, this);
             }
 
             await responsePromise;
-            if (state === "responded") return true;
+            if (state === "responded") {
+                return true;
+            } else if (server.ui.displayingUI(player, this.id)) { // If something went wrong
+                // Reset UI states
+                server.ui.active.delete(player);
+                server.ui.queue.set(player, this);
+            }
 
         }
         return false;
@@ -55,12 +72,9 @@ class UIForm {
 }
 
 class ActionUIForm extends UIForm {
-    constructor() {
-        super(...arguments);
-        this.actions = [];
-    }
+    private actions: UIAction<void>[] = [];
 
-    _build(player) {
+    _build(player: Player): ActionFormData {
         this.actions = [];
         const resolveElement = (element) => this.resolve(element, player);
 
@@ -70,7 +84,7 @@ class ActionUIForm extends UIForm {
 
         if (this.form.back) {
             formData.button("§l<-- %back.button.text", "textures/icons/back.png");
-            this.actions.push((player) => UI.show(this.form.back, player));
+            this.actions.push((player: Player) => server.ui.show(this.form.back, player));
         }
 
         for (const button of resolveElement(this.form.buttons)) {
@@ -88,7 +102,7 @@ class ActionUIForm extends UIForm {
      * @param { Boolean } wait
      * @return {Promise<void>}
      */
-    enter(player, wait) {
+    enter(player: Player, wait: boolean) {
         return this._show(player, wait, (response, actions) => {
             if (response.canceled) return this.cancelAction?.(player);
 
@@ -102,13 +116,13 @@ class ActionUIForm extends UIForm {
 }
 
 class ModalUIForm extends UIForm {
-    constructor(form) {
-        super(form);
+    constructor(form, name: string) {
+        super(form, name);
         this.inputNames = [];
         this.submitAction = form.submit;
     }
 
-    _build(player) {
+    _build(player: Player): ModalFormData {
         this.inputNames = [];
         const resolveElement = (element) => this.resolve(element, player);
 
@@ -142,7 +156,7 @@ class ModalUIForm extends UIForm {
         return formData;
     }
 
-    enter(player, wait) {
+    enter(player: Player, wait: boolean) {
         return this._show(player, wait, (response, inputNames) => {
             if (response.canceled) return this.cancelAction?.(player);
 
@@ -166,7 +180,7 @@ class MessageUIForm extends UIForm {
         this.actions = [];
     }
 
-    _build(player) {
+    _build(player: Player): MessageFormData {
         this.actions = [];
         const resolveElement = (element) => this.resolve(element, player);
 
@@ -194,14 +208,12 @@ class MessageUIForm extends UIForm {
     }
 }
 
-class UIBuilder {
-    constructor() {
-        this.forms = new Map();
-        this.queue = new Map();
-        this.active = new Map();
-    }
+export class UIManager {
+    forms: Map<string, UIForm> = new Map();
+    queue: Map<Player, UIForm> = new Map();
+    active: Map<Player, UIForm> = new Map();
 
-    register(name, form) {
+    register(name: string, form) {
         if (this.forms.has(name)) {
             throw `Error, the ui ${name} has already been registered.`;
         }
@@ -223,7 +235,7 @@ class UIBuilder {
      * @param { Player } player The player that the UI will be shown to.
      * @param { Boolean } wait
      */
-    show(ui, player, wait = false) {
+    show(ui: string, player: Player, wait = false) {
         if (this.displayingUI(player)) return false;
 
         const form = this.forms.get(ui);
@@ -238,13 +250,7 @@ class UIBuilder {
         }
     }
 
-    /**
-     *
-     * @param { Player } player
-     * @param { String } ui
-     * @return { Boolean }
-     */
-    displayingUI(player, ui = undefined) {
+    displayingUI(player: Player, ui: string | undefined = undefined) {
         if (!this.active.has(player)) return false;
 
         if (ui && this.forms.has(ui)) {
@@ -265,5 +271,3 @@ class UIBuilder {
         return this.queue.get(player) === form;
     }
 }
-
-export const UI = new UIBuilder();
