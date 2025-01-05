@@ -1,19 +1,14 @@
 import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
 import { system } from "@minecraft/server";
 import { server } from "../server";
+//TODO add error handling
 class UIForm {
     constructor(form, name) {
-        this.id = name;
         this.form = form;
-        this.cancelAction = form.cancel;
+        this.id = name;
+        this.cancelAction = this.form.cancel;
     }
-    /**
-     *
-     * @param { Player } player
-     * @param wait
-     * @param onShow
-     */
-    async _show(player, wait, onShow) {
+    async _show(player, wait, onRespond) {
         while (player.isValid() && server.ui.inQueue(player, this)) {
             const form = this._build(player);
             const buildData = this.getBuildData();
@@ -23,7 +18,7 @@ class UIForm {
                     state = "responded";
                     server.ui.queue.delete(player);
                     server.ui.active.delete(player);
-                    onShow(response, buildData);
+                    onRespond(response, buildData);
                 }
                 else {
                     state = "busy";
@@ -73,12 +68,6 @@ class ActionUIForm extends UIForm {
         }
         return formData;
     }
-    /**
-     *
-     * @param { Player } player
-     * @param { Boolean } wait
-     * @return {Promise<void>}
-     */
     enter(player, wait) {
         return this._show(player, wait, (response, actions) => {
             if (response.canceled)
@@ -91,8 +80,8 @@ class ActionUIForm extends UIForm {
     }
 }
 class ModalUIForm extends UIForm {
-    constructor() {
-        super(...arguments);
+    constructor(form, name) {
+        super(form, name);
         this.inputNames = [];
         this.submitAction = this.form.submit;
     }
@@ -141,22 +130,18 @@ class ModalUIForm extends UIForm {
         return this.inputNames;
     }
 }
-//TODO make an easy way of creating confirmation forms (MessageUIForm)
 class MessageUIForm extends UIForm {
-    constructor() {
-        super(...arguments);
-        this.actions = [
-            this.form.button2.action,
-            this.form.button1.action
-        ];
+    constructor(form, name) {
+        super(form, name);
+        this.actions = [this.form.button2.action, this.form.button1.action];
     }
     _build(player) {
         const resolveElement = (element) => this.resolve(element, player);
         return new MessageFormData()
             .title(resolveElement(this.form.title))
             .body(resolveElement(this.form.body) ?? "")
-            .button2(resolveElement(this.form.button1.text))
-            .button1(resolveElement(this.form.button2.text));
+            .button1(resolveElement(this.form.button2.text))
+            .button2(resolveElement(this.form.button1.text));
     }
     enter(player, wait) {
         return this._show(player, wait, (response, actions) => {
@@ -191,9 +176,10 @@ export class UIManager {
     }
     /**
      * Show the specified ui to a player.
-     * @param { String } ui The name of the UI.
-     * @param { Player } player The player that the UI will be shown to.
-     * @param { Boolean } wait
+     * @param ui The name of the UI.
+     * @param player The player that the UI will be shown to.
+     * @param wait
+     * @returns True if
      */
     show(ui, player, wait = false) {
         if (this.displayingUI(player))
@@ -209,10 +195,22 @@ export class UIManager {
             return true;
         }
     }
+    confirm(title, body, player, yes, no) {
+        const form = new MessageUIForm({
+            title,
+            body,
+            button1: { text: "%ui.confirm.yes", action: yes },
+            button2: { text: "%ui.confirm.no", action: no ?? (() => { }) },
+            cancel: no ?? (() => { })
+        });
+        this.queue.delete(player);
+        this.queue.set(player, form);
+        form.enter(player, false);
+    }
     displayingUI(player, ui = undefined) {
         if (!this.active.has(player))
             return false;
-        if (ui && this.forms.has(ui)) {
+        if (ui) {
             return this.active.get(player)?.id === ui;
         }
         else {

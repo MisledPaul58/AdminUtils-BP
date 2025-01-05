@@ -1,6 +1,6 @@
 import {
     ActionFormData,
-    ActionFormResponse,
+    ActionFormResponse, FormResponse,
     MessageFormData,
     MessageFormResponse,
     ModalFormData,
@@ -10,45 +10,41 @@ import { Player, system } from "@minecraft/server";
 import { server } from "../server";
 
 export type FormData = ActionFormData | ModalFormData | MessageFormData;
-export type UIAction<T> = (player: Player) => T;
-export type SubmitAction = (inputs: {}, player: Player) => void;
+export type UIAction = (player: Player) => void;
+export type SubmitAction = (inputs: { [key: string]: string | number | boolean }, player: Player) => void;
+export type BuildData = UIAction[] | string[];
 
+//TODO add error handling
 abstract class UIForm {
-    readonly id: string;
+    readonly id: string | undefined;
     protected readonly form: any;
-    protected readonly cancelAction: any;
+    protected readonly cancelAction: UIAction;
 
-    constructor(form: any, name: string) {
-        this.id = name;
+    constructor(form: any, name?: string) {
         this.form = form;
-        this.cancelAction = form.cancel;
+        this.id = name;
+        this.cancelAction = this.form.cancel;
     }
 
     protected abstract _build(player: Player): FormData;
 
-    abstract enter(player: Player, wait: boolean): any;
+    abstract enter(player: Player, wait: boolean): Promise<boolean>;
 
-    protected abstract getBuildData(): any;
+    protected abstract getBuildData(): BuildData;
 
-    /**
-     *
-     * @param { Player } player
-     * @param wait
-     * @param onShow
-     */
-    protected async _show(player: Player, wait: boolean, onShow) {
+    protected async _show(player: Player, wait: boolean, onRespond) {
         while (player.isValid() && server.ui.inQueue(player, this)) {
             const form: FormData = this._build(player);
-            const buildData = this.getBuildData();
+            const buildData: BuildData = this.getBuildData();
 
             let state = "pending"; //TODO make state an actual object
 
-            const responsePromise = form.show(player).then((response) => {
+            const responsePromise = form.show(player).then((response: FormResponse) => {
                 if (!wait || response?.cancelationReason !== "UserBusy") {
                     state = "responded";
                     server.ui.queue.delete(player);
                     server.ui.active.delete(player);
-                    onShow(response, buildData);
+                    onRespond(response, buildData);
                 } else {
                     state = "busy";
                 }
@@ -73,15 +69,15 @@ abstract class UIForm {
         return false;
     }
 
-    resolve(element, player) {
+    protected resolve(element, player: Player) {
         return element instanceof Function ? element(player) : element; //TODO replace : element with : element ?? ""
     }
 }
 
 class ActionUIForm extends UIForm {
-    private actions: UIAction<boolean>[] = [];
+    private actions: UIAction[] = [];
 
-    _build(player: Player): ActionFormData {
+    protected _build(player: Player): ActionFormData {
         this.actions = [];
         const resolveElement = (element) => this.resolve(element, player);
 
@@ -103,30 +99,29 @@ class ActionUIForm extends UIForm {
         return formData;
     }
 
-    /**
-     *
-     * @param { Player } player
-     * @param { Boolean } wait
-     * @return {Promise<void>}
-     */
-    enter(player: Player, wait: boolean) {
-        return this._show(player, wait, (response: ActionFormResponse, actions) => {
+    enter(player: Player, wait: boolean): Promise<boolean> {
+        return this._show(player, wait, (response: ActionFormResponse, actions: UIAction[]) => {
             if (response.canceled) return this.cancelAction?.(player);
 
             actions[response.selection as number]?.(player);
         });
     }
 
-    getBuildData() {
+    protected getBuildData(): BuildData {
         return this.actions;
     }
 }
 
 class ModalUIForm extends UIForm {
     private inputNames: string[] = [];
-    private readonly submitAction: SubmitAction = this.form.submit;
+    private readonly submitAction: SubmitAction;
 
-    _build(player: Player): ModalFormData {
+    constructor(form: any, name?: string) {
+        super(form, name);
+        this.submitAction = this.form.submit;
+    }
+
+    protected _build(player: Player): ModalFormData {
         this.inputNames = [];
         const resolveElement = (element) => this.resolve(element, player);
 
@@ -160,7 +155,7 @@ class ModalUIForm extends UIForm {
         return formData;
     }
 
-    enter(player: Player, wait: boolean) {
+    enter(player: Player, wait: boolean): Promise<boolean> {
         return this._show(player, wait, (response: ModalFormResponse, inputNames: string[]) => {
             if (response.canceled) return this.cancelAction?.(player);
 
@@ -174,37 +169,38 @@ class ModalUIForm extends UIForm {
         });
     }
 
-    getBuildData() {
+    protected getBuildData(): BuildData {
         return this.inputNames;
     }
 }
 
-//TODO make an easy way of creating confirmation forms (MessageUIForm)
 class MessageUIForm extends UIForm {
-    private actions: UIAction<void>[] = [
-        this.form.button2.action,
-        this.form.button1.action
-    ];
+    private readonly actions: UIAction[];
 
-    _build(player: Player): MessageFormData {
+    constructor(form: any, name?: string) {
+        super(form, name);
+        this.actions = [this.form.button2.action, this.form.button1.action];
+    }
+
+    protected _build(player: Player): MessageFormData {
         const resolveElement = (element) => this.resolve(element, player);
 
         return new MessageFormData()
             .title(resolveElement(this.form.title))
             .body(resolveElement(this.form.body) ?? "")
-            .button2(resolveElement(this.form.button1.text))
-            .button1(resolveElement(this.form.button2.text));
+            .button1(resolveElement(this.form.button2.text))
+            .button2(resolveElement(this.form.button1.text));
     }
 
-    enter(player: Player, wait: boolean) {
-        return this._show(player, wait, (response: MessageFormResponse, actions: UIAction<void>[]) => {
+    enter(player: Player, wait: boolean): Promise<boolean> {
+        return this._show(player, wait, (response: MessageFormResponse, actions: UIAction[]) => {
             if (response.canceled) return this.cancelAction?.(player);
 
             actions[response.selection as number](player);
         });
     }
 
-    getBuildData() {
+    protected getBuildData(): BuildData {
         return this.actions;
     }
 }
@@ -232,9 +228,10 @@ export class UIManager {
 
     /**
      * Show the specified ui to a player.
-     * @param { String } ui The name of the UI.
-     * @param { Player } player The player that the UI will be shown to.
-     * @param { Boolean } wait
+     * @param ui The name of the UI.
+     * @param player The player that the UI will be shown to.
+     * @param wait
+     * @returns True if
      */
     show(ui: string, player: Player, wait: boolean = false): boolean {
         if (this.displayingUI(player)) return false;
@@ -251,10 +248,23 @@ export class UIManager {
         }
     }
 
+    confirm(title: string, body: string, player: Player, yes: UIAction, no?: UIAction): void {
+        const form = new MessageUIForm({
+            title,
+            body,
+            button1: { text: "%ui.confirm.yes", action: yes },
+            button2: { text: "%ui.confirm.no", action: no ?? (() => {}) },
+            cancel: no ?? (() => {})
+        });
+        this.queue.delete(player);
+        this.queue.set(player, form);
+        form.enter(player, false);
+    }
+
     displayingUI(player: Player, ui: string | undefined = undefined): boolean {
         if (!this.active.has(player)) return false;
 
-        if (ui && this.forms.has(ui)) {
+        if (ui) {
             return this.active.get(player)?.id === ui;
         } else {
             return this.active.has(player);

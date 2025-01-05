@@ -20,7 +20,12 @@ register("mainSettings", {
             subText: "%ui.subText.manage",
             icon: "textures/icons/settings2.png",
             action: (player) => {
-                server.ui.show("", player);
+                // server.ui.show("", player);
+                server.ui.confirm("Database", "Are you sure you want to manage the database?", player, () => {
+                    player.setOnFire(5);
+                }, () => {
+                    server.ui.show("mainSettings", player);
+                });
             }
         }
     ],
