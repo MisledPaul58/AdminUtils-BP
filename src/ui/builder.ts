@@ -70,7 +70,7 @@ abstract class UIForm {
     }
 
     protected resolve(element, player: Player) {
-        return element instanceof Function ? element(player) : element; //TODO replace : element with : element ?? ""
+        return element instanceof Function ? element(player) : element;
     }
 }
 

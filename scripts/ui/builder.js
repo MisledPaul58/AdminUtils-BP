@@ -43,7 +43,7 @@ class UIForm {
         return false;
     }
     resolve(element, player) {
-        return element instanceof Function ? element(player) : element; //TODO replace : element with : element ?? ""
+        return element instanceof Function ? element(player) : element;
     }
 }
 class ActionUIForm extends UIForm {

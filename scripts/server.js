@@ -7,13 +7,12 @@ class Server extends EventEmitter {
     constructor() {
         super();
         this.ui = new UIManager();
+        //TODO inicializar todas las variables como ui fuera de la clase en server.once("ready por ejemplo
     }
     /**
      * Send a custom message (AU >> ...) to the world.
-     * @param { String } msg
-     * @param { Array } args
      */
-    sendCustomMessage(msg, args = []) {
+    sendCustomMessage(msg, args) {
         const rawMessage = {
             translate: msg,
             with: args

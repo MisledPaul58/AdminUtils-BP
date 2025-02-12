@@ -48,7 +48,7 @@ export class Database {
         const chunks = JSON.stringify(this.memory).match(/.{1,30000}/g);
         if (!chunks?.[0]) return false;
 
-        const oldChunksLength = <number> world.getDynamicProperty(`db_${this.tableName}_length`);
+        const oldChunksLength: number = world.getDynamicProperty(`db_${this.tableName}_length`) as number;
         const chunksLength: number = chunks.length;
         // Update chunks length
         world.setDynamicProperty(`db_${this.tableName}_length`, chunksLength);
@@ -68,11 +68,8 @@ export class Database {
 
     /**
      * Sets the specified `key` to the given `value` in the database table.
-     * @param { String } key
-     * @param { {} } value
-     * @param { Boolean } save
      */
-    set(key, value, save = true) {
+    set(key: string, value: Object, save: boolean = true): Database {
         if (!this.memory) throw new Error("Data tried to be set before load!");
         this.memory[key] = value;
         if (save) {

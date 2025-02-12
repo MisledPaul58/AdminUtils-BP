@@ -13,11 +13,6 @@ world.beforeEvents.playerLeave.subscribe(event => {
         database.freeCam.set(player.name, freeCam);
     }
 });
-/**
- * Send a custom message (AU >> ...).
- * @param { String } msg
- * @param { Array } args
- */
 Player.prototype.sendCustomMessage = function (msg, args) {
     const rawMessage = {
         translate: msg,
@@ -25,20 +20,10 @@ Player.prototype.sendCustomMessage = function (msg, args) {
     };
     this.sendMessage(['§l§cAU §6>>§r ', rawMessage]);
 };
-/**
- * Send a success message with a sound.
- * @param { String  } msg
- * @param { Array } args
- */
 Player.prototype.sendSuccess = function (msg, args) {
     this.sendCustomMessage(msg, args);
     this.playSound("au.success");
 };
-/**
- * Send an error message with a sound.
- * @param { String  } msg
- * @param { Array } args
- */
 Player.prototype.sendError = function (msg, args) {
     this.sendCustomMessage(msg, args);
     this.playSound("au.error");

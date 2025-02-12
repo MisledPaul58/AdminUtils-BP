@@ -27,7 +27,8 @@ system.runInterval(() => {
              */
             server.emit("firstLoad");
             database.loadData.set("loadedAtLeastOnce", true);
-        }
+
+        } else if (tickCount <= 5) server.sendCustomMessage("system.reload", [msLoadTime.toString()]);
     }
 
     if (worldReady) {

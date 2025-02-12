@@ -13,13 +13,13 @@ import {
     world
 } from "@minecraft/server";
 import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
+import moment from "./utils/moment/moment";
 import { database } from "./database/index";
 import "./utils/players.js";
 import { server } from "./server";
 import "./events/events";
 import "./ui/index";
 import { freeCam } from "./systems/freeCam.js";
-import moment from "./utils/moment/moment";
 
 const overworld = world.getDimension("overworld");
 export const delay = ticks => new Promise(res => system.runTimeout(res, ticks));
@@ -1046,8 +1046,8 @@ function adminSettings(p) {
                         .title("Admin settings: show admins")
                         .dropdown("Admins list", adminsArray)
                         .show(p).then(result => {
-                        adminSettings(p);
-                    });
+                            adminSettings(p);
+                        });
                 }
             }
                 break;
