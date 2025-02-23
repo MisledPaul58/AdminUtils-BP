@@ -1,11 +1,18 @@
-export class PermissionNode {
-    permission: string;
-    value: boolean;
-    isWildcard: boolean;
+import { WildcardProcessor } from "./calculator/wildcardProcessor";
 
-    constructor(permission: string, value: boolean, isWildcard: boolean) {
+//TODO make it serializable
+export class PermissionNode {
+    public readonly permission: string;
+    public readonly value: boolean;
+    public readonly wildcardLevel: number;
+
+    constructor(permission: string, value: boolean) {
         this.permission = permission;
         this.value = value;
-        this.isWildcard = isWildcard;
+        this.wildcardLevel = WildcardProcessor.getWildcardLevel(permission);
+    }
+
+    public isWildcard(): boolean {
+        return this.wildcardLevel != -1;
     }
 }
