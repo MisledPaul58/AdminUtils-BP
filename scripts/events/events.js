@@ -1,21 +1,37 @@
 import { server } from "../server";
 import { system, world } from "@minecraft/server";
-import { database } from "../database/index";
+import { loadDatabases, database } from "../database/index";
 
-/**
- * Emit to "ready" event.
- */
 let worldReady = false;
+let dbReady = false;
 let tickCount = 0;
 let previousTime = Date.now();
+
 system.runInterval(() => {
     tickCount++;
     if (!worldReady && (world.getAllPlayers().length || tickCount >= 200)) {
         worldReady = true;
+        initAdminUtils();
+    }
+
+    if (worldReady && dbReady) {
+        /**
+         * Emit to "tick" event.
+         */
+        server.emit("tick", { currentTick: tickCount });
+    }
+}, 1);
+
+function initAdminUtils() {
+    system.runJob(function* () {
+        yield* loadDatabases();
 
         const msLoadTime = Date.now() - previousTime;
-        server.emit("ready", { tickLoadTime: tickCount, msLoadTime });
-        database.loadData
+        /**
+         * Emit to "ready" event.
+         */
+        yield server.emit("ready", { tickLoadTime: tickCount, msLoadTime });
+        yield database.loadData
             .set("ready", true)
             .set("lastTickLoadTime", tickCount)
             .set("lastMsLoadTime", msLoadTime);
@@ -28,12 +44,7 @@ system.runInterval(() => {
             server.emit("firstLoad");
             database.loadData.set("loadedAtLeastOnce", true);
         }
-    }
 
-    if (worldReady) {
-        /**
-         * Emit to "tick" event.
-         */
-        server.emit("tick", { currentTick: tickCount });
-    }
-}, 1);
+        yield dbReady = true;
+    }());
+}

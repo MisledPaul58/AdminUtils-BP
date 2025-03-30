@@ -939,7 +939,7 @@ class FreeCam {
                                         p.sendMessage("§cError, another user has recently disabled your freecam.");
                                         p.playSound("au.error");
 
-                                    } else if (!selectedRawPlayer.isValid()) {
+                                    } else if (!selectedRawPlayer.isValid) {
                                         p.sendMessage(`§cError, §4${player}§c has recently left.`);
                                         p.playSound("au.error");
 
@@ -1310,7 +1310,7 @@ class FreeCam {
                     p.sendMessage("§cError, another user has recently disabled your freecam.");
                     p.playSound("au.error");
 
-                } else if (!selectedRawPlayer.isValid()) {
+                } else if (!selectedRawPlayer.isValid) {
                     p.sendMessage(`§cError, §4${player}§c has recently left.`);
                     p.playSound("au.error");
 
@@ -1549,7 +1549,7 @@ async function handleExpFreecam(rawPlayer, startLocation, dimension) {
             system.clearRun(run);
             return;
         }
-        if (!rawPlayer.isValid() || (!freeCam.isInExpFreeCam(player) && !data?.autoChunkLoad.loading)) {
+        if (!rawPlayer.isValid || (!freeCam.isInExpFreeCam(player) && !data?.autoChunkLoad.loading)) {
             activeExpFreeCams.splice(activeExpFreeCams.indexOf(player), 1);
             system.clearRun(run);
             return;

@@ -1,16 +1,24 @@
 import { Database } from "./database";
 
 /**
- * @type { { loaded: Boolean, freeCam: Database, playerData: Database } }
+ * @type { { loaded: Boolean, config: Database, playerData: Database, freecam: Database } }
  */
 export let database = {
     loaded: false
 };
 
-database.loadData = new Database("LoadData");
+export function* loadDatabases() {
+    yield database.loadData = new Database("LoadData");
+    yield* database.loadData.fetch();
 
-database.config = new Database("Config");
-database.playerData = new Database("PlayerData");
-database.freeCam = new Database("Freecam");
+    yield database.config = new Database("Config");
+    yield* database.config.fetch();
 
-database.loaded = true;
+    yield database.playerData = new Database("PlayerData");
+    yield* database.playerData.fetch();
+
+    yield database.freeCam = new Database("Freecam");
+    yield* database.freeCam.fetch();
+
+    yield database.loaded = true;
+}

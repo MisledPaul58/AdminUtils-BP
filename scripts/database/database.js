@@ -7,19 +7,18 @@ export class Database {
 
     constructor(tableName) {
         this.#tableName = tableName;
-        this.#memory = this.#fetch();
+        this.#memory = {};
     }
 
-    #fetch() {
+    *fetch() {
         const chunksLength = world.getDynamicProperty(`db_${this.#tableName}_length`) ?? 0;
         if (typeof chunksLength !== "number") {
             console.warn(`[DATABASE]: '${this.#tableName}' has improper setup. Wiping data.`);
 
-            this.wipe();
-            return {};
+            return this.wipe();
         }
 
-        if (chunksLength <= 0) return {};
+        if (chunksLength <= 0) return this.#memory = {};
 
         let collectedData = "";
         for (let i = 0; i < chunksLength; i++) {
@@ -27,20 +26,18 @@ export class Database {
             if (typeof dataChunk !== "string") {
                 console.warn(`[DATABASE]: When fetching db_${this.#tableName}_${i}, improper data was found. Wiping data.`);
 
-                this.wipe();
-                return {};
+                return this.wipe();
             }
 
-            collectedData += dataChunk;
+            yield collectedData += dataChunk;
         }
 
         if (!collectedData.startsWith("{") || !collectedData.endsWith("}")) {
             console.warn(`[DATABASE]: When fetching '${this.#tableName}', improper data was found. Wiping data.`);
 
-            this.wipe();
-            return {};
+            return this.wipe();
         }
-        return JSON.parse(collectedData);
+        yield this.#memory = JSON.parse(collectedData);
     }
 
     #saveData() {
@@ -135,6 +132,7 @@ export class Database {
      * Deletes all the keys from the table and resets its data.
      */
     wipe() {
+        this.#memory = {};
         const ids = world.getDynamicPropertyIds();
         for (const id of ids) {
             if (id.startsWith(`db_${this.#tableName}`)) world.setDynamicProperty(id, undefined);
