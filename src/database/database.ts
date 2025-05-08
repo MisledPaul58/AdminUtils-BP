@@ -3,24 +3,23 @@ import { DatabaseName } from "./index";
 
 export class Database {
     
-    private readonly tableName: DatabaseName;
+    public readonly tableName: DatabaseName;
     private memory: Record<string, any>;
 
     constructor(tableName: DatabaseName) {
         this.tableName = tableName;
-        this.memory = this.fetch();
+        this.memory = {};
     }
 
-    private fetch(): Record<string, any> {
+    public *fetch(): Generator<string | object> {
         const chunksLength = world.getDynamicProperty(`db_${this.tableName}_length`) ?? 0;
         if (typeof chunksLength !== "number") {
             console.warn(`[DATABASE]: '${this.tableName}' has improper setup. Wiping data.`);
 
-            this.wipe();
-            return {};
+            return this.wipe();
         }
 
-        if (chunksLength <= 0) return {};
+        if (chunksLength <= 0) return this.memory = {};
 
         let collectedData = "";
         for (let i = 0; i < chunksLength; i++) {
@@ -28,20 +27,18 @@ export class Database {
             if (typeof dataChunk !== "string") {
                 console.warn(`[DATABASE]: When fetching db_${this.tableName}_${i}, improper data was found. Wiping data.`);
 
-                this.wipe();
-                return {};
+                return this.wipe();
             }
 
-            collectedData += dataChunk;
+            yield collectedData += dataChunk;
         }
 
         if (!collectedData.startsWith("{") || !collectedData.endsWith("}")) {
             console.warn(`[DATABASE]: When fetching '${this.tableName}', improper data was found. Wiping data.`);
 
-            this.wipe();
-            return {};
+            return this.wipe();
         }
-        return JSON.parse(collectedData);
+        yield this.memory = JSON.parse(collectedData);
     }
 
     saveData() {
@@ -70,11 +67,8 @@ export class Database {
      * Sets the specified `key` to the given `value` in the database table.
      */
     set(key: string, value: Object, save: boolean = true): Database {
-        if (!this.memory) throw new Error("Data tried to be set before load!");
         this.memory[key] = value;
-        if (save) {
-            this.saveData();
-        }
+        if (save) this.saveData();
         return this;
     }
 
@@ -83,7 +77,7 @@ export class Database {
      * @param { String } key 
      * @returns the value associated with the given key in the database table.
      */
-    get(key) {
+    get(key: string) {
         return this.memory[key];
     }
 
@@ -91,7 +85,7 @@ export class Database {
      * Gets all the keys in the table.
      * @returns { String[] }
      */
-    keys() {
+    keys(): string[] {
         return Object.keys(this.memory);
     }
 
@@ -117,29 +111,19 @@ export class Database {
      * @param { String } key 
      * @returns { Boolean }
      */
-    has(key) {
-        return Object.keys(this.memory).includes(key);
+    has(key: string): boolean {
+        return this.memory.hasOwnProperty(key); //TODO does Object.hasOwn work?
     }
 
     /**
      * Deletes a key from the table.
      * @param { String } key 
      */
-    delete(key) {
-        if (!this.memory) return false;
-        const status = delete this.memory[key];
+    delete(key: string): boolean {
+        if (!this.has(key)) return false;
+        delete this.memory[key];
         this.saveData();
-        return status;
-    }
-
-    /**
-     * Deletes all the keys from the table and resets its data.
-     */
-    wipe() {
-        const ids = world.getDynamicPropertyIds();
-        for (const id of ids) {
-            if (id.startsWith(`db_${this.tableName}`)) world.setDynamicProperty(id, undefined);
-        }
+        return true;
     }
 
     /**
@@ -148,6 +132,17 @@ export class Database {
     clear() {
         this.memory = {};
         this.saveData();
+    }
+
+    /**
+     * Deletes all the keys from the table and resets its data.
+     */
+    wipe() {
+        this.memory = {};
+        const ids = world.getDynamicPropertyIds();
+        for (const id of ids) {
+            if (id.startsWith(`db_${this.tableName}`)) world.setDynamicProperty(id, undefined);
+        }
     }
     
     /**

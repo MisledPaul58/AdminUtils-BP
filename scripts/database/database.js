@@ -2,33 +2,30 @@ import { world } from "@minecraft/server";
 export class Database {
     constructor(tableName) {
         this.tableName = tableName;
-        this.memory = this.fetch();
+        this.memory = {};
     }
-    fetch() {
+    *fetch() {
         const chunksLength = world.getDynamicProperty(`db_${this.tableName}_length`) ?? 0;
         if (typeof chunksLength !== "number") {
             console.warn(`[DATABASE]: '${this.tableName}' has improper setup. Wiping data.`);
-            this.wipe();
-            return {};
+            return this.wipe();
         }
         if (chunksLength <= 0)
-            return {};
+            return this.memory = {};
         let collectedData = "";
         for (let i = 0; i < chunksLength; i++) {
             const dataChunk = world.getDynamicProperty(`db_${this.tableName}_${i}`);
             if (typeof dataChunk !== "string") {
                 console.warn(`[DATABASE]: When fetching db_${this.tableName}_${i}, improper data was found. Wiping data.`);
-                this.wipe();
-                return {};
+                return this.wipe();
             }
-            collectedData += dataChunk;
+            yield collectedData += dataChunk;
         }
         if (!collectedData.startsWith("{") || !collectedData.endsWith("}")) {
             console.warn(`[DATABASE]: When fetching '${this.tableName}', improper data was found. Wiping data.`);
-            this.wipe();
-            return {};
+            return this.wipe();
         }
-        return JSON.parse(collectedData);
+        yield this.memory = JSON.parse(collectedData);
     }
     saveData() {
         const chunks = JSON.stringify(this.memory).match(/.{1,30000}/g);
@@ -53,12 +50,9 @@ export class Database {
      * Sets the specified `key` to the given `value` in the database table.
      */
     set(key, value, save = true) {
-        if (!this.memory)
-            throw new Error("Data tried to be set before load!");
         this.memory[key] = value;
-        if (save) {
+        if (save)
             this.saveData();
-        }
         return this;
     }
     /**
@@ -97,28 +91,18 @@ export class Database {
      * @returns { Boolean }
      */
     has(key) {
-        return Object.keys(this.memory).includes(key);
+        return this.memory.hasOwnProperty(key); //TODO does Object.hasOwn work?
     }
     /**
      * Deletes a key from the table.
      * @param { String } key
      */
     delete(key) {
-        if (!this.memory)
+        if (!this.has(key))
             return false;
-        const status = delete this.memory[key];
+        delete this.memory[key];
         this.saveData();
-        return status;
-    }
-    /**
-     * Deletes all the keys from the table and resets its data.
-     */
-    wipe() {
-        const ids = world.getDynamicPropertyIds();
-        for (const id of ids) {
-            if (id.startsWith(`db_${this.tableName}`))
-                world.setDynamicProperty(id, undefined);
-        }
+        return true;
     }
     /**
      * Clears all the keys in the table.
@@ -126,6 +110,17 @@ export class Database {
     clear() {
         this.memory = {};
         this.saveData();
+    }
+    /**
+     * Deletes all the keys from the table and resets its data.
+     */
+    wipe() {
+        this.memory = {};
+        const ids = world.getDynamicPropertyIds();
+        for (const id of ids) {
+            if (id.startsWith(`db_${this.tableName}`))
+                world.setDynamicProperty(id, undefined);
+        }
     }
     /**
      * Returns the table object with all its keys and values.

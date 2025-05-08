@@ -1,8 +1,25 @@
 import { UIManager } from "./ui/builder";
 import { defaultConfig } from "./config/defaultConfig";
-import { database } from "./database/index";
+import { database, loadDatabases } from "./database/index";
 import { EventEmitter } from "./events/eventEmitter";
 import { world, Player, system, RawMessage } from "@minecraft/server";
+
+class ServerBootstrap {
+    private isInitialized: boolean = false;
+
+    public initAdminUtils() {
+        return new Promise<void>((resolve, reject) => {
+            system.runJob(function* () {
+                yield* loadDatabases() as Generator<void, void, void>;
+
+                //TODO try catch para resolve o reject? o simplemente un throw
+                //TODO cómo calcular el msLoadTime desde aquí?
+            }());
+        });
+    }
+}
+
+export const serverBootstrap = new ServerBootstrap();
 
 class Server extends EventEmitter {
     public ui: UIManager;
@@ -10,7 +27,7 @@ class Server extends EventEmitter {
     constructor() {
         super();
         this.ui = new UIManager();
-        //TODO inicializar todas las variables como ui fuera de la clase en server.once("ready por ejemplo
+        //TODO inicializar todas las variables como ui fuera de la clase en server.once("ready"), por ejemplo
     }
 
     /**

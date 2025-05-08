@@ -14,9 +14,9 @@ system.runInterval(() => {
          */
         server.emit("ready", { tickLoadTime: tickCount, msLoadTime });
         database.loadData
-            .set("ready", true)
-            .set("lastTickLoadTime", tickCount)
-            .set("lastMsLoadTime", msLoadTime);
+            .set("ready", true, false)
+            .set("lastTickLoadTime", tickCount, false)
+            .set("lastMsLoadTime", msLoadTime, true);
         const firstLoad = database.loadData.get("loadedAtLeastOnce");
         if (!firstLoad) {
             /**

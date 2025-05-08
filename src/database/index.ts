@@ -1,6 +1,11 @@
 import { Database } from "./database";
 
-export type DatabaseName = "LoadData" | "Config" | "PlayerData" | "Freecam";
+export enum DatabaseName {
+    LoadData = "LoadData",
+    Config = "Config",
+    PlayerData = "PlayerData",
+    Freecam = "Freecam"
+}
 
 interface DatabaseI {
     loaded: boolean,
@@ -10,17 +15,25 @@ interface DatabaseI {
     freeCam: Database
 }
 
-export let database: DatabaseI = {
-    loaded: false,
+export let database = {
+    loaded: false
+} as DatabaseI;
 
-    loadData: new Database("LoadData"),
+export function* loadDatabases() {
+    yield database.loadData = new Database(DatabaseName.LoadData);
+    yield* database.loadData.fetch();
 
-    config: new Database("Config"),
-    playerData: new Database("PlayerData"),
-    freeCam: new Database("Freecam")
-};
+    yield database.config = new Database(DatabaseName.Config);
+    yield* database.config.fetch();
 
-database.loaded = true;
+    yield database.playerData = new Database(DatabaseName.PlayerData);
+    yield* database.playerData.fetch();
+
+    yield database.freeCam = new Database(DatabaseName.Freecam);
+    yield* database.freeCam.fetch();
+
+    yield database.loaded = true;
+}
 
 // for (const db in database) {
 //     if (db === "loaded") continue;
