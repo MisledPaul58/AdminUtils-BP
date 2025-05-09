@@ -851,7 +851,7 @@ function adminSettings(p) {
                                 .title("Admin settings: set an admin")
                                 .textField("Type below the player you would like to set as an admin (all other admins will be deleted).", "Player's name");
                             form.show(p).then(async result => {
-                                if (result.canceled === true) return;
+                                if (result.canceled === true) return setAnAdmin();
                                 const player = result.formValues[0];
 
                                 if (player === "" || !player) {
@@ -945,7 +945,7 @@ function adminSettings(p) {
                                 .title("Admin settings: add an admin")
                                 .textField("Type below the player you would like to add as an admin.", "Player's name");
                             form.show(p).then(result => {
-                                if (result.canceled === true) return;
+                                if (result.canceled === true) return addAnAdmin();
                                 const player = result.formValues[0];
 
                                 if (player === "" || !player) {
@@ -1031,7 +1031,7 @@ function adminSettings(p) {
                                 .title("Admin settings: remove an admin")
                                 .textField("Type below the name of the admin you would like to remove.", "Player's name")
                                 .show(p).then(result => {
-                                if (result.canceled === true) return;
+                                if (result.canceled === true) return removeAnAdmin();
 
                                 const admin = result.formValues[0];
                                 if (admin === "" || !admin) {
@@ -1196,7 +1196,7 @@ export function adminUtils(p) {
                                             .title("Freeze a player")
                                             .textField("Type below the player you would like to freeze. In case the player is offline, they will get frozen as soon as they join the world.", "Player's name");
                                         form.show(p).then(async result => {
-                                            if (result.canceled === true) return;
+                                            if (result.canceled === true) return freezePlayer();
                                             const playerName = result.formValues[0];
                                             if (!isValidUsername(playerName)) {
                                                 p.sendMessage('§cError, the username you entered is invalid.');
@@ -1318,174 +1318,178 @@ export function adminUtils(p) {
             }
                 break;
             case 8: { //Kill a player
-                const playersArray = players.map(pname => pname.name);
-                const form = new ActionFormData()
-                    .title("Kill a player")
-                    .body("Select an online player to kill")
-                    .button("§l<-- Back", "textures/icons/back.png")
-                    .button("Type an online player instead", "textures/icons/pencil.png");
-                for (const player of playersArray) {
-                    form.button(player, "textures/icons/steve_icon.png");
-                }
+                killAPlayer();
 
-                form.show(p).then((response) => {
-                    if (response.selection === 0) {
-                        adminUtils(p);
-                    } else if (response.selection === 1) {
-                        const form = new ModalFormData()
-                            .title("Kill a player")
-                            .textField("Type below the player you would like to kill.", "Player's name")
-                            .toggle("Force death", true);
-                        form.show(p).then(async result => {
-                            if (result.canceled === true) return;
-                            const playerName = result.formValues[0];
+                function killAPlayer() {
+                    const playersArray = players.map(pname => pname.name);
+                    const form = new ActionFormData()
+                        .title("Kill a player")
+                        .body("Select an online player to kill")
+                        .button("§l<-- Back", "textures/icons/back.png")
+                        .button("Type an online player instead", "textures/icons/pencil.png");
+                    for (const player of playersArray) {
+                        form.button(player, "textures/icons/steve_icon.png");
+                    }
 
-                            if (!isValidUsername(playerName)) {
-                                p.sendMessage(`§cError, the username you entered is invalid.`);
-                                p.playSound("au.error");
+                    form.show(p).then((response) => {
+                        if (response.selection === 0) {
+                            adminUtils(p);
+                        } else if (response.selection === 1) {
+                            const form = new ModalFormData()
+                                .title("Kill a player")
+                                .textField("Type below the player you would like to kill.", "Player's name")
+                                .toggle("Force death", { defaultValue: true });
+                            form.show(p).then(async result => {
+                                if (result.canceled === true) return killAPlayer();
+                                const playerName = result.formValues[0];
 
-                            } else if (result.formValues[1] === true) { //Force death true
-                                try {
-                                    const { successCount: _successCount } = p.runCommand(`testfor "${playerName}"`);
-                                    if (_successCount === 0) {
-                                        throw '';
-                                    }
+                                if (!isValidUsername(playerName)) {
+                                    p.sendMessage(`§cError, the username you entered is invalid.`);
+                                    p.playSound("au.error");
 
-                                    const rawPlayer = world.getPlayers({
-                                        name: playerName,
-                                        gameMode: GameMode.survival
-                                    })[0];
-                                    const rawPlayer2 = world.getPlayers({
-                                        name: playerName,
-                                        gameMode: GameMode.adventure
-                                    })[0];
-                                    if (!rawPlayer && !rawPlayer2) {
-                                        let gamemode = "survival";
-                                        if (world.getPlayers({ name: playerName, gameMode: GameMode.creative })[0]) {
-                                            gamemode = "creative";
-                                        } else if (world.getPlayers({
-                                            name: playerName,
-                                            gameMode: GameMode.spectator
-                                        })[0]) {
-                                            gamemode = "spectator;"
+                                } else if (result.formValues[1] === true) { //Force death true
+                                    try {
+                                        const { successCount: _successCount } = p.runCommand(`testfor "${playerName}"`);
+                                        if (_successCount === 0) {
+                                            throw '';
                                         }
 
-                                        p.runCommand(`tag "${playerName}" add "-aukill${gamemode}"`);
-                                        p.runCommand(`gamemode survival "${playerName}"`);
-                                    }
-                                    p.runCommand(`kill "${playerName}"`);
-                                    await delay(2);
+                                        const rawPlayer = world.getPlayers({
+                                            name: playerName,
+                                            gameMode: GameMode.survival
+                                        })[0];
+                                        const rawPlayer2 = world.getPlayers({
+                                            name: playerName,
+                                            gameMode: GameMode.adventure
+                                        })[0];
+                                        if (!rawPlayer && !rawPlayer2) {
+                                            let gamemode = "survival";
+                                            if (world.getPlayers({ name: playerName, gameMode: GameMode.creative })[0]) {
+                                                gamemode = "creative";
+                                            } else if (world.getPlayers({
+                                                name: playerName,
+                                                gameMode: GameMode.spectator
+                                            })[0]) {
+                                                gamemode = "spectator;"
+                                            }
 
-                                    const { successCount } = p.runCommand(`testfor "${playerName}"`);
-                                    if (successCount === 1) {
-                                        throw '';
-                                    }
-                                    p.sendMessage(`§aThe player §b${playerName}§a has been killed successfully.`);
-                                    p.playSound("au.success");
-                                } catch (e) {
-                                    p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
-                                    p.playSound("au.error");
-                                }
-                            } else if (result.formValues[1] === false) { //Force death false
-                                try {
-                                    const { successCount: _successCount } = p.runCommand(`testfor "${playerName}"`);
-                                    if (_successCount === 0) { //If the player is already dead or offline
-                                        throw '';
-                                    }
+                                            p.runCommand(`tag "${playerName}" add "-aukill${gamemode}"`);
+                                            p.runCommand(`gamemode survival "${playerName}"`);
+                                        }
+                                        p.runCommand(`kill "${playerName}"`);
+                                        await delay(2);
 
-                                    p.runCommand(`kill "${playerName}"`);
-
-                                    const { successCount } = p.runCommand(`testfor "${playerName}"`);
-                                    if (successCount === 1) { //If the player is still alive
-                                        throw '';
-                                    } else {
+                                        const { successCount } = p.runCommand(`testfor "${playerName}"`);
+                                        if (successCount === 1) {
+                                            throw '';
+                                        }
                                         p.sendMessage(`§aThe player §b${playerName}§a has been killed successfully.`);
                                         p.playSound("au.success");
+                                    } catch (e) {
+                                        p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
+                                        p.playSound("au.error");
                                     }
-                                } catch (e) {
-                                    p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
-                                    p.playSound("au.error");
-                                }
-                            }
-                        });
-                    } else if (response.selection > 1) {
-                        const selectedPlayersName = playersArray[response.selection - 2];
-
-                        const form = new ModalFormData()
-                            .title("Kill a player")
-                            .toggle("Force death", true);
-                        form.show(p).then(async result => {
-                            if (result.canceled === true) return;
-                            if (result.formValues[0] === true) { //Force death true
-                                try {
-                                    const { successCount: _successCount } = p.runCommand(`testfor "${selectedPlayersName}"`);
-                                    if (_successCount === 0) {
-                                        throw '';
-                                    }
-
-                                    const rawPlayer = world.getPlayers({
-                                        name: selectedPlayersName,
-                                        gameMode: GameMode.survival
-                                    })[0];
-                                    const rawPlayer2 = world.getPlayers({
-                                        name: selectedPlayersName,
-                                        gameMode: GameMode.adventure
-                                    })[0];
-                                    if (!rawPlayer && !rawPlayer2) {
-                                        let gamemode = "survival";
-                                        if (world.getPlayers({
-                                            name: selectedPlayersName,
-                                            gameMode: GameMode.creative
-                                        })[0]) {
-                                            gamemode = "creative";
-                                        } else if (world.getPlayers({
-                                            name: selectedPlayersName,
-                                            gameMode: GameMode.spectator
-                                        })[0]) {
-                                            gamemode = "spectator;"
+                                } else if (result.formValues[1] === false) { //Force death false
+                                    try {
+                                        const { successCount: _successCount } = p.runCommand(`testfor "${playerName}"`);
+                                        if (_successCount === 0) { //If the player is already dead or offline
+                                            throw '';
                                         }
 
-                                        p.runCommand(`tag "${selectedPlayersName}" add "-aukill${gamemode}"`);
-                                        p.runCommand(`gamemode survival "${selectedPlayersName}"`);
-                                    }
+                                        p.runCommand(`kill "${playerName}"`);
 
-                                    p.runCommand(`kill "${selectedPlayersName}"`);
-                                    await delay(2);
-
-                                    const { successCount } = p.runCommand(`testfor "${selectedPlayersName}"`);
-                                    if (successCount === 1) {
-                                        throw '';
+                                        const { successCount } = p.runCommand(`testfor "${playerName}"`);
+                                        if (successCount === 1) { //If the player is still alive
+                                            throw '';
+                                        } else {
+                                            p.sendMessage(`§aThe player §b${playerName}§a has been killed successfully.`);
+                                            p.playSound("au.success");
+                                        }
+                                    } catch (e) {
+                                        p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
+                                        p.playSound("au.error");
                                     }
-                                    p.sendMessage(`§aThe player §b${selectedPlayersName}§a has been killed successfully.`);
-                                    p.playSound("au.success");
-                                } catch (e) {
-                                    p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
-                                    p.playSound("au.error");
                                 }
-                            } else if (result.formValues[0] === false) { //Force death false
-                                try {
-                                    const { successCount: _successCount } = p.runCommand(`testfor "${selectedPlayersName}"`);
-                                    if (_successCount === 0) { //If the player is already dead or offline
-                                        throw '';
-                                    }
+                            });
+                        } else if (response.selection > 1) {
+                            const selectedPlayersName = playersArray[response.selection - 2];
 
-                                    p.runCommand(`kill "${selectedPlayersName}"`);
+                            const form = new ModalFormData()
+                                .title("Kill a player")
+                                .toggle("Force death", { defaultValue: true });
+                            form.show(p).then(async result => {
+                                if (result.canceled === true) return killAPlayer();
+                                if (result.formValues[0] === true) { //Force death true
+                                    try {
+                                        const { successCount: _successCount } = p.runCommand(`testfor "${selectedPlayersName}"`);
+                                        if (_successCount === 0) {
+                                            throw '';
+                                        }
 
-                                    const { successCount } = p.runCommand(`testfor "${selectedPlayersName}"`);
-                                    if (successCount === 1) { //If the player is still alive
-                                        throw '';
-                                    } else {
+                                        const rawPlayer = world.getPlayers({
+                                            name: selectedPlayersName,
+                                            gameMode: GameMode.survival
+                                        })[0];
+                                        const rawPlayer2 = world.getPlayers({
+                                            name: selectedPlayersName,
+                                            gameMode: GameMode.adventure
+                                        })[0];
+                                        if (!rawPlayer && !rawPlayer2) {
+                                            let gamemode = "survival";
+                                            if (world.getPlayers({
+                                                name: selectedPlayersName,
+                                                gameMode: GameMode.creative
+                                            })[0]) {
+                                                gamemode = "creative";
+                                            } else if (world.getPlayers({
+                                                name: selectedPlayersName,
+                                                gameMode: GameMode.spectator
+                                            })[0]) {
+                                                gamemode = "spectator;"
+                                            }
+
+                                            p.runCommand(`tag "${selectedPlayersName}" add "-aukill${gamemode}"`);
+                                            p.runCommand(`gamemode survival "${selectedPlayersName}"`);
+                                        }
+
+                                        p.runCommand(`kill "${selectedPlayersName}"`);
+                                        await delay(2);
+
+                                        const { successCount } = p.runCommand(`testfor "${selectedPlayersName}"`);
+                                        if (successCount === 1) {
+                                            throw '';
+                                        }
                                         p.sendMessage(`§aThe player §b${selectedPlayersName}§a has been killed successfully.`);
                                         p.playSound("au.success");
+                                    } catch (e) {
+                                        p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
+                                        p.playSound("au.error");
                                     }
-                                } catch (e) {
-                                    p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
-                                    p.playSound("au.error");
+                                } else if (result.formValues[0] === false) { //Force death false
+                                    try {
+                                        const { successCount: _successCount } = p.runCommand(`testfor "${selectedPlayersName}"`);
+                                        if (_successCount === 0) { //If the player is already dead or offline
+                                            throw '';
+                                        }
+
+                                        p.runCommand(`kill "${selectedPlayersName}"`);
+
+                                        const { successCount } = p.runCommand(`testfor "${selectedPlayersName}"`);
+                                        if (successCount === 1) { //If the player is still alive
+                                            throw '';
+                                        } else {
+                                            p.sendMessage(`§aThe player §b${selectedPlayersName}§a has been killed successfully.`);
+                                            p.playSound("au.success");
+                                        }
+                                    } catch (e) {
+                                        p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
+                                        p.playSound("au.error");
+                                    }
                                 }
-                            }
-                        });
-                    }
-                });
+                            });
+                        }
+                    });
+                }
             }
                 break;
             case 9: { //Launch a player
@@ -1510,6 +1514,8 @@ export function adminUtils(p) {
                                 .title("Launch a player")
                                 .textField("Type below the player you would like to launch", "Player's name");
                             form.show(p).then(async result => {
+                                if (result.canceled) return launchPlayer();
+
                                 const player = result.formValues[0];
 
                                 if (!isValidUsername(player)) {
@@ -1631,20 +1637,21 @@ function banPlayer(p) {
         if (response.selection === 0) {
             banUnbanMenu(p);
         } else if (response.selection === 1) {
-            let form = new ModalFormData()
+            const form = new ModalFormData()
                 .title("Ban menu")
                 .textField("Type below the player you would like to ban.", "Player's name") //0
                 .textField("Enter a reason:", "Reason") //1
-                .toggle("Permanent ban", false) //2
-                .slider("Years", 0, 10, 1, 0) //3
-                .slider("Months", 0, 11, 1, 0) //4
-                .slider("Weeks", 0, 3, 1, 0) //5
-                .slider("Days", 0, 6, 1, 0) //6
-                .slider("Hours", 0, 23, 1, 0) //7
-                .slider("Minutes", 0, 59, 1, 0) //8
-                .slider("Seconds", 0, 59, 1, 0); //9
+                .toggle("Permanent ban") //2
+                .slider("Years", 0, 10) //3
+                .slider("Months", 0, 11) //4
+                .slider("Weeks", 0, 3) //5
+                .slider("Days", 0, 6) //6
+                .slider("Hours", 0, 23) //7
+                .slider("Minutes", 0, 59) //8
+                .slider("Seconds", 0, 59); //9
             form.show(p).then(async result => {
-                if (result.canceled === true) return;
+                if (result.canceled === true) return banPlayer(p);
+
                 const player = result.formValues[0];
                 const reason = result.formValues[1];
                 const isPermaBanned = result.formValues[2];
@@ -1754,19 +1761,20 @@ function banPlayer(p) {
         } else if (response.selection > 1) {
             const selectedPlayer = notBannedPlayers[response.selection - 2];
 
-            let form = new ModalFormData()
+            const form = new ModalFormData()
                 .title("Ban menu")
                 .textField("Enter a reason:", "Reason") //0
-                .toggle("Permanent ban", false) //1
-                .slider("Years", 0, 10, 1, 0) //2
-                .slider("Months", 0, 11, 1, 0) //3
-                .slider("Weeks", 0, 3, 1, 0) //4
-                .slider("Days", 0, 6, 1, 0) //5
-                .slider("Hours", 0, 23, 1, 0) //6
-                .slider("Minutes", 0, 59, 1, 0) //7
-                .slider("Seconds", 0, 59, 1, 0); //8
+                .toggle("Permanent ban") //1
+                .slider("Years", 0, 10) //2
+                .slider("Months", 0, 11) //3
+                .slider("Weeks", 0, 3) //4
+                .slider("Days", 0, 6) //5
+                .slider("Hours", 0, 23) //6
+                .slider("Minutes", 0, 59) //7
+                .slider("Seconds", 0, 59); //8
             form.show(p).then(async result => {
-                if (result.canceled === true) return;
+                if (result.canceled === true) return banPlayer(p);
+
                 const reason = result.formValues[0];
                 const isPermaBanned = result.formValues[1];
                 const bannedBy = p.name;
@@ -1888,30 +1896,32 @@ function unBanPlayer(p) {
                 .title("Unban menu")
                 .textField("Type below the player you would like to unban.", "Player's name")
                 .show(p).then(async result => {
-                const player = result.formValues[0];
-                const reason = getBanReason(player);
-                const bannedBy = getBannedBy(player);
-                const banISO = getUnBanISO(player);
+                    if (result.canceled) return unBanPlayer(p);
 
-                if (!isBanned(player)) {
-                    p.sendMessage(`§cError, the specified player is not banned.`);
-                    p.playSound("au.error");
-
-                } else if (!isValidUsername(player)) {
-                    p.sendMessage(`§cError, the username you entered is invalid.`);
-                    p.playSound("au.error");
-
-                } else if (isBanned(player) && isValidUsername(player)) {
-                    try {
-                        overworld.runCommand(`scoreboard players reset "${player}-aureason${reason}-auban${bannedBy}-autime${banISO}" -auBan`);
-                        p.sendMessage(`§aThe player §b${player}§a has been unbanned successfully.`);
-                        p.playSound("au.success");
-                    } catch (e) {
-                        p.sendMessage(`§cError, couldn't unban the player, perhaps the ban time is now over.`);
+                    const player = result.formValues[0];
+                    const reason = getBanReason(player);
+                    const bannedBy = getBannedBy(player);
+                    const banISO = getUnBanISO(player);
+    
+                    if (!isBanned(player)) {
+                        p.sendMessage(`§cError, the specified player is not banned.`);
                         p.playSound("au.error");
+    
+                    } else if (!isValidUsername(player)) {
+                        p.sendMessage(`§cError, the username you entered is invalid.`);
+                        p.playSound("au.error");
+    
+                    } else if (isBanned(player) && isValidUsername(player)) {
+                        try {
+                            overworld.runCommand(`scoreboard players reset "${player}-aureason${reason}-auban${bannedBy}-autime${banISO}" -auBan`);
+                            p.sendMessage(`§aThe player §b${player}§a has been unbanned successfully.`);
+                            p.playSound("au.success");
+                        } catch (e) {
+                            p.sendMessage(`§cError, couldn't unban the player, perhaps the ban time is now over.`);
+                            p.playSound("au.error");
+                        }
                     }
-                }
-            });
+                });
         } else if (response.selection > 1) {
             const selectedPlayer = bannedPlayers[response.selection - 2];
 
@@ -2023,16 +2033,17 @@ function jailPlayer(p) {
                     .title("Jail a player")
                     .textField("Type below the player you would like to jail.", "Player's name") //0
                     .textField("Enter a reason:", "Reason") //1
-                    .toggle("Permanent jail", false) //2
-                    .slider("Years", 0, 10, 1, 0) //3
-                    .slider("Months", 0, 11, 1, 0) //4
-                    .slider("Weeks", 0, 3, 1, 0) //5
-                    .slider("Days", 0, 6, 1, 0) //6
-                    .slider("Hours", 0, 23, 1, 0) //7
-                    .slider("Minutes", 0, 59, 1, 0) //8
-                    .slider("Seconds", 0, 59, 1, 0); //9
+                    .toggle("Permanent jail") //2
+                    .slider("Years", 0, 10) //3
+                    .slider("Months", 0, 11) //4
+                    .slider("Weeks", 0, 3) //5
+                    .slider("Days", 0, 6) //6
+                    .slider("Hours", 0, 23) //7
+                    .slider("Minutes", 0, 59) //8
+                    .slider("Seconds", 0, 59); //9
                 form.show(p).then(async result => {
-                    if (result.canceled === true) return;
+                    if (result.canceled === true) return jailPlayer(p);
+
                     const player = result.formValues[0];
                     const reason = result.formValues[1];
                     const isPermaJailed = result.formValues[2];
@@ -2241,16 +2252,17 @@ function jailPlayer(p) {
                     const form = new ModalFormData()
                         .title(`Jail §b${selectedPlayer}`)
                         .textField("Enter a reason:", "Reason") //0
-                        .toggle("Permanent jail", false) //1
-                        .slider("Years", 0, 10, 1, 0) //2
-                        .slider("Months", 0, 11, 1, 0) //3
-                        .slider("Weeks", 0, 3, 1, 0) //4
-                        .slider("Days", 0, 6, 1, 0) //5
-                        .slider("Hours", 0, 23, 1, 0) //6
-                        .slider("Minutes", 0, 59, 1, 0) //7
-                        .slider("Seconds", 0, 59, 1, 0); //8
+                        .toggle("Permanent jail") //1
+                        .slider("Years", 0, 10) //2
+                        .slider("Months", 0, 11) //3
+                        .slider("Weeks", 0, 3) //4
+                        .slider("Days", 0, 6) //5
+                        .slider("Hours", 0, 23) //6
+                        .slider("Minutes", 0, 59) //7
+                        .slider("Seconds", 0, 59); //8
                     form.show(p).then(async result => {
-                        if (result.canceled === true) return;
+                        if (result.canceled === true) return jailPlayer(p);
+
                         const reason = result.formValues[0];
                         const isPermaJailed = result.formValues[1];
                         const jailedBy = p.name;
@@ -2478,7 +2490,8 @@ function releasePlayer(p) {
                     .title("Release a player")
                     .textField("Type below the player you would like to release.", "Player's name");
                 form.show(p).then(async result => {
-                    if (result.canceled === true) return;
+                    if (result.canceled === true) return releasePlayer(p);
+
                     const player = result.formValues[0];
 
                     if (!isValidUsername(player)) {
@@ -2985,115 +2998,127 @@ function projectilePowers(p) {
             adminUtils(p);
 
         } else if (selection >= 1) {
-            const playersArray = players.map(pname => pname.name);
-            const projectiles = ["snowball", "arrow", "egg"];
-            const selectedProj = projectiles[response.selection - 1];
-            const form = new ActionFormData()
-                .title("Toggle for a player")
-                .body("Select an online player to enable/disable certain powers when throwing a snowball at an entity.\nYou will be able to select those powers later.")
-                .button("§l<-- Back", "textures/icons/back.png")
-                .button("Type an offline/online player instead", "textures/icons/pencil.png");
-            for (const player of playersArray) {
-                form.button(player, "textures/icons/steve_icon.png");
-            }
+            selectPlayer();
 
-            form.show(p).then((response) => {
-                if (response.canceled === true) return;
-                const { selection } = response;
-                if (selection === 0) {
-                    projectilePowers(p);
+            function selectPlayer() {
+                const playersArray = players.map(pname => pname.name);
+                const projectiles = ["snowball", "arrow", "egg"];
+                const selectedProj = projectiles[response.selection - 1];
+                const form = new ActionFormData()
+                    .title("Toggle for a player")
+                    .body(`Select an online player to enable/disable certain powers when throwing ${response.selection === 1 ? "a" : "an"} §l§b${selectedProj}§r at an entity.\nYou will be able to select those powers later.`)
+                    .button("§l<-- Back", "textures/icons/back.png")
+                    .button("Type an offline/online player instead", "textures/icons/pencil.png");
+                for (const player of playersArray) {
+                    form.button(player, "textures/icons/steve_icon.png");
+                }
 
-                } else if (selection === 1) {
-                    const form = new ModalFormData()
-                        .title("Toggle for a player")
-                        .textField("Type below the player you would like to enable/disable the powers.", "Player's name");
-                    form.show(p).then(async result => {
-                        if (result.canceled === true) return;
-                        const player = result.formValues[0];
+                form.show(p).then((response) => {
+                    if (response.canceled === true) return projectilePowers(p);
+                    const { selection } = response;
+                    if (selection === 0) {
+                        projectilePowers(p);
 
-                        if (!isValidUsername(player)) {
-                            p.sendMessage("§cError, the username you entered is invalid.");
-                            p.playSound("au.error");
+                    } else if (selection === 1) {
+                        typePlayer();
 
-                        } else {
-                            const bolt = isPowerEnabled(player, selectedProj, "bolt");
-                            const freeze = isPowerEnabled(player, selectedProj, "freeze");
-                            const tnt = isPowerEnabled(player, selectedProj, "tnt");
-
+                        function typePlayer() {
                             const form = new ModalFormData()
-                                .title(`${player}'s ${selectedProj} powers`)
-                                .toggle("Lightning bolt", bolt)
-                                .toggle("Freeze", freeze)
-                                .toggle("TNT", tnt);
+                                .title("Toggle for a player")
+                                .textField("Type below the player you would like to enable/disable the powers.", "Player's name");
                             form.show(p).then(async result => {
-                                const _bolt = result.formValues[0];
-                                const boltstate = _bolt === true ? "on" : "off";
+                                if (result.canceled === true) return selectPlayer();
 
-                                const _freeze = result.formValues[1];
-                                const freezestate = _freeze === true ? "on" : "off";
+                                const player = result.formValues[0];
 
-                                const _tnt = result.formValues[2];
-                                const tntstate = _tnt === true ? "on" : "off";
-
-                                try {
-                                    if (_bolt !== bolt) {
-                                        await setPower(player, selectedProj, "bolt", boltstate);
-                                    }
-                                    if (_freeze !== freeze) {
-                                        await setPower(player, selectedProj, "freeze", freezestate);
-                                    }
-                                    if (_tnt !== tnt) {
-                                        await setPower(player, selectedProj, "tnt", tntstate);
-                                    }
-                                    p.sendMessage(`§aThe powers have been set correctly. Showing current state of all the powers for §b${player}§a:\n§7* §bLightning bolt: ${boltstate === "on" ? "§a" : "§c"}${boltstate}\n§7* §bFreeze: ${freezestate === "on" ? "§a" : "§c"}${freezestate}\n§7* §bTNT: ${tntstate === "on" ? "§a" : "§c"}${tntstate}`);
-                                } catch (e) {
-                                    p.sendMessage(`§cError, one or more powers couldn't be enabled/disabled.`);
+                                if (!isValidUsername(player)) {
+                                    p.sendMessage("§cError, the username you entered is invalid.");
                                     p.playSound("au.error");
+
+                                } else {
+                                    const bolt = isPowerEnabled(player, selectedProj, "bolt");
+                                    const freeze = isPowerEnabled(player, selectedProj, "freeze");
+                                    const tnt = isPowerEnabled(player, selectedProj, "tnt");
+
+                                    const form = new ModalFormData()
+                                        .title(`${player}'s ${selectedProj} powers`)
+                                        .toggle("Lightning bolt", { defaultValue: bolt })
+                                        .toggle("Freeze", { defaultValue: freeze })
+                                        .toggle("TNT", { defaultValue: tnt });
+                                    form.show(p).then(async result => {
+                                        if (result.canceled) return typePlayer();
+
+                                        const _bolt = result.formValues[0];
+                                        const boltstate = _bolt === true ? "on" : "off";
+
+                                        const _freeze = result.formValues[1];
+                                        const freezestate = _freeze === true ? "on" : "off";
+
+                                        const _tnt = result.formValues[2];
+                                        const tntstate = _tnt === true ? "on" : "off";
+
+                                        try {
+                                            if (_bolt !== bolt) {
+                                                await setPower(player, selectedProj, "bolt", boltstate);
+                                            }
+                                            if (_freeze !== freeze) {
+                                                await setPower(player, selectedProj, "freeze", freezestate);
+                                            }
+                                            if (_tnt !== tnt) {
+                                                await setPower(player, selectedProj, "tnt", tntstate);
+                                            }
+                                            p.sendMessage(`§aThe powers have been set correctly. Showing current state of all the powers for §b${player}§a:\n§7* §bLightning bolt: ${boltstate === "on" ? "§a" : "§c"}${boltstate}\n§7* §bFreeze: ${freezestate === "on" ? "§a" : "§c"}${freezestate}\n§7* §bTNT: ${tntstate === "on" ? "§a" : "§c"}${tntstate}`);
+                                        } catch (e) {
+                                            p.sendMessage(`§cError, one or more powers couldn't be enabled/disabled.`);
+                                            p.playSound("au.error");
+                                        }
+                                    });
                                 }
                             });
                         }
-                    });
-                } else if (selection > 1) {
-                    const selectedPlayer = playersArray[response.selection - 2];
-                    const bolt = isPowerEnabled(selectedPlayer, selectedProj, "bolt");
-                    const freeze = isPowerEnabled(selectedPlayer, selectedProj, "freeze");
-                    const tnt = isPowerEnabled(selectedPlayer, selectedProj, "tnt");
 
-                    const form = new ModalFormData()
-                        .title(`${selectedPlayer}'s ${selectedProj} powers`)
-                        .toggle("Lightning bolt", bolt)
-                        .toggle("Freeze", freeze)
-                        .toggle("TNT", tnt);
-                    form.show(p).then(async result => {
-                        if (result.canceled === true) return;
+                    } else if (selection > 1) {
+                        const selectedPlayer = playersArray[response.selection - 2];
+                        const bolt = isPowerEnabled(selectedPlayer, selectedProj, "bolt");
+                        const freeze = isPowerEnabled(selectedPlayer, selectedProj, "freeze");
+                        const tnt = isPowerEnabled(selectedPlayer, selectedProj, "tnt");
 
-                        const _bolt = result.formValues[0];
-                        const boltstate = _bolt === true ? "on" : "off";
+                        const form = new ModalFormData()
+                            .title(`${selectedPlayer}'s ${selectedProj} powers`)
+                            .toggle("Lightning bolt", { defaultValue: bolt })
+                            .toggle("Freeze", { defaultValue: freeze })
+                            .toggle("TNT", { defaultValue: tnt });
+                        form.show(p).then(async result => {
+                            if (result.canceled === true) return selectPlayer();
 
-                        const _freeze = result.formValues[1];
-                        const freezestate = _freeze === true ? "on" : "off";
+                            const _bolt = result.formValues[0];
+                            const boltstate = _bolt === true ? "on" : "off";
 
-                        const _tnt = result.formValues[2];
-                        const tntstate = _tnt === true ? "on" : "off";
+                            const _freeze = result.formValues[1];
+                            const freezestate = _freeze === true ? "on" : "off";
 
-                        try {
-                            if (_bolt !== bolt) {
-                                await setPower(selectedPlayer, selectedProj, "bolt", boltstate);
+                            const _tnt = result.formValues[2];
+                            const tntstate = _tnt === true ? "on" : "off";
+
+                            try {
+                                if (_bolt !== bolt) {
+                                    await setPower(selectedPlayer, selectedProj, "bolt", boltstate);
+                                }
+                                if (_freeze !== freeze) {
+                                    await setPower(selectedPlayer, selectedProj, "freeze", freezestate);
+                                }
+                                if (_tnt !== tnt) {
+                                    await setPower(selectedPlayer, selectedProj, "tnt", tntstate);
+                                }
+                                p.sendMessage(`§aThe powers have been set correctly. Showing current state of all the powers for §b${selectedPlayer}§a:\n§7* §bLightning bolt: ${boltstate === "on" ? "§a" : "§c"}${boltstate}\n§7* §bFreeze: ${freezestate === "on" ? "§a" : "§c"}${freezestate}\n§7* §bTNT: ${tntstate === "on" ? "§a" : "§c"}${tntstate}`);
+                            } catch (e) {
+                                p.sendMessage(`§cError, one or more powers couldn't be enabled/disabled.`);
+                                p.playSound("au.error");
                             }
-                            if (_freeze !== freeze) {
-                                await setPower(selectedPlayer, selectedProj, "freeze", freezestate);
-                            }
-                            if (_tnt !== tnt) {
-                                await setPower(selectedPlayer, selectedProj, "tnt", tntstate);
-                            }
-                            p.sendMessage(`§aThe powers have been set correctly. Showing current state of all the powers for §b${selectedPlayer}§a:\n§7* §bLightning bolt: ${boltstate === "on" ? "§a" : "§c"}${boltstate}\n§7* §bFreeze: ${freezestate === "on" ? "§a" : "§c"}${freezestate}\n§7* §bTNT: ${tntstate === "on" ? "§a" : "§c"}${tntstate}`);
-                        } catch (e) {
-                            p.sendMessage(`§cError, one or more powers couldn't be enabled/disabled.`);
-                            p.playSound("au.error");
-                        }
-                    });
-                }
-            });
+                        });
+                    }
+                });
+            }
         }
     });
 }
@@ -3603,19 +3628,16 @@ function isAdmin(username) {
 }
 
 function isOwner(username) {
-    if (world.scoreboard.getObjective('-auOwner').getParticipants()[0]?.displayName === `-au${username}-au`) return true
-    else return false;
+    return world.scoreboard.getObjective('-auOwner').getParticipants()[0]?.displayName === `-au${username}-au`;
 }
 
 function isBanned(player) {
     const bannedPlayers = getBannedPlayers();
-    if (bannedPlayers.includes(player)) return true
-    else return false;
+    return bannedPlayers.includes(player);
 }
 
 function isPermaBanned(player) {
-    if (getUnBanISO(player) === "-aupermabanned-au") return true
-    else return false;
+    return getUnBanISO(player) === "-aupermabanned-au";
 }
 
 function isBanTimeOver(player) {
@@ -3676,25 +3698,21 @@ function isJailed(player) {
     //MisledPaul58976-aureason.....-aujailedby......-autime.....
     const jailedPlayers = world.scoreboard.getObjective('-auJailed').getParticipants();
     const regexp = new RegExp(`^${convertToRegExpFriendly(player)}(?=-aureason)`); //Revisar lo de ^ para que sea la primera palabra en las demás funciones
-    if (jailedPlayers.some(player => regexp.test(player.displayName))) return true
-    else return false;
+    return jailedPlayers.some(player => regexp.test(player.displayName));
 }
 
 function isJailLocSet() {
     const scoreboard = world.scoreboard.getObjective('-auJailLoc').getParticipants()[0]?.displayName;
-    if (scoreboard) return true
-    else return false;
+    return !!scoreboard;
 }
 
 function isJailExitLocSet() {
     const scoreboard = world.scoreboard.getObjective('-auJailExitLoc').getParticipants()[0]?.displayName;
-    if (scoreboard) return true
-    else return false;
+    return !!scoreboard;
 }
 
 function isPermaJailed(player) {
-    if (getReleaseISO(player) === "-aupermajailed-au") return true
-    else return false;
+    return getReleaseISO(player) === "-aupermajailed-au";
 }
 
 function isJailTimeOver(player) {
@@ -3703,8 +3721,7 @@ function isJailTimeOver(player) {
         const currentDate = moment();
         const remainingTime = moment.duration(releaseDate.diff(currentDate));
         const milliseconds = remainingTime.asMilliseconds();
-        if (milliseconds <= 0) return true
-        else return false;
+        return milliseconds <= 0;
     } catch (e) {
         return;
     } //Unsafe?
@@ -3821,13 +3838,12 @@ function isPowerEnabled(pname, projectile, power) {
     } catch (e) {
     }
     const regexp = new RegExp(`(?<=-au${convertToRegExpFriendly(pname)}-au.*\\+${projectile}[^+]*-${power})on`);
-    if (projScoreboard.some(participant => {
+    return projScoreboard.some(participant => {
         try {
             if (participant.match(regexp)[0] === "on") return true;
         } catch (e) {
         }
-    })) return true
-    else return false;
+    });
 }
 
 async function setPower(pname, projectile, power, state) {
@@ -3855,8 +3871,7 @@ async function setPower(pname, projectile, power, state) {
 
 function isFrozen(player) {
     try {
-        if (world.scoreboard.getObjective('-auFrozen').getParticipants().map(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1]).includes(player)) return true
-        else return false;
+        return world.scoreboard.getObjective('-auFrozen').getParticipants().map(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1]).includes(player);
     } catch (e) {
         return false
     }
