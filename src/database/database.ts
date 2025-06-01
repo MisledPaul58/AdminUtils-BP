@@ -2,7 +2,6 @@ import { world } from "@minecraft/server";
 import { DatabaseName } from "./index";
 
 export class Database {
-    
     public readonly tableName: DatabaseName;
     private memory: Record<string, any>;
 

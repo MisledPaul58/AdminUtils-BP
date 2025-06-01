@@ -7,7 +7,7 @@ let tickCount = 0;
 let previousTime = Date.now();
 system.runInterval(() => {
     tickCount++;
-    if (!worldReady && (world.getAllPlayers().length || tickCount >= 200)) {
+    if (!worldReady && server.isInitialized && (tickCount >= 200 || world.getAllPlayers().length)) {
         worldReady = true;
 
         const msLoadTime = Date.now() - previousTime;

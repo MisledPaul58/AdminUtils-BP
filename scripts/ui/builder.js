@@ -9,7 +9,7 @@ class UIForm {
         this.cancelAction = this.form.cancel;
     }
     async _show(player, wait, onRespond) {
-        while (player.isValid() && server.ui.inQueue(player, this)) {
+        while (player.isValid && server.ui.inQueue(player, this)) {
             const form = this._build(player);
             const buildData = this.getBuildData();
             let state = "pending"; //TODO make state an actual object
@@ -95,16 +95,16 @@ class ModalUIForm extends UIForm {
             const input = formInputs[inputId];
             switch (input.type) {
                 case "textField":
-                    formData.textField(resolveElement(input.name), resolveElement(input.placeholder), resolveElement(input.default));
+                    formData.textField(resolveElement(input.name), resolveElement(input.placeholder), { defaultValue: resolveElement(input.default) });
                     break;
                 case "toggle":
-                    formData.toggle(resolveElement(input.name), resolveElement(input.default));
+                    formData.toggle(resolveElement(input.name), { defaultValue: resolveElement(input.default) });
                     break;
                 case "slider":
-                    formData.slider(resolveElement(input.name), resolveElement(input.minimum), resolveElement(input.maximum), resolveElement(input.step), resolveElement(input.default));
+                    formData.slider(resolveElement(input.name), resolveElement(input.minimum), resolveElement(input.maximum), { defaultValue: resolveElement(input.default), valueStep: resolveElement(input.step) });
                     break;
                 case "dropdown":
-                    formData.dropdown(resolveElement(input.name), resolveElement(input.options), resolveElement(input.default));
+                    formData.dropdown(resolveElement(input.name), resolveElement(input.options), { defaultValueIndex: resolveElement(input.default) });
                     break;
                 default:
                     continue;
@@ -133,15 +133,15 @@ class ModalUIForm extends UIForm {
 class MessageUIForm extends UIForm {
     constructor(form, name) {
         super(form, name);
-        this.actions = [this.form.button2.action, this.form.button1.action];
+        this.actions = [this.form.button1.action, this.form.button2.action];
     }
     _build(player) {
         const resolveElement = (element) => this.resolve(element, player);
         return new MessageFormData()
             .title(resolveElement(this.form.title))
             .body(resolveElement(this.form.body) ?? "")
-            .button1(resolveElement(this.form.button2.text))
-            .button2(resolveElement(this.form.button1.text));
+            .button1(resolveElement(this.form.button1.text))
+            .button2(resolveElement(this.form.button2.text));
     }
     enter(player, wait) {
         return this._show(player, wait, (response, actions) => {

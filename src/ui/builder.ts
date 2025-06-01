@@ -33,7 +33,7 @@ abstract class UIForm {
     protected abstract getBuildData(): BuildData;
 
     protected async _show(player: Player, wait: boolean, onRespond) {
-        while (player.isValid() && server.ui.inQueue(player, this)) {
+        while (player.isValid && server.ui.inQueue(player, this)) {
             const form: FormData = this._build(player);
             const buildData: BuildData = this.getBuildData();
 
@@ -134,16 +134,16 @@ class ModalUIForm extends UIForm {
 
             switch (input.type) {
                 case "textField":
-                    formData.textField(resolveElement(input.name), resolveElement(input.placeholder), resolveElement(input.default));
+                    formData.textField(resolveElement(input.name), resolveElement(input.placeholder), { defaultValue: resolveElement(input.default) });
                     break;
                 case "toggle":
-                    formData.toggle(resolveElement(input.name), resolveElement(input.default));
+                    formData.toggle(resolveElement(input.name), { defaultValue: resolveElement(input.default) });
                     break;
                 case "slider":
-                    formData.slider(resolveElement(input.name), resolveElement(input.minimum), resolveElement(input.maximum), resolveElement(input.step), resolveElement(input.default));
+                    formData.slider(resolveElement(input.name), resolveElement(input.minimum), resolveElement(input.maximum), { defaultValue: resolveElement(input.default), valueStep: resolveElement(input.step) });
                     break;
                 case "dropdown":
-                    formData.dropdown(resolveElement(input.name), resolveElement(input.options), resolveElement(input.default));
+                    formData.dropdown(resolveElement(input.name), resolveElement(input.options), { defaultValueIndex: resolveElement(input.default) });
                     break;
                 default:
                     continue;
@@ -179,7 +179,7 @@ class MessageUIForm extends UIForm {
 
     constructor(form: any, name?: string) {
         super(form, name);
-        this.actions = [this.form.button2.action, this.form.button1.action];
+        this.actions = [this.form.button1.action, this.form.button2.action];
     }
 
     protected _build(player: Player): MessageFormData {
@@ -188,8 +188,8 @@ class MessageUIForm extends UIForm {
         return new MessageFormData()
             .title(resolveElement(this.form.title))
             .body(resolveElement(this.form.body) ?? "")
-            .button1(resolveElement(this.form.button2.text))
-            .button2(resolveElement(this.form.button1.text));
+            .button1(resolveElement(this.form.button1.text))
+            .button2(resolveElement(this.form.button2.text));
     }
 
     enter(player: Player, wait: boolean): Promise<boolean> {

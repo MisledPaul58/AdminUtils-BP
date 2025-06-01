@@ -54,7 +54,7 @@ class FreeCam {
                                 { //Edit radius
                                     new ModalFormData()
                                         .title("§lAuto chunk load:§r radius")
-                                        .slider("When the distance between the location of the last time new chunks were loaded and your current location is higher than this value, new chunks will be loaded.\n\n§l§bRadius§r §3(chunks)§r", 1, 40, 1, database.freeCam.get(p.name).autoChunkLoad.radius)
+                                        .slider("When the distance between the location of the last time new chunks were loaded and your current location is higher than this value, new chunks will be loaded.\n\n§l§bRadius§r §3(chunks)§r", 1, 40, { defaultValue: database.freeCam.get(p.name).autoChunkLoad.radius })
                                         .show(p).then(result => {
                                         if (result.canceled === true)
                                             return __classPrivateFieldGet(this, _FreeCam_manageExpFreeCam, "f").autoChunkLoadGUI(p);
@@ -84,7 +84,7 @@ class FreeCam {
                                 { //Edit load time
                                     new ModalFormData()
                                         .title("§lAuto chunk load:§r load time")
-                                        .slider("The duration, in seconds, for loading chunks.\n\n§l§bTime§r §3(seconds)§r", 5, 30, 1, database.freeCam.get(p.name).autoChunkLoad.loadTime)
+                                        .slider("The duration, in seconds, for loading chunks.\n\n§l§bTime§r §3(seconds)§r", 5, 30, { defaultValue: database.freeCam.get(p.name).autoChunkLoad.loadTime })
                                         .show(p).then(result => {
                                         if (result.canceled === true)
                                             return __classPrivateFieldGet(this, _FreeCam_manageExpFreeCam, "f").autoChunkLoadGUI(p);
@@ -123,10 +123,10 @@ class FreeCam {
                 new MessageFormData()
                     .title("§lTeleport to the starting loc.")
                     .body(`Are you sure you want to teleport your freecam to the starting location?\n§l§bStarting location:\n§rX: ${startLoc.x.toFixed(2)}, Y: ${startLoc.y.toFixed(2)}, Z: ${startLoc.z.toFixed(2)}, ${toFancyDim(database.freeCam.get(p.name).lastDimension)}`)
-                    .button1("No")
-                    .button2("Yes")
+                    .button1("Yes")
+                    .button2("No")
                     .show(p).then(async (result) => {
-                    if (result.canceled === true || result.selection === 0)
+                    if (result.canceled === true || result.selection === 1)
                         return __classPrivateFieldGet(this, _FreeCam_instances, "m", _FreeCam_manageFreeCamGUI).call(this, p);
                     if (!this.isInExpFreeCam(p.name)) {
                         p.sendMessage("§cError, another user has recently disabled your freecam.");
@@ -228,7 +228,7 @@ class FreeCam {
                         p.sendMessage("§cError, another user has recently disabled your freecam.");
                         p.playSound("au.error");
                     }
-                    else if (!selectedRawPlayer.isValid()) {
+                    else if (!selectedRawPlayer.isValid) {
                         p.sendMessage(`§cError, §4${player}§c has recently left.`);
                         p.playSound("au.error");
                     }
@@ -269,10 +269,10 @@ class FreeCam {
                 new MessageFormData()
                     .title("§lExit at the starting location")
                     .body(`Are you sure you want to exit your freecam at the starting location?\n§l§bStarting location:\n§rX: ${startLoc.x.toFixed(2)}, Y: ${startLoc.y.toFixed(2)}, Z: ${startLoc.z.toFixed(2)}`)
-                    .button1("No")
-                    .button2("Yes")
+                    .button1("Yes")
+                    .button2("No")
                     .show(p).then(async (result) => {
-                    if (result.canceled === true || result.selection === 0)
+                    if (result.canceled === true || result.selection === 1)
                         return __classPrivateFieldGet(this, _FreeCam_instances, "m", _FreeCam_manageFreeCamGUI).call(this, p);
                     if (!this.isInExpFreeCam(p.name)) {
                         p.sendMessage("§cError, another user has recently disabled your freecam.");
@@ -310,10 +310,10 @@ class FreeCam {
                 new MessageFormData()
                     .title("§lExit at current freecam loc.")
                     .body(`Are you sure you want to §bexit§r the freecam mode at your §bcurrent freecam location§r?\n§l§bCurrent freecam location:\n§rX: ${lastCamLoc.x.toFixed(2)}, Y: ${lastCamLoc.y.toFixed(2)}, Z: ${lastCamLoc.z.toFixed(2)}`)
-                    .button1("No")
-                    .button2("Yes")
+                    .button1("Yes")
+                    .button2("No")
                     .show(p).then(async (result) => {
-                    if (result.canceled === true || result.selection === 0)
+                    if (result.canceled === true || result.selection === 1)
                         return __classPrivateFieldGet(this, _FreeCam_instances, "m", _FreeCam_manageFreeCamGUI).call(this, p);
                     if (!this.isInExpFreeCam(p.name)) {
                         p.sendMessage("§cError, another user has recently disabled your freecam.");
@@ -549,10 +549,10 @@ _FreeCam_manageExpFreeCam = new WeakMap(), _FreeCam_instances = new WeakSet(), _
                 new MessageFormData()
                     .title("Enable Spectator Freecam")
                     .body("§bYou are currently in Experimental Freecam.§r\nIf you want to change to Spectator Freecam, please go to §bCurrent freecam§r and disable Experimental Freecam first.\nWould you like to go now?")
-                    .button1("No")
-                    .button2("Yes")
+                    .button1("Yes")
+                    .button2("No")
                     .show(p).then(result => {
-                    if (result.canceled === true || result.selection === 0)
+                    if (result.canceled === true || result.selection === 1)
                         return __classPrivateFieldGet(this, _FreeCam_instances, "m", _FreeCam_enableSpecFreeCamGUI).call(this, p);
                     if (!this.isInExpFreeCam(p.name)) {
                         p.sendMessage("§Error, another user has recently disabled Experimental Freecam for you.");
@@ -567,10 +567,10 @@ _FreeCam_manageExpFreeCam = new WeakMap(), _FreeCam_instances = new WeakSet(), _
                 new MessageFormData()
                     .title("Enable Spectator Freecam")
                     .body("Are you sure you want to enable Spectator Freecam for §byourself§r?")
-                    .button1("No")
-                    .button2("Yes")
+                    .button1("Yes")
+                    .button2("No")
                     .show(p).then(result => {
-                    if (result.canceled === true || result.selection === 0)
+                    if (result.canceled === true || result.selection === 1)
                         return __classPrivateFieldGet(this, _FreeCam_instances, "m", _FreeCam_enableSpecFreeCamGUI).call(this, p);
                     if (this.isInSpecFreeCam(p.name)) { //In case another player enabled it for them
                         p.sendMessage("§cError, you are already in Spectator Freecam.");
@@ -608,10 +608,10 @@ _FreeCam_manageExpFreeCam = new WeakMap(), _FreeCam_instances = new WeakSet(), _
             new MessageFormData()
                 .title("Enable Spectator Freecam")
                 .body(`Are you sure you want to enable Spectator Freecam for §b${selectedPlayer}§r?`)
-                .button1("No")
-                .button2("Yes")
+                .button1("Yes")
+                .button2("No")
                 .show(p).then(result => {
-                if (result.canceled === true || result.selection === 0)
+                if (result.canceled === true || result.selection === 1)
                     return __classPrivateFieldGet(this, _FreeCam_instances, "m", _FreeCam_enableSpecFreeCamGUI).call(this, p);
                 if (this.isInSpecFreeCam(selectedPlayer)) {
                     p.sendMessage(`§cError, §4${selectedPlayer}§c has recently entered Spectator Freecam.`);
@@ -730,10 +730,10 @@ _FreeCam_manageExpFreeCam = new WeakMap(), _FreeCam_instances = new WeakSet(), _
                 new MessageFormData()
                     .title("Disable Spectator Freecam")
                     .body("Please go to §bCurrent freecam§r to choose how you would like to disable the freecam.\nWould you like to go now?")
-                    .button1("No")
-                    .button2("Yes")
+                    .button1("Yes")
+                    .button2("No")
                     .show(p).then(result => {
-                    if (result.canceled === true || result.selection === 0)
+                    if (result.canceled === true || result.selection === 1)
                         return __classPrivateFieldGet(this, _FreeCam_instances, "m", _FreeCam_disableSpecFreeCamGUI).call(this, p);
                     if (!this.isInFreeCam(p.name)) {
                         p.sendMessage("§cError, another user has disabled your freecam.");
@@ -749,10 +749,10 @@ _FreeCam_manageExpFreeCam = new WeakMap(), _FreeCam_instances = new WeakSet(), _
             new MessageFormData()
                 .title("Disable Spectator Freecam")
                 .body(`Are you sure you want to disable Spectator Freecam for §b${selectedPlayer}§r?`)
-                .button1("No")
-                .button2("Yes")
+                .button1("Yes")
+                .button2("No")
                 .show(p).then(result => {
-                if (result.canceled === true || result.selection === 0)
+                if (result.canceled === true || result.selection === 1)
                     return __classPrivateFieldGet(this, _FreeCam_instances, "m", _FreeCam_disableSpecFreeCamGUI).call(this, p);
                 if (this.isInExpFreeCam(selectedPlayer)) {
                     p.sendMessage(`§cError, §4${selectedPlayer}§c has recently left Spectator Freecam and is now in Experimental Freecam.`);
@@ -884,10 +884,10 @@ _FreeCam_manageExpFreeCam = new WeakMap(), _FreeCam_instances = new WeakSet(), _
                 new MessageFormData()
                     .title("Enable Experimental Freecam")
                     .body("§bYou are currently in Spectator Freecam.§r\nIf you want to change to Experimental Freecam, please go to §bCurrent freecam§r and disable Spectator Freecam first.\nWould you like to go now?")
-                    .button1("No")
-                    .button2("Yes")
+                    .button1("Yes")
+                    .button2("No")
                     .show(p).then(result => {
-                    if (result.canceled === true || result.selection === 0)
+                    if (result.canceled === true || result.selection === 1)
                         return __classPrivateFieldGet(this, _FreeCam_instances, "m", _FreeCam_enableExpFreeCamGUI).call(this, p);
                     if (!this.isInSpecFreeCam(p.name)) {
                         p.sendMessage("§Error, another user has recently disabled Spectator Freecam for you.");
@@ -902,10 +902,10 @@ _FreeCam_manageExpFreeCam = new WeakMap(), _FreeCam_instances = new WeakSet(), _
                 new MessageFormData()
                     .title("Enable Experimental Freecam")
                     .body("Are you sure you want to enable Experimental Freecam for §byourself§r?")
-                    .button1("No")
-                    .button2("Yes")
+                    .button1("Yes")
+                    .button2("No")
                     .show(p).then(result => {
-                    if (result.canceled === true || result.selection === 0)
+                    if (result.canceled === true || result.selection === 1)
                         return __classPrivateFieldGet(this, _FreeCam_instances, "m", _FreeCam_enableExpFreeCamGUI).call(this, p);
                     if (this.isInExpFreeCam(p.name)) { //In case another player enabled it for them
                         p.sendMessage("§cError, you are already in §4Experimental Freecam.");
@@ -953,10 +953,10 @@ _FreeCam_manageExpFreeCam = new WeakMap(), _FreeCam_instances = new WeakSet(), _
             new MessageFormData()
                 .title("Enable Experimental Freecam")
                 .body(`Are you sure you want to enable Experimental Freecam for §b${selectedPlayer}§r?`)
-                .button1("No")
-                .button2("Yes")
+                .button1("Yes")
+                .button2("No")
                 .show(p).then(result => {
-                if (result.canceled === true || result.selection === 0)
+                if (result.canceled === true || result.selection === 1)
                     return __classPrivateFieldGet(this, _FreeCam_instances, "m", _FreeCam_enableExpFreeCamGUI).call(this, p);
                 if (this.isInExpFreeCam(selectedPlayer)) {
                     p.sendMessage(`§cError, §4${selectedPlayer}§c has recently entered Experimental Freecam.`);
@@ -1086,10 +1086,10 @@ _FreeCam_manageExpFreeCam = new WeakMap(), _FreeCam_instances = new WeakSet(), _
                 new MessageFormData()
                     .title("Disable Experimental Freecam")
                     .body("Please go to §bCurrent freecam§r to choose how you would like to disable the freecam.\nWould you like to go now?")
-                    .button1("No")
-                    .button2("Yes")
+                    .button1("Yes")
+                    .button2("No")
                     .show(p).then(result => {
-                    if (result.canceled === true || result.selection === 0)
+                    if (result.canceled === true || result.selection === 1)
                         return __classPrivateFieldGet(this, _FreeCam_instances, "m", _FreeCam_disableExpFreeCamGUI).call(this, p);
                     if (!this.isInFreeCam(p.name)) {
                         p.sendMessage("§cError, another user has disabled your freecam.");
@@ -1105,10 +1105,10 @@ _FreeCam_manageExpFreeCam = new WeakMap(), _FreeCam_instances = new WeakSet(), _
             new MessageFormData()
                 .title("Disable Experimental Freecam")
                 .body(`Are you sure you want to disable Experimental Freecam for §b${selectedPlayer}§r?`)
-                .button1("No")
-                .button2("Yes")
+                .button1("Yes")
+                .button2("No")
                 .show(p).then(result => {
-                if (result.canceled === true || result.selection === 0)
+                if (result.canceled === true || result.selection === 1)
                     return __classPrivateFieldGet(this, _FreeCam_instances, "m", _FreeCam_disableExpFreeCamGUI).call(this, p);
                 if (this.isInSpecFreeCam(selectedPlayer)) {
                     p.sendMessage(`§cError, §4${selectedPlayer}§c has recently left Experimental Freecam and is now in Spectator Freecam.`);
@@ -1170,10 +1170,10 @@ _FreeCam_manageExpFreeCam = new WeakMap(), _FreeCam_instances = new WeakSet(), _
                                 new MessageFormData()
                                     .title("§lTeleport to the starting loc.")
                                     .body(`Are you sure you want to teleport your freecam to the starting location?\n§l§bStarting location:\n§rX: ${startLoc.x.toFixed(2)}, Y: ${startLoc.y.toFixed(2)}, Z: ${startLoc.z.toFixed(2)}, ${toFancyDim(database.freeCam.get(p.name).lastDimension)}`)
-                                    .button1("No")
-                                    .button2("Yes")
+                                    .button1("Yes")
+                                    .button2("No")
                                     .show(p).then(async (result) => {
-                                    if (result.canceled === true || result.selection === 0)
+                                    if (result.canceled === true || result.selection === 1)
                                         return __classPrivateFieldGet(this, _FreeCam_instances, "m", _FreeCam_manageFreeCamGUI).call(this, p);
                                     if (!this.isInSpecFreeCam(p.name)) {
                                         p.sendMessage("§cError, another user has recently disabled your freecam.");
@@ -1203,7 +1203,7 @@ _FreeCam_manageExpFreeCam = new WeakMap(), _FreeCam_instances = new WeakSet(), _
                                 const dimensions = ["§bOverworld", "§cNether", "§5The End"];
                                 new ModalFormData()
                                     .title(`§lTeleport to a specific location.\n§bYour current coordinates are:§r X: ${p.location.x.toFixed(2)}, Y: ${p.location.y.toFixed(2)}, Z: ${p.location.z.toFixed(2)}`)
-                                    .dropdown("Choose a dimension", dimensions, 0)
+                                    .dropdown("Choose a dimension", dimensions)
                                     .textField("Write the coordinates. For example: -165 68 250 or -164.50 68.00 250.50", "e.g. -165 68 250")
                                     .show(p).then(async (result) => {
                                     if (result.canceled === true)
@@ -1268,7 +1268,7 @@ _FreeCam_manageExpFreeCam = new WeakMap(), _FreeCam_instances = new WeakSet(), _
                                         p.sendMessage("§cError, another user has recently disabled your freecam.");
                                         p.playSound("au.error");
                                     }
-                                    else if (!selectedRawPlayer.isValid()) {
+                                    else if (!selectedRawPlayer.isValid) {
                                         p.sendMessage(`§cError, §4${player}§c has recently left.`);
                                         p.playSound("au.error");
                                     }
@@ -1296,10 +1296,10 @@ _FreeCam_manageExpFreeCam = new WeakMap(), _FreeCam_instances = new WeakSet(), _
                                 new MessageFormData()
                                     .title("§lExit and tp to the starting loc.")
                                     .body(`Are you sure you want to exit and teleport your freecam to the starting location?\n§l§bStarting location:\n§rX: ${startLoc.x.toFixed(2)}, Y: ${startLoc.y.toFixed(2)}, Z: ${startLoc.z.toFixed(2)}, ${toFancyDim(database.freeCam.get(p.name).lastDimension)}`)
-                                    .button1("No")
-                                    .button2("Yes")
+                                    .button1("Yes")
+                                    .button2("No")
                                     .show(p).then(async (result) => {
-                                    if (result.canceled === true || result.selection === 0)
+                                    if (result.canceled === true || result.selection === 1)
                                         return __classPrivateFieldGet(this, _FreeCam_instances, "m", _FreeCam_manageFreeCamGUI).call(this, p);
                                     if (!this.isInSpecFreeCam(p.name)) {
                                         p.sendMessage("§cError, another user has recently disabled your freecam.");
@@ -1331,10 +1331,10 @@ _FreeCam_manageExpFreeCam = new WeakMap(), _FreeCam_instances = new WeakSet(), _
                                 new MessageFormData()
                                     .title("§lExit at current location")
                                     .body("Are you sure you want to §bexit§r the freecam mode at your §bcurrent location§r?")
-                                    .button1("No")
-                                    .button2("Yes")
+                                    .button1("Yes")
+                                    .button2("No")
                                     .show(p).then(result => {
-                                    if (result.canceled === true || result.selection === 0)
+                                    if (result.canceled === true || result.selection === 1)
                                         return __classPrivateFieldGet(this, _FreeCam_instances, "m", _FreeCam_manageFreeCamGUI).call(this, p);
                                     if (!this.isInSpecFreeCam(p.name)) {
                                         p.sendMessage("§cError, another user has recently disabled your freecam.");
@@ -1489,7 +1489,7 @@ async function handleExpFreecam(rawPlayer, startLocation, dimension) {
             system.clearRun(run);
             return;
         }
-        if (!rawPlayer.isValid() || (!freeCam.isInExpFreeCam(player) && !data?.autoChunkLoad.loading)) {
+        if (!rawPlayer.isValid || (!freeCam.isInExpFreeCam(player) && !data?.autoChunkLoad.loading)) {
             activeExpFreeCams.splice(activeExpFreeCams.indexOf(player), 1);
             system.clearRun(run);
             return;
