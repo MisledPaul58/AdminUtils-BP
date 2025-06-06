@@ -3,6 +3,7 @@ import { defaultConfig } from "./config/defaultConfig";
 import { database, loadDatabases } from "./database/index";
 import { EventEmitter } from "./events/eventEmitter";
 import { world, system, RawMessage } from "@minecraft/server";
+import { TranslationsType } from "./utils/translations";
 
 class ServerBootstrap extends EventEmitter{
     private _isInitialized: boolean = false;
@@ -35,7 +36,7 @@ class Server extends ServerBootstrap {
      */
     //TODO hacer una interface con todos los posibles nombres de traducciones
     //TODO acortar a sendMsg? para luego hacer algo para mandar mensajes solo a los admins o a los que tengan cierto permiso
-    sendCustomMessage(msg: string, args?: RawMessage | string[]): void {
+    sendCustomMessage(msg: TranslationsType, args?: RawMessage | string[]): void {
         const rawMessage: RawMessage = {
             translate: msg,
             with: args

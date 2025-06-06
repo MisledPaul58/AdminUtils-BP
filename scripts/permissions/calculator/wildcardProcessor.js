@@ -1,6 +1,6 @@
 export class WildcardProcessor {
     static isRootWildcard(permission) {
-        return permission.startsWith(this.ROOT_WILDCARD) && permission.length >= 2;
+        return permission === this.ROOT_WILDCARD;
     }
     static isWildcardPermission(permission) {
         return this.isRootWildcard(permission) || (permission.endsWith(this.WILDCARD_SUFFIX) && permission.length > 2);

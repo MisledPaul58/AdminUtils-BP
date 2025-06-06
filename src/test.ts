@@ -63,3 +63,6 @@ const enum aa {
 if (aa.Apple === 0) {
 
 }
+
+let xd: aa;
+xd = aa.Apple;

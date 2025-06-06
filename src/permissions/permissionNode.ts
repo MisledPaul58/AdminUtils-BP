@@ -4,15 +4,21 @@ import { WildcardProcessor } from "./calculator/wildcardProcessor";
 export class PermissionNode {
     public readonly permission: string;
     public readonly value: boolean;
-    public readonly wildcardLevel: number;
+    public readonly isWildcard: boolean;
+    // public readonly wildcardLevel: number;
 
     constructor(permission: string, value: boolean) {
         this.permission = permission;
         this.value = value;
-        this.wildcardLevel = WildcardProcessor.getWildcardLevel(permission);
+        this.isWildcard = WildcardProcessor.isWildcardPermission(permission);
+        // this.wildcardLevel = WildcardProcessor.getWildcardLevel(permission);
     }
 
-    public isWildcard(): boolean {
-        return this.wildcardLevel != -1;
+    // public isWildcard(): boolean {
+    //     return this.wildcardLevel != -1;
+    // }
+
+    public equals(other: PermissionNode): boolean {
+
     }
 }

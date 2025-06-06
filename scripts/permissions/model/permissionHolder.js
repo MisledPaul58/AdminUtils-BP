@@ -4,6 +4,9 @@ export var HolderType;
     HolderType[HolderType["GROUP"] = 1] = "GROUP";
 })(HolderType || (HolderType = {}));
 export class PermissionHolder {
-    constructor() {
+    constructor(identifier) {
+        this.nodeMap = new Map();
+        this.inheritanceMap = new Map();
+        this.identifier = identifier;
     }
 }

@@ -1,5 +1,6 @@
 import { world, Player, RawMessage } from "@minecraft/server";
 import { database } from "../database/index";
+import { TranslationsType } from "./translations";
 
 world.beforeEvents.playerLeave.subscribe(event => {
     const { player } = event;
@@ -23,21 +24,21 @@ declare module "@minecraft/server" {
         /**
          * Send a custom message (AU >> ...).
          */
-        sendCustomMessage(msg: string, args?: RawMessage | string[]): void;
+        sendCustomMessage(msg: TranslationsType, args?: RawMessage | string[]): void;
 
         /**
          * Send a success message with a sound.
          */
-        sendSuccess(msg: string, args?: RawMessage | string[]): void;
+        sendSuccess(msg: TranslationsType, args?: RawMessage | string[]): void;
 
         /**
          * Send an error message with a sound.
          */
-        sendError(msg: string, args?: RawMessage | string[]): void;
+        sendError(msg: TranslationsType, args?: RawMessage | string[]): void;
     }
 }
 
-Player.prototype.sendCustomMessage = function (msg: string, args?: RawMessage | string[]): void {
+Player.prototype.sendCustomMessage = function (msg: TranslationsType, args?: RawMessage | string[]): void {
     const rawMessage: RawMessage = {
         translate: msg,
         with: args
@@ -45,12 +46,12 @@ Player.prototype.sendCustomMessage = function (msg: string, args?: RawMessage | 
     this.sendMessage(['§l§cAU §6>>§r ', rawMessage]);
 };
 
-Player.prototype.sendSuccess = function (msg: string, args?: RawMessage | string[]): void {
+Player.prototype.sendSuccess = function (msg: TranslationsType, args?: RawMessage | string[]): void {
     this.sendCustomMessage(msg, args);
     this.playSound("au.success");
 };
 
-Player.prototype.sendError = function (msg: string, args?: RawMessage | string[]): void {
+Player.prototype.sendError = function (msg: TranslationsType, args?: RawMessage | string[]): void {
     this.sendCustomMessage(msg, args);
     this.playSound("au.error");
 };

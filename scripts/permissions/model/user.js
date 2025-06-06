@@ -1,13 +1,11 @@
 import { HolderType, PermissionHolder } from "./permissionHolder";
-
+import { Cache } from "../cache";
 export class User extends PermissionHolder {
-    private readonly username: string;
-
-    constructor() {
-        super();
+    constructor(username) {
+        super(username);
+        this.cache = new Cache();
     }
-
-    public getType(): HolderType {
+    getType() {
         return HolderType.USER;
     }
 }

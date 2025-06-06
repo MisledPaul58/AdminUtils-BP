@@ -254,7 +254,7 @@ server.on("tick", async () => {
                         world.sendMessage(`§aThe player §b${player.name}§a has been set successfully as the owner.`);
                     }
                     catch (e) {
-                        world.sendMessage(`§Error, couldn't set §4${player.name}§c as the owner.`);
+                        world.sendMessage(`§cError, couldn't set §4${player.name}§c as the owner.`);
                     }
                 }
             }
