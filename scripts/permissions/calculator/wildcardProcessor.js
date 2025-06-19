@@ -5,6 +5,8 @@ export class WildcardProcessor {
     static isWildcardPermission(permission) {
         return this.isRootWildcard(permission) || (permission.endsWith(this.WILDCARD_SUFFIX) && permission.length > 2);
     }
+    static includesPermission(wildcard, permission) {
+    }
     static getWildcardLevel(permission) {
         if (!this.isWildcardPermission(permission))
             return -1;

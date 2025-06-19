@@ -1,11 +1,13 @@
 import { HolderType, PermissionHolder } from "./permissionHolder";
-import { Cache } from "../cache";
 
-export class Group extends PermissionHolder<Group> {
-    public cache = new Cache<Group>();
+export class Group extends PermissionHolder {
+    public readonly displayName: string;
+    public readonly weight: number;
 
-    constructor(identifier: string, public displayName: string, public weight: number) {
+    constructor(identifier: string, displayName: string, weight: number) {
         super(identifier);
+        this.displayName = displayName;
+        this.weight = weight;
     }
 
     public getType(): HolderType {

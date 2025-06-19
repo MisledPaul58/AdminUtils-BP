@@ -2,9 +2,10 @@ export const Translations = Object.freeze({
     Msg: {
         SystemReload: "system.reload",
         Permissions: {
-            InvalidIdentifier: "%permissions.invalidIdentifier",
-            InvalidName: "%permissions.invalidName",
-            ExistingGroup: "%permissions.existingGroup"
+            InvalidIdentifier: "permissions.invalidIdentifier",
+            InvalidName: "permissions.invalidName",
+            ExistingGroup: "permissions.existingGroup",
+            GroupCreated: "permissions.groupCreated"
         }
     },
     Ui: {

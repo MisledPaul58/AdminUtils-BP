@@ -2,6 +2,8 @@ import { WildcardProcessor } from "./calculator/wildcardProcessor";
 
 //TODO make it serializable
 export class PermissionNode {
+    public readonly NODE_SEPARATOR: string = ".";
+
     public readonly permission: string;
     public readonly value: boolean;
     public readonly isWildcard: boolean;
@@ -19,6 +21,10 @@ export class PermissionNode {
     // }
 
     public equals(other: PermissionNode): boolean {
+
+    }
+
+    public export() {
 
     }
 }

@@ -10,6 +10,10 @@ export class WildcardProcessor {
         return this.isRootWildcard(permission) || (permission.endsWith(this.WILDCARD_SUFFIX) && permission.length > 2);
     }
 
+    public static includesPermission(wildcard: string, permission: string): boolean {
+
+    }
+
     public static getWildcardLevel(permission: string): number { //Eso no es un wildcard level
         if (!this.isWildcardPermission(permission)) return -1;
 
