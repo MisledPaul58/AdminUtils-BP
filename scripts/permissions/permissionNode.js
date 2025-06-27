@@ -1,18 +1,16 @@
 import { WildcardProcessor } from "./calculator/wildcardProcessor";
 //TODO make it serializable
 export class PermissionNode {
-    // public readonly wildcardLevel: number;
     constructor(permission, value) {
         this.NODE_SEPARATOR = ".";
         this.permission = permission;
         this.value = value;
-        this.isWildcard = WildcardProcessor.isWildcardPermission(permission);
-        // this.wildcardLevel = WildcardProcessor.getWildcardLevel(permission);
+        this.wildcardLevel = WildcardProcessor.isWildcardPermission(permission)
+            ? Array.from(permission).filter(char => char === this.NODE_SEPARATOR).length
+            : -1;
     }
-    // public isWildcard(): boolean {
-    //     return this.wildcardLevel != -1;
-    // }
-    equals(other) {
+    isWildcard() {
+        return this.wildcardLevel !== -1;
     }
     export() {
     }

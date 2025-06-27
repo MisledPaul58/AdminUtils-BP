@@ -18,6 +18,8 @@ export class PermissionManager {
         return this.groups.get(identifier);
     }
     hasPermission(permission, target) {
+        //TODO check permission is valid, etc
+        return !!target.resolvePermission(permission);
     }
 }
 function isValidName(name) {

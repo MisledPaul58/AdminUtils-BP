@@ -29,7 +29,8 @@ export class PermissionManager {
     }
 
     hasPermission(permission: string, target: PermissionHolder): boolean {
-
+        //TODO check permission is valid, etc
+        return !!target.resolvePermission(permission);
     }
 }
 

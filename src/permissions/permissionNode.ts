@@ -6,22 +6,18 @@ export class PermissionNode {
 
     public readonly permission: string;
     public readonly value: boolean;
-    public readonly isWildcard: boolean;
-    // public readonly wildcardLevel: number;
+    public readonly wildcardLevel: number;
 
     constructor(permission: string, value: boolean) {
         this.permission = permission;
         this.value = value;
-        this.isWildcard = WildcardProcessor.isWildcardPermission(permission);
-        // this.wildcardLevel = WildcardProcessor.getWildcardLevel(permission);
+        this.wildcardLevel = WildcardProcessor.isWildcardPermission(permission)
+            ? Array.from(permission).filter(char => char === this.NODE_SEPARATOR).length
+            : -1;
     }
 
-    // public isWildcard(): boolean {
-    //     return this.wildcardLevel != -1;
-    // }
-
-    public equals(other: PermissionNode): boolean {
-
+    public isWildcard(): boolean {
+        return this.wildcardLevel !== -1;
     }
 
     public export() {

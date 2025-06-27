@@ -6,14 +6,25 @@ export class WildcardProcessor {
         return this.isRootWildcard(permission) || (permission.endsWith(this.WILDCARD_SUFFIX) && permission.length > 2);
     }
     static includesPermission(wildcard, permission) {
-    }
-    static getWildcardLevel(permission) {
-        if (!this.isWildcardPermission(permission))
-            return -1;
-        const level = parseInt(permission.charAt(permission.indexOf(this.ROOT_WILDCARD) + 1));
-        if (Number.isNaN(level))
-            return Infinity;
-        return level;
+        if (this.isRootWildcard(permission))
+            return true;
+        const wildcardParts = wildcard.slice(0, -2).split(".");
+        const permissionParts = permission.split(".");
+        for (let i = 0; i < wildcardParts.length; i++) {
+            // If permission.test and permission.test.test1.*, doesn't include
+            if (!permissionParts[i])
+                return false;
+            // permission.fly and permission.build.*, doesn't include
+            if (permissionParts[i] !== wildcardParts[i])
+                return false;
+            // essentials.fly.* and essentials.fly, doesn't include
+            if (i === wildcardParts.length - 1 && i === permissionParts.length - 1)
+                return false;
+            // essentials.cmd.* and essentials.cmd.use, includes
+            if (i === wildcardParts.length - 1 && i !== permissionParts.length - 1)
+                return true;
+        }
+        return false;
     }
 }
 WildcardProcessor.WILDCARD_SUFFIX = ".*";
