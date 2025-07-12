@@ -535,7 +535,7 @@ world.afterEvents.playerJoin.subscribe(async event => {
                 overworld.runCommand(`kick "${playerName}" "\n§l§6----------------------------\n§l§4§k|||||§r§l§cYou were temporarily banned by §4${bannedBy}§4§k|||||§r\n§l§o§4Reason: §c${reason}\n§4Remaining time: §c${years}${months}${weeks}${days}${hours}${minutes}${seconds}\n§r§l§6----------------------------§r"`);
             }
         }
-    } else if (world.scoreboard.getObjective('-auTempUnjailed').hasParticipant('/' + playerName)) {
+    } else if (world.scoreboard.getObjective('-auTempUnjailed')?.hasParticipant('/' + playerName)) {
         waitForTestFor();
 
         async function waitForTestFor() {
@@ -3646,8 +3646,7 @@ function isBanTimeOver(player) {
         const currentDate = moment();
         const remainingTime = moment.duration(unBanDate.diff(currentDate));
         const milliseconds = remainingTime.asMilliseconds();
-        if (milliseconds <= 0) return true
-        else return false;
+        return milliseconds <= 0;
     } catch (e) {
         return;
     }
@@ -3657,7 +3656,7 @@ function getBannedPlayers() {
     try {
         return world.scoreboard.getObjective('-auBan').getParticipants().map(participant => participant.displayName.match(/^[^]+(?=-aureason)/)[0]);
     } catch (e) {
-        return;
+        return [];
     }
 }
 
@@ -3696,7 +3695,9 @@ function getUnBanISO(player) {
 
 function isJailed(player) {
     //MisledPaul58976-aureason.....-aujailedby......-autime.....
-    const jailedPlayers = world.scoreboard.getObjective('-auJailed').getParticipants();
+    const jailedPlayers = world.scoreboard.getObjective('-auJailed')?.getParticipants();
+    if (!jailedPlayers) return;
+
     const regexp = new RegExp(`^${convertToRegExpFriendly(player)}(?=-aureason)`); //Revisar lo de ^ para que sea la primera palabra en las demás funciones
     return jailedPlayers.some(player => regexp.test(player.displayName));
 }

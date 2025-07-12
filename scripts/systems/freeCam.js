@@ -1,4 +1,4 @@
-import { Dimension, EasingType, EffectTypes, Player, TicksPerSecond, system, world } from "@minecraft/server";
+import { Dimension, EasingType, EffectTypes, Player, TicksPerSecond, system, world, GameMode } from "@minecraft/server";
 import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
 import { adminUtils, areObjectsEqual, delay, isValidUsername, toDimId, toFancyDim } from "../main";
 import { server } from "../server";
@@ -1499,7 +1499,7 @@ server.on("tick", () => {
                     database.freeCam.delete(player);
 
                 } else {
-                    rawPlayer.setGameMode("spectator"); //Evitar con beforegamemodechange?
+                    rawPlayer.setGameMode(GameMode.Spectator); //Evitar con beforegamemodechange?
                 }
 
             } else { //Experimental freecam
@@ -1555,7 +1555,7 @@ async function handleExpFreecam(rawPlayer, startLocation, dimension) {
             return;
         }
 
-        if (rawPlayer.getGameMode() === "spectator" && !data.autoChunkLoad.loading) {
+        if (rawPlayer.getGameMode() === GameMode.Spectator && !data.autoChunkLoad.loading) {
             rawPlayer.setGameMode(gamemode);
         }
 
@@ -1571,7 +1571,7 @@ async function handleExpFreecam(rawPlayer, startLocation, dimension) {
                 database.freeCam.set(player, data);
 
                 //Begin loading
-                rawPlayer.setGameMode("spectator");
+                rawPlayer.setGameMode(GameMode.Spectator);
                 Object.assign(startLoc, currentCamLoc);
                 rawPlayer.teleport(currentCamLoc);
 
@@ -1588,7 +1588,7 @@ async function handleExpFreecam(rawPlayer, startLocation, dimension) {
                     database.freeCam.set(player, newData);
 
                     //Begin loading
-                    rawPlayer.setGameMode("spectator");
+                    rawPlayer.setGameMode(GameMode.Spectator);
                     Object.assign(startLoc, cameraLoc);
                     rawPlayer.teleport(cameraLoc);
                 }
@@ -1605,7 +1605,7 @@ async function handleExpFreecam(rawPlayer, startLocation, dimension) {
                     ticks = 0;
                 } else { //If it's still loading
                     //Continue loading
-                    rawPlayer.setGameMode("spectator");
+                    rawPlayer.setGameMode(GameMode.Spectator);
                     if (!rawPlayer.dimension.getPlayers({
                         name: player, location: data.autoChunkLoad.lastLoadLoc, maxDistance: 3
                     })[0]) {
