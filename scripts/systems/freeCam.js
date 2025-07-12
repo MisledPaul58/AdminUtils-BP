@@ -11,6 +11,7 @@ import { server } from "../server";
 import Utils from "../utils/utils";
 import { database } from "../database/index";
 import moment from "../utils/moment/moment";
+//TODO IMPORTANTE arreglar todos los gamemodes
 class FreeCam {
     constructor() {
         _FreeCam_instances.add(this);

@@ -6,21 +6,92 @@ import {
     ModalFormData,
     ModalFormResponse
 } from "@minecraft/server-ui";
-import { Player, system } from "@minecraft/server";
+import { Player, RawMessage, system } from "@minecraft/server";
 import { server } from "../server";
 
 export type FormData = ActionFormData | ModalFormData | MessageFormData;
-export type UIAction = (player: Player) => void;
+export type UIAction<T> = (player: Player) => T;
 export type SubmitAction = (inputs: { [key: string]: string | number | boolean }, player: Player) => void;
-export type BuildData = UIAction[] | string[];
+export type BuildData = UIAction<void>[] | string[];
+export type LocalizedText =  string | RawMessage; //TODO add Translations type
+
+export type DynamicElement<T> = T | UIAction<T>;
+
+export interface BaseInput {
+    type: string;
+    name: DynamicElement<LocalizedText>;
+    default?: DynamicElement<string | number | boolean>;
+}
+
+export interface TextField extends BaseInput {
+    type: "textField";
+    placeholder: DynamicElement<LocalizedText>;
+    default?: DynamicElement<string>;
+}
+
+export interface Toggle extends BaseInput {
+    type: "toggle";
+    default?: DynamicElement<boolean>;
+}
+
+export interface Slider extends BaseInput {
+    type: "slider";
+    minimum: DynamicElement<number>;
+    maximum: DynamicElement<number>;
+    step?: DynamicElement<number>;
+    default?: DynamicElement<number>;
+}
+
+export interface Dropdown extends BaseInput {
+    type: "dropdown";
+    items: DynamicElement<LocalizedText[]>;
+    default?: DynamicElement<number>;
+}
+
+type Input = TextField | Toggle | Slider | Dropdown;
+
+export interface Button {
+    text: DynamicElement<string>; // Cant be <LocalizedText> for now because text, subText etc. are my custom implementations
+    action: UIAction<void>
+}
+
+export interface ActionButton extends Button {
+    subText?: DynamicElement<string>;
+    icon?: string;
+}
+
+export interface BaseForm {
+    title: DynamicElement<LocalizedText>;
+    cancel?: UIAction<void>;
+}
+
+export interface ActionForm extends BaseForm {
+    buttons: DynamicElement<ActionButton[]>;
+    body?: DynamicElement<LocalizedText>;
+    back?: DynamicElement<string>;
+}
+
+export interface ModalForm extends BaseForm {
+    inputs: DynamicElement<{ [key: string]: Input }>;
+    submit: SubmitAction;
+    submitText?: DynamicElement<LocalizedText>;
+}
+
+export interface MessageForm extends BaseForm {
+    button1: Button;
+    button2: Button;
+    body?: DynamicElement<LocalizedText>;
+}
+
+export type Form = ActionForm | ModalForm | MessageForm;
 
 //TODO add error handling
 abstract class UIForm {
     readonly id: string | undefined;
     protected readonly form: any;
-    protected readonly cancelAction: UIAction;
+    protected readonly cancelAction: UIAction<void>;
 
-    constructor(form: any, name?: string) {
+    constructor(form: Form, name?: string) {
         this.form = form;
         this.id = name;
         this.cancelAction = this.form.cancel;
@@ -75,7 +146,7 @@ abstract class UIForm {
 }
 
 class ActionUIForm extends UIForm {
-    private actions: UIAction[] = [];
+    private actions: UIAction<void>[] = [];
 
     protected _build(player: Player): ActionFormData {
         this.actions = [];
@@ -87,11 +158,11 @@ class ActionUIForm extends UIForm {
 
         if (this.form.back) {
             formData.button("§l<-- %back.button.text", "textures/icons/back.png");
-            this.actions.push((player: Player) => server.ui.show(this.form.back, player));
+            this.actions.push((player: Player) => server.ui.show(resolveElement(this.form.back), player));
         }
 
         for (const button of resolveElement(this.form.buttons)) {
-            const text = button.subText ? `${button.text}\n§r§8[ §b§o${button.subText}§r§8 ]` : button.text;
+            const text = button.subText ? `${resolveElement(button.text)}\n§r§8[ §b§o${resolveElement(button.subText)}§r§8 ]` : resolveElement(button.text);
             formData.button(text, button.icon);
             this.actions.push(button.action);
         }
@@ -100,7 +171,7 @@ class ActionUIForm extends UIForm {
     }
 
     enter(player: Player, wait: boolean): Promise<boolean> {
-        return this._show(player, wait, (response: ActionFormResponse, actions: UIAction[]) => {
+        return this._show(player, wait, (response: ActionFormResponse, actions: UIAction<void>[]) => {
             if (response.canceled) return this.cancelAction?.(player);
 
             actions[response.selection as number]?.(player);
@@ -143,7 +214,7 @@ class ModalUIForm extends UIForm {
                     formData.slider(resolveElement(input.name), resolveElement(input.minimum), resolveElement(input.maximum), { defaultValue: resolveElement(input.default), valueStep: resolveElement(input.step) });
                     break;
                 case "dropdown":
-                    formData.dropdown(resolveElement(input.name), resolveElement(input.options), { defaultValueIndex: resolveElement(input.default) });
+                    formData.dropdown(resolveElement(input.name), resolveElement(input.items), { defaultValueIndex: resolveElement(input.default) });
                     break;
                 default:
                     continue;
@@ -175,11 +246,13 @@ class ModalUIForm extends UIForm {
 }
 
 class MessageUIForm extends UIForm {
-    private readonly actions: UIAction[];
+    private readonly actions: UIAction<void>[];
+    private readonly onRespond: UIAction<void>;
 
     constructor(form: any, name?: string) {
         super(form, name);
         this.actions = [this.form.button1.action, this.form.button2.action];
+        this.onRespond = this.form.onRespond;
     }
 
     protected _build(player: Player): MessageFormData {
@@ -193,10 +266,14 @@ class MessageUIForm extends UIForm {
     }
 
     enter(player: Player, wait: boolean): Promise<boolean> {
-        return this._show(player, wait, (response: MessageFormResponse, actions: UIAction[]) => {
-            if (response.canceled) return this.cancelAction?.(player);
+        return this._show(player, wait, (response: MessageFormResponse, actions: UIAction<void>[]) => {
+            if (response.canceled) {
+                this.cancelAction?.(player);
+                return this.onRespond?.(player);
+            }
 
             actions[response.selection as number](player);
+            this.onRespond?.(player);
         });
     }
 
@@ -210,7 +287,7 @@ export class UIManager {
     queue = new Map<Player, UIForm>();
     active = new Map<Player, UIForm>();
 
-    register(name: string, form): void {
+    register(name: string, form: Form): void { //TODO register forms with system.runJob in bootstrap?
         if (this.forms.has(name)) {
             throw `Error, the ui ${name} has already been registered.`;
         }
@@ -248,12 +325,13 @@ export class UIManager {
         }
     }
 
-    confirm(title: string, body: string, player: Player, yes: UIAction, no?: UIAction): void {
+    confirm(title: string, body: string, player: Player, yes: UIAction<void>, onRespond?: UIAction<void>, no?: UIAction<void>): void {
         const form = new MessageUIForm({
             title,
             body,
             button1: { text: "%ui.confirm.yes", action: yes },
             button2: { text: "%ui.confirm.no", action: no ?? (() => {}) },
+            onRespond: onRespond ?? (() => {}),
             cancel: no ?? (() => {})
         });
         this.queue.delete(player);

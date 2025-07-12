@@ -59,10 +59,10 @@ class ActionUIForm extends UIForm {
         formData.body(resolveElement(this.form.body) ?? "");
         if (this.form.back) {
             formData.button("§l<-- %back.button.text", "textures/icons/back.png");
-            this.actions.push((player) => server.ui.show(this.form.back, player));
+            this.actions.push((player) => server.ui.show(resolveElement(this.form.back), player));
         }
         for (const button of resolveElement(this.form.buttons)) {
-            const text = button.subText ? `${button.text}\n§r§8[ §b§o${button.subText}§r§8 ]` : button.text;
+            const text = button.subText ? `${resolveElement(button.text)}\n§r§8[ §b§o${resolveElement(button.subText)}§r§8 ]` : resolveElement(button.text);
             formData.button(text, button.icon);
             this.actions.push(button.action);
         }
@@ -104,7 +104,7 @@ class ModalUIForm extends UIForm {
                     formData.slider(resolveElement(input.name), resolveElement(input.minimum), resolveElement(input.maximum), { defaultValue: resolveElement(input.default), valueStep: resolveElement(input.step) });
                     break;
                 case "dropdown":
-                    formData.dropdown(resolveElement(input.name), resolveElement(input.options), { defaultValueIndex: resolveElement(input.default) });
+                    formData.dropdown(resolveElement(input.name), resolveElement(input.items), { defaultValueIndex: resolveElement(input.default) });
                     break;
                 default:
                     continue;
@@ -134,6 +134,7 @@ class MessageUIForm extends UIForm {
     constructor(form, name) {
         super(form, name);
         this.actions = [this.form.button1.action, this.form.button2.action];
+        this.onRespond = this.form.onRespond;
     }
     _build(player) {
         const resolveElement = (element) => this.resolve(element, player);
@@ -145,9 +146,12 @@ class MessageUIForm extends UIForm {
     }
     enter(player, wait) {
         return this._show(player, wait, (response, actions) => {
-            if (response.canceled)
-                return this.cancelAction?.(player);
+            if (response.canceled) {
+                this.cancelAction?.(player);
+                return this.onRespond?.(player);
+            }
             actions[response.selection](player);
+            this.onRespond?.(player);
         });
     }
     getBuildData() {
@@ -195,12 +199,13 @@ export class UIManager {
             return true;
         }
     }
-    confirm(title, body, player, yes, no) {
+    confirm(title, body, player, yes, onRespond, no) {
         const form = new MessageUIForm({
             title,
             body,
             button1: { text: "%ui.confirm.yes", action: yes },
             button2: { text: "%ui.confirm.no", action: no ?? (() => { }) },
+            onRespond: onRespond ?? (() => { }),
             cancel: no ?? (() => { })
         });
         this.queue.delete(player);

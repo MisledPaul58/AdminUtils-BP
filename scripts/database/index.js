@@ -5,6 +5,7 @@ export var DatabaseName;
     DatabaseName["Config"] = "Config";
     DatabaseName["PlayerData"] = "PlayerData";
     DatabaseName["Freecam"] = "Freecam";
+    DatabaseName["Permissions"] = "Permissions";
 })(DatabaseName || (DatabaseName = {}));
 export let database = {
     loaded: false
@@ -18,6 +19,8 @@ export function* loadDatabases() {
     yield* database.playerData.fetch();
     yield database.freeCam = new Database(DatabaseName.Freecam);
     yield* database.freeCam.fetch();
+    yield database.permissions = new Database(DatabaseName.Permissions);
+    yield* database.permissions.fetch();
     yield database.loaded = true;
 }
 // for (const db in database) {

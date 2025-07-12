@@ -4,7 +4,8 @@ export enum DatabaseName {
     LoadData = "LoadData",
     Config = "Config",
     PlayerData = "PlayerData",
-    Freecam = "Freecam"
+    Freecam = "Freecam",
+    Permissions = "Permissions"
 }
 
 interface DatabaseI {
@@ -12,7 +13,8 @@ interface DatabaseI {
     loadData: Database,
     config: Database,
     playerData: Database,
-    freeCam: Database
+    freeCam: Database,
+    permissions: Database
 }
 
 export let database = {
@@ -31,6 +33,9 @@ export function* loadDatabases() {
 
     yield database.freeCam = new Database(DatabaseName.Freecam);
     yield* database.freeCam.fetch();
+
+    yield database.permissions = new Database(DatabaseName.Permissions);
+    yield* database.permissions.fetch();
 
     yield database.loaded = true;
 }

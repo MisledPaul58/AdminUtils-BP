@@ -14,9 +14,12 @@ export const Translations = Object.freeze({
             SubTextOpen: "%ui.subText.open",
             SubTextEdit: "%ui.subText.edit",
             SubTextManage: "%ui.subText.manage",
+            SubTextToggle: "%ui.subText.toggle",
             SubmitTextConfirm: "%ui.submitText.confirm",
             ConfirmYes: "%ui.confirm.yes",
             ConfirmNo: "%ui.confirm.no",
+            StateEnabled: "%ui.StateEnabled",
+            StateDisabled: "%ui.StateDisabled",
         },
         MainMenu: {
             Title: "%mainMenu.title",
@@ -45,8 +48,13 @@ export const Translations = Object.freeze({
         Plugins: {
             Main: {
                 Title: "%pluginsMain.title",
-                ButtonsRanksText: "%pluginsMain.buttons.ranks.text",
+                PermissionsButtonText: "%pluginsMain.buttons.permissions.text",
             },
+            Permissions: {
+                Title: "%plugins.permissions.title",
+                ConfirmEnableBody: "%plugins.permissions.confirmEnable.body",
+                ConfirmDisableBody: "%plugins.permissions.confirmDisable.body",
+            }
         },
     },
 });

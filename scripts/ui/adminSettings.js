@@ -59,7 +59,7 @@ register("config", {
     },
     submitText: "%ui.submitText.confirm",
     submit: (inputs, player) => {
-        database.config.assign(inputs);
+        database.config.assignMemory(inputs);
         server.ui.show("mainSettings", player);
     },
     cancel: (player) => {
@@ -73,7 +73,7 @@ register("manageAdmins", {
         {
             text: "%settings.admins.main.button1.text",
             icon: "",
-            action: (player) => {
+            action: () => {
             }
         }
     ],

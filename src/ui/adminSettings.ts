@@ -1,8 +1,8 @@
 import { server } from "../server";
-import { world } from "@minecraft/server";
 import { database } from "../database/index";
+import { Form } from "./builder";
 
-const register = (name, form) => server.ui.register(name, form);
+const register = (name: string, form: Form) => server.ui.register(name, form);
 
 register("mainSettings", {
     title: "%settings.main.title",
@@ -63,7 +63,7 @@ register("config", {
     },
     submitText: "%ui.submitText.confirm",
     submit: (inputs, player) => {
-        database.config.assign(inputs);
+        database.config.assignMemory(inputs);
         server.ui.show("mainSettings", player);
     },
     cancel: (player) => {
@@ -78,7 +78,7 @@ register("manageAdmins", {
         {
             text: "%settings.admins.main.button1.text",
             icon: "",
-            action: (player) => {
+            action: () => {
                 
             }
         }

@@ -3,6 +3,7 @@
  * a little bit messy, as I didn't think AdminUtils would be this big. The other files are better though, and they will continue to improve in the next updates :]
  */
 import {
+    CommandResult,
     EffectTypes,
     GameMode,
     ItemComponentTypes,
@@ -441,6 +442,14 @@ world.beforeEvents.chatSend.subscribe(event => {
         system.run(() => {
             sender.playSound("au.menuOpen");
             server.ui.show("mainMenu", sender, true);
+        });
+    }
+
+
+    if (event.message.toLowerCase() === "a") {
+        system.run(() => {
+            server.permission.createGroup(event.sender, "admin", "Admin", 100);
+            world.sendMessage(server.permission.groups.get("admin")!.displayName);
         });
     }
 });

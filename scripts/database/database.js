@@ -57,7 +57,6 @@ export class Database {
     }
     /**
      * Gets a value from this table.
-     * @param { String } key
      * @returns the value associated with the given key in the database table.
      */
     get(key) {
@@ -65,37 +64,42 @@ export class Database {
     }
     /**
      * Gets all the keys in the table.
-     * @returns { String[] }
      */
     keys() {
         return Object.keys(this.memory);
     }
     /**
      * Gets all the values in the table.
-     * @returns { [] } values in the table
      */
     values() {
         return Object.values(this.memory);
     }
+    assign(key, value, save = true) {
+        let data = this.get(key);
+        if (data === undefined) {
+            data = {};
+            this.memory[key] = data;
+        }
+        Object.assign(data, value);
+        if (save)
+            this.saveData();
+        return this;
+    }
     /**
      * Assigns the values of an object to their respective keys in the database memory.
-     * @param { Object } source
      */
-    assign(source) {
+    assignMemory(source) {
         Object.assign(this.memory, source);
         this.saveData();
     }
     /**
      * Checks if the key exists in the table.
-     * @param { String } key
-     * @returns { Boolean }
      */
     has(key) {
         return this.memory.hasOwnProperty(key); //TODO does Object.hasOwn work?
     }
     /**
      * Deletes a key from the table.
-     * @param { String } key
      */
     delete(key) {
         if (!this.has(key))
@@ -124,7 +128,6 @@ export class Database {
     }
     /**
      * Returns the table object with all its keys and values.
-     * @returns { object }
      */
     getTable() {
         return this.memory;

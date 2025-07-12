@@ -4,8 +4,12 @@ import { Player } from "@minecraft/server";
 import { Translations } from "../utils/translations";
 import { PermissionHolder } from "./model/permissionHolder";
 
+export enum Result {
+    INVALID_PERMISSION
+}
+
 export class PermissionManager {
-    private groups = new Map<string, Group>();
+    public groups = new Map<string, Group>();
     private users = new Map<string, User>();
 
     constructor() {
@@ -28,12 +32,20 @@ export class PermissionManager {
         return this.groups.get(identifier);
     }
 
-    hasPermission(permission: string, target: PermissionHolder): boolean {
+    hasPermission(permission: string, target: PermissionHolder): boolean | Result {
         //TODO check permission is valid, etc
+        if (!isValidPermission(permission))
+            return Result.INVALID_PERMISSION;
         return !!target.resolvePermission(permission);
     }
 }
 
+function isValidPermission(permission: string): boolean {
+    const permissionRegex = /^([a-zA-Z0-9_-]+)(\.([a-zA-Z0-9_-]+))*(\.\*)?$/;
+    return permissionRegex.test(permission);
+}
+
 function isValidName(name: string): boolean {
     return /^[a-zA-Z0-9_]+$/.test(name);
+
 }

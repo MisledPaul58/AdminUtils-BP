@@ -3,6 +3,7 @@ import { defaultConfig } from "./config/defaultConfig";
 import { database, loadDatabases } from "./database/index";
 import { EventEmitter } from "./events/eventEmitter";
 import { world, system } from "@minecraft/server";
+import { PermissionManager } from "./permissions/permissionManager";
 class ServerBootstrap extends EventEmitter {
     constructor() {
         super(...arguments);
@@ -22,13 +23,13 @@ class Server extends ServerBootstrap {
     constructor() {
         super();
         this.ui = new UIManager();
+        this.permission = new PermissionManager();
         this.initAdminUtils();
         //TODO inicializar todas las variables como ui fuera de la clase en server.once("ready"), por ejemplo
     }
     /**
      * Send a custom message (AU >> ...) to the world.
      */
-    //TODO hacer una interface con todos los posibles nombres de traducciones
     //TODO acortar a sendMsg? para luego hacer algo para mandar mensajes solo a los admins o a los que tengan cierto permiso
     sendCustomMessage(msg, args) {
         const rawMessage = {
@@ -39,7 +40,7 @@ class Server extends ServerBootstrap {
     }
     fetchDefaultConfig() {
         database.config.clear();
-        database.config.assign(defaultConfig);
+        database.config.assignMemory(defaultConfig);
     }
 }
 export const server = new Server();

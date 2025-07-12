@@ -5,7 +5,9 @@ import { server } from "../server";
 import Utils from "../utils/utils";
 import { database } from "../database/index";
 import moment from "../utils/moment/moment";
+import { DatabaseObject } from "../database/database";
 
+//TODO IMPORTANTE arreglar todos los gamemodes
 class FreeCam {
     init(p: Player) {
         // p.sendSuccess('test.msg', ['24', '58']);
@@ -1698,8 +1700,8 @@ function handleSlotControls(rawPlayer, slotControls) {
 
                     if (secondsMod <= slotControls.lastSec) {
                         if (rawPlayer.selectedSlotIndex === 6) { //Slot 7, force chunk load
-                            const data = database.freeCam.get(rawPlayer.name);
-                            data.autoChunkLoad.forceLoad = true;
+                            const data = database.freeCam.get(rawPlayer.name) as DatabaseObject;
+                            (data.autoChunkLoad as DatabaseObject).forceLoad = true;
                             database.freeCam.set(rawPlayer.name, data);
                             rawPlayer.selectedSlotIndex = 5;
                         } else {

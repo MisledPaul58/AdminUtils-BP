@@ -84,11 +84,12 @@ export class PermissionHolder {
         return true;
     }
     removeParent(parent) {
+        //Maybe update cache intelligently in this case in the future
         this.cache.clear();
         return this.inheritanceMap.delete(parent.identifier);
     }
     *getInheritance() {
-        // Breadth-first search
+        // Breadth-first
         // const queue: Group[] = [...this.inheritanceMap.values()];
         //
         // while (queue.length > 0) {

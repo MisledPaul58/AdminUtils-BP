@@ -1,9 +1,19 @@
 import { world } from "@minecraft/server";
 import { DatabaseName } from "./index";
 
+type DatabasePrimitive = string | number | boolean;
+type DatabaseArray = string[] | number[] | boolean[];
+export type DatabaseObject = { [key: string]: DatabaseValue };
+export type DatabaseValue =
+    | DatabasePrimitive
+    | DatabaseArray
+    | DatabaseObject;
+
+export type DatabaseMemory = { [key: string]: DatabaseValue };
+
 export class Database {
     public readonly tableName: DatabaseName;
-    private memory: Record<string, any>;
+    private memory: DatabaseMemory;
 
     constructor(tableName: DatabaseName) {
         this.tableName = tableName;
@@ -65,7 +75,7 @@ export class Database {
     /**
      * Sets the specified `key` to the given `value` in the database table.
      */
-    set(key: string, value: Object, save: boolean = true): Database {
+    set(key: string, value: DatabaseValue, save: boolean = true): Database {
         this.memory[key] = value;
         if (save) this.saveData();
         return this;
@@ -73,16 +83,14 @@ export class Database {
 
     /**
      * Gets a value from this table.
-     * @param { String } key 
      * @returns the value associated with the given key in the database table.
      */
-    get(key: string) {
+    get(key: string): DatabaseValue {
         return this.memory[key];
     }
 
     /**
      * Gets all the keys in the table.
-     * @returns { String[] }
      */
     keys(): string[] {
         return Object.keys(this.memory);
@@ -90,25 +98,33 @@ export class Database {
 
     /**
      * Gets all the values in the table.
-     * @returns { [] } values in the table
      */
-    values() {
+    values(): DatabaseValue[] {
         return Object.values(this.memory);
+    }
+
+    assign(key: string, value: DatabaseValue, save: boolean = true): Database {
+        let data = this.get(key);
+        if (data === undefined) {
+            data = {};
+            this.memory[key] = data;
+        }
+
+        Object.assign(data, value);
+        if (save) this.saveData();
+        return this;
     }
 
     /**
      * Assigns the values of an object to their respective keys in the database memory.
-     * @param { Object } source
      */
-    assign(source) {
+    assignMemory(source: DatabaseMemory) {
         Object.assign(this.memory, source);
         this.saveData();
     }
 
     /**
      * Checks if the key exists in the table.
-     * @param { String } key 
-     * @returns { Boolean }
      */
     has(key: string): boolean {
         return this.memory.hasOwnProperty(key); //TODO does Object.hasOwn work?
@@ -116,7 +132,6 @@ export class Database {
 
     /**
      * Deletes a key from the table.
-     * @param { String } key 
      */
     delete(key: string): boolean {
         if (!this.has(key)) return false;
@@ -146,9 +161,8 @@ export class Database {
     
     /**
      * Returns the table object with all its keys and values.
-     * @returns { object }
      */
-    getTable() {
+    getTable(): DatabaseMemory {
         return this.memory;
     }
 }
