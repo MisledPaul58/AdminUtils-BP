@@ -4,7 +4,7 @@
  */
 import {
     CommandResult,
-    EffectTypes,
+    EffectTypes, EntityComponentTypes,
     GameMode,
     ItemComponentTypes,
     ItemStack,
@@ -445,7 +445,7 @@ world.beforeEvents.chatSend.subscribe(event => {
         });
     }
 
-
+    //TODO test (remove)
     if (event.message.toLowerCase() === "a") {
         system.run(() => {
             server.permission.createGroup(event.sender, "admin", "Admin", 100);

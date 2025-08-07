@@ -434,6 +434,7 @@ world.beforeEvents.chatSend.subscribe(event => {
             server.ui.show("mainMenu", sender, true);
         });
     }
+    //TODO test (remove)
     if (event.message.toLowerCase() === "a") {
         system.run(() => {
             server.permission.createGroup(event.sender, "admin", "Admin", 100);
