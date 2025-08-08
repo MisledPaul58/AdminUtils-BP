@@ -6,7 +6,8 @@ import {
     Player,
     system,
     TicksPerSecond,
-    world
+    world,
+    Dimension, EntityComponentTypes, Entity
 } from "@minecraft/server";
 import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
 import { database } from "./database/index";
@@ -27,7 +28,6 @@ let scoreboardsLoaded = false;
 let players = [];
 
 let admins = [];
-let tntFlag = "-autnt0";
 let stuckJailedPlayers = [];
 let invChests = [];
 let pendingMenuPlayers = [];
@@ -333,7 +333,7 @@ server.on("tick", async () => {
                 }
             } else {
                 if (!isJailExitLocSet()) {
-                    if (!world.getPlayers({ name: jailedPlayer, gameMode: GameMode.adventure })[0]) {
+                    if (!world.getPlayers({ name: jailedPlayer, gameMode: GameMode.Adventure })[0]) {
                         jailedPlayerRaw.runCommand('gamemode adventure');
                     }
                     jailedPlayerRaw.addEffect(EffectTypes.get('resistance'), 2 * TicksPerSecond, {
@@ -373,7 +373,7 @@ server.on("tick", async () => {
                 }
             }
         } else if (jailedPlayerRaw) {
-            if (!world.getPlayers({ name: jailedPlayer, gameMode: GameMode.adventure })[0]) {
+            if (!world.getPlayers({ name: jailedPlayer, gameMode: GameMode.Adventure })[0]) {
                 jailedPlayerRaw.runCommand('gamemode adventure');
             }
             jailedPlayerRaw.addEffect(EffectTypes.get('resistance'), 2 * TicksPerSecond, {
@@ -485,19 +485,10 @@ world.afterEvents.playerJoin.subscribe(async event => {
         const reason = getBanReason(playerName);
         const bannedBy = getBannedBy(playerName);
         if (isPermaBanned(playerName)) {
-            waitForTestFor();
-
-            async function waitForTestFor() {
-                while (function () { //Waits until the banned player actually joins
-                    const { successCount } = overworld.runCommand(`testfor "${playerName}"`);
-                    if (successCount === 1) return false
-                    else return true;
-                }()) {
-                    await delay(1);
-                }
-
+            waitForPlayer({ name: playerName }).then(() => {
                 overworld.runCommand(`kick "${playerName}" "\n§l§6----------------------------\n§l§4§k|||||§r§l§cYou were permanently banned by §4${bannedBy}§4§k|||||§r\n§l§o§4Reason: §c${reason}\n§r§l§6----------------------------§r"`);
-            }
+            });
+
         } else {
             const unBanDate = moment(getUnBanISO(playerName), moment.ISO_8601);
             const currentDate = moment();
@@ -512,18 +503,9 @@ world.afterEvents.playerJoin.subscribe(async event => {
             const remainingMinutes = remainingTime.minutes();
             const remainingSeconds = remainingTime.seconds();
 
-            waitForTestFor();
-
-            async function waitForTestFor() {
-                while (function () { //Waits until the banned player actually joins
-                    const { successCount } = overworld.runCommand(`testfor "${playerName}"`);
-                    if (successCount === 1) return false
-                    else return true;
-                }()) {
-                    await delay(10);
-                }
-
+            waitForPlayer({ name: playerName }, 10).then(async () => {
                 await delay(4);
+
                 const years = remainingYears === 0 ? "" : remainingYears === 1 ? `${remainingYears} year ` : `${remainingYears} years `;
                 const months = remainingMonths === 0 ? "" : remainingMonths === 1 ? `${remainingMonths} month ` : `${remainingMonths} months `;
                 const weeks = remainingWeeks === 0 ? "" : remainingWeeks === 1 ? `${remainingWeeks} week ` : `${remainingWeeks} weeks `;
@@ -533,27 +515,19 @@ world.afterEvents.playerJoin.subscribe(async event => {
                 const seconds = remainingSeconds === 0 ? "" : remainingSeconds === 1 ? `${remainingSeconds} second` : `${remainingSeconds} seconds`;
 
                 overworld.runCommand(`kick "${playerName}" "\n§l§6----------------------------\n§l§4§k|||||§r§l§cYou were temporarily banned by §4${bannedBy}§4§k|||||§r\n§l§o§4Reason: §c${reason}\n§4Remaining time: §c${years}${months}${weeks}${days}${hours}${minutes}${seconds}\n§r§l§6----------------------------§r"`);
-            }
+            });
         }
+
     } else if (world.scoreboard.getObjective('-auTempUnjailed')?.hasParticipant('/' + playerName)) {
-        waitForTestFor();
-
-        async function waitForTestFor() {
-            while (function () {
-                const { successCount } = overworld.runCommand(`testfor "${playerName}"`);
-                if (successCount === 1) return false
-                else return true;
-            }()) {
-                await delay(10);
-            }
-
+        waitForPlayer({ name: playerName }, 10).then(async () => {
             await delay(20);
+
             const playerRaw = world.getPlayers({ name: playerName })[0];
             const reason = getJailReason(playerName);
             const jailedBy = getJailedBy(playerName);
 
             while (!isJailExitLocSet()) {
-                if (!world.getPlayers({ name: playerName, gameMode: GameMode.adventure })[0]) {
+                if (!world.getPlayers({ name: playerName, gameMode: GameMode.Adventure })[0]) {
                     playerRaw.runCommand("gamemode adventure");
                 }
                 playerRaw.addEffect(EffectTypes.get('resistance'), 2 * TicksPerSecond, {
@@ -585,18 +559,10 @@ world.afterEvents.playerJoin.subscribe(async event => {
                 fadeOutDuration: 2 * TicksPerSecond
             });
             playerRaw.runCommand("playsound beacon.activate @s ~ ~ ~ 100");
-        }
-    } else if (isJailed(playerName)) {
-        testfor();
+        });
 
-        async function testfor() {
-            while (function () {
-                const { successCount } = overworld.runCommand(`testfor "${playerName}"`);
-                if (successCount === 1) return false
-                else return true;
-            }()) {
-                await delay(10);
-            }
+    } else if (isJailed(playerName)) {
+        waitForPlayer({ name: playerName }, 10).then(async () => {
             await delay(20);
 
             const playerRaw = world.getPlayers({ name: playerName })[0];
@@ -712,9 +678,8 @@ world.afterEvents.playerJoin.subscribe(async event => {
                         playerRaw.teleport(getJailLoc()[0], getJailLoc()[1]);
                     }
                 }
-            } catch (e) {
-            }
-        }
+            } catch (e) { }
+        });
     }
 });
 
@@ -754,35 +719,14 @@ world.afterEvents.projectileHitEntity.subscribe(event => {
                 hitEntity.dimension.runCommand(`playsound random.glass @a ${entityLoc.x} ${entityLoc.y} ${entityLoc.z} 100`);
             }
             if (isPowerEnabled(source.name, proj, "tnt")) {
-                try {
-                    hitEntity.runCommand('summon tnt')
-                    const query = {
-                        closest: 1,
-                        type: "tnt",
-                        excludeTags: ["-autnt"],
-                        location: hitEntity.location
-                    };
-                    const tnt = [...hitEntity.dimension.getEntities(query)][0];
-                    const _tntFlag = tntFlag;
-                    tnt.addTag(_tntFlag);
-                    tnt.addTag("-autnt");
-                    tntFlag = `-autnt${tntFlag.match(/[0-9]+/)[0] * 1 + 1}`; //Adds 1 each time
-                    asyncTntTp();
-
-                    async function asyncTntTp() {
-                        try {
-                            while (function () {
-                                const { successCount } = tnt.dimension.runCommand(`testfor @e[type=tnt, tag=${_tntFlag}]`);
-                                if (successCount === 0) return false
-                                else return true;
-                            }()) {
-                                hitEntity.runCommand(`tp @e[type=tnt, tag="${_tntFlag}"] @s`);
-                            }
-                        } catch (e) {
-                        }
+                const tnt = hitEntity.dimension.spawnEntity("minecraft:tnt", hitEntity.location);
+                const run = system.runInterval(() => {
+                    if (!tnt.isValid || !hitEntity.isValid) {
+                        return system.clearRun(run);
                     }
-                } catch (e) {
-                }
+
+                    tnt.teleport(hitEntity.location);
+                }, 1);
             }
         }
     } catch (e) {
@@ -1342,6 +1286,8 @@ export function adminUtils(p) {
                             form.show(p).then(async result => {
                                 if (result.canceled === true) return killAPlayer();
                                 const playerName = result.formValues[0];
+                                const player = world.getPlayers({ name: playerName })?.[0];
+                                const health = player?.getComponent(EntityComponentTypes.Health);
 
                                 if (!isValidUsername(playerName)) {
                                     p.sendMessage(`§cError, the username you entered is invalid.`);
@@ -1349,26 +1295,25 @@ export function adminUtils(p) {
 
                                 } else if (result.formValues[1] === true) { //Force death true
                                     try {
-                                        const { successCount: _successCount } = p.runCommand(`testfor "${playerName}"`);
-                                        if (_successCount === 0) {
+                                        if (!player?.isValid || !health || health.currentValue === 0) {
                                             throw '';
                                         }
 
                                         const rawPlayer = world.getPlayers({
                                             name: playerName,
-                                            gameMode: GameMode.survival
+                                            gameMode: GameMode.Survival
                                         })[0];
                                         const rawPlayer2 = world.getPlayers({
                                             name: playerName,
-                                            gameMode: GameMode.adventure
+                                            gameMode: GameMode.Adventure
                                         })[0];
                                         if (!rawPlayer && !rawPlayer2) {
                                             let gamemode = "survival";
-                                            if (world.getPlayers({ name: playerName, gameMode: GameMode.creative })[0]) {
+                                            if (world.getPlayers({ name: playerName, gameMode: GameMode.Creative })[0]) {
                                                 gamemode = "creative";
                                             } else if (world.getPlayers({
                                                 name: playerName,
-                                                gameMode: GameMode.spectator
+                                                gameMode: GameMode.Spectator
                                             })[0]) {
                                                 gamemode = "spectator;"
                                             }
@@ -1376,35 +1321,73 @@ export function adminUtils(p) {
                                             p.runCommand(`tag "${playerName}" add "-aukill${gamemode}"`);
                                             p.runCommand(`gamemode survival "${playerName}"`);
                                         }
-                                        p.runCommand(`kill "${playerName}"`);
-                                        await delay(2);
 
-                                        const { successCount } = p.runCommand(`testfor "${playerName}"`);
-                                        if (successCount === 1) {
-                                            throw '';
-                                        }
-                                        p.sendMessage(`§aThe player §b${playerName}§a has been killed successfully.`);
-                                        p.playSound("au.success");
+                                        p.runCommand(`kill "${playerName}"`);
+
+                                        const tick = system.currentTick;
+                                        new Promise((resolve, reject) => {
+                                            const callback = (event) => {
+                                                if (event.deadEntity === player) {
+                                                    system.clearRun(run);
+                                                    world.afterEvents.entityDie.unsubscribe(callback);
+                                                    resolve();
+                                                }
+                                            };
+
+                                            world.afterEvents.entityDie.subscribe(callback);
+
+                                            const run = system.runInterval(() => {
+                                                if (system.currentTick - tick >= 10) {
+                                                    system.clearRun(run);
+                                                    world.afterEvents.entityDie.unsubscribe(callback);
+                                                    reject();
+                                                }
+                                            }, 1);
+                                        }).then(() => {
+                                            p.sendMessage(`§aThe player §b${playerName}§a has been killed successfully.`);
+                                            p.playSound("au.success");
+                                        }, () => {
+                                            p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
+                                            p.playSound("au.error");
+                                        });
                                     } catch (e) {
                                         p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
                                         p.playSound("au.error");
                                     }
                                 } else if (result.formValues[1] === false) { //Force death false
                                     try {
-                                        const { successCount: _successCount } = p.runCommand(`testfor "${playerName}"`);
-                                        if (_successCount === 0) { //If the player is already dead or offline
+                                        if (!player?.isValid || !health || health.currentValue === 0) { //If the player is already dead or offline
                                             throw '';
                                         }
 
                                         p.runCommand(`kill "${playerName}"`);
 
-                                        const { successCount } = p.runCommand(`testfor "${playerName}"`);
-                                        if (successCount === 1) { //If the player is still alive
-                                            throw '';
-                                        } else {
+                                        const tick = system.currentTick;
+                                        new Promise((resolve, reject) => {
+                                            const callback = (event) => {
+                                                if (event.deadEntity === player) {
+                                                    system.clearRun(run);
+                                                    world.afterEvents.entityDie.unsubscribe(callback);
+                                                    resolve();
+                                                }
+                                            };
+
+                                            world.afterEvents.entityDie.subscribe(callback);
+
+                                            const run = system.runInterval(() => {
+                                                if (system.currentTick - tick >= 10) {
+                                                    system.clearRun(run);
+                                                    world.afterEvents.entityDie.unsubscribe(callback);
+                                                    reject();
+                                                }
+                                            }, 1);
+                                        }).then(() => {
                                             p.sendMessage(`§aThe player §b${playerName}§a has been killed successfully.`);
                                             p.playSound("au.success");
-                                        }
+                                        }, () => {
+                                            p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
+                                            p.playSound("au.error");
+                                        });
                                     } catch (e) {
                                         p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
                                         p.playSound("au.error");
@@ -1413,6 +1396,8 @@ export function adminUtils(p) {
                             });
                         } else if (response.selection > 1) {
                             const selectedPlayersName = playersArray[response.selection - 2];
+                            const player = world.getPlayers({ name: selectedPlayersName })?.[0];
+                            const health = player?.getComponent(EntityComponentTypes.Health);
 
                             const form = new ModalFormData()
                                 .title("Kill a player")
@@ -1421,29 +1406,28 @@ export function adminUtils(p) {
                                 if (result.canceled === true) return killAPlayer();
                                 if (result.formValues[0] === true) { //Force death true
                                     try {
-                                        const { successCount: _successCount } = p.runCommand(`testfor "${selectedPlayersName}"`);
-                                        if (_successCount === 0) {
+                                        if (!player?.isValid || !health || health.currentValue === 0) {
                                             throw '';
                                         }
 
                                         const rawPlayer = world.getPlayers({
                                             name: selectedPlayersName,
-                                            gameMode: GameMode.survival
+                                            gameMode: GameMode.Survival
                                         })[0];
                                         const rawPlayer2 = world.getPlayers({
                                             name: selectedPlayersName,
-                                            gameMode: GameMode.adventure
+                                            gameMode: GameMode.Adventure
                                         })[0];
                                         if (!rawPlayer && !rawPlayer2) {
                                             let gamemode = "survival";
                                             if (world.getPlayers({
                                                 name: selectedPlayersName,
-                                                gameMode: GameMode.creative
+                                                gameMode: GameMode.Creative
                                             })[0]) {
                                                 gamemode = "creative";
                                             } else if (world.getPlayers({
                                                 name: selectedPlayersName,
-                                                gameMode: GameMode.spectator
+                                                gameMode: GameMode.Spectator
                                             })[0]) {
                                                 gamemode = "spectator;"
                                             }
@@ -1453,34 +1437,71 @@ export function adminUtils(p) {
                                         }
 
                                         p.runCommand(`kill "${selectedPlayersName}"`);
-                                        await delay(2);
 
-                                        const { successCount } = p.runCommand(`testfor "${selectedPlayersName}"`);
-                                        if (successCount === 1) {
-                                            throw '';
-                                        }
-                                        p.sendMessage(`§aThe player §b${selectedPlayersName}§a has been killed successfully.`);
-                                        p.playSound("au.success");
+                                        const tick = system.currentTick;
+                                        new Promise((resolve, reject) => {
+                                            const callback = (event) => {
+                                                if (event.deadEntity === player) {
+                                                    system.clearRun(run);
+                                                    world.afterEvents.entityDie.unsubscribe(callback);
+                                                    resolve();
+                                                }
+                                            };
+
+                                            world.afterEvents.entityDie.subscribe(callback);
+
+                                            const run = system.runInterval(() => {
+                                                if (system.currentTick - tick >= 10) {
+                                                    system.clearRun(run);
+                                                    world.afterEvents.entityDie.unsubscribe(callback);
+                                                    reject();
+                                                }
+                                            }, 1);
+                                        }).then(() => {
+                                            p.sendMessage(`§aThe player §b${selectedPlayersName}§a has been killed successfully.`);
+                                            p.playSound("au.success");
+                                        }, () => {
+                                            p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
+                                            p.playSound("au.error");
+                                        });
                                     } catch (e) {
                                         p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
                                         p.playSound("au.error");
                                     }
                                 } else if (result.formValues[0] === false) { //Force death false
                                     try {
-                                        const { successCount: _successCount } = p.runCommand(`testfor "${selectedPlayersName}"`);
-                                        if (_successCount === 0) { //If the player is already dead or offline
+                                        if (!player?.isValid || !health || health.currentValue === 0) { //If the player is already dead or offline
                                             throw '';
                                         }
 
                                         p.runCommand(`kill "${selectedPlayersName}"`);
 
-                                        const { successCount } = p.runCommand(`testfor "${selectedPlayersName}"`);
-                                        if (successCount === 1) { //If the player is still alive
-                                            throw '';
-                                        } else {
+                                        const tick = system.currentTick;
+                                        new Promise((resolve, reject) => {
+                                            const callback = (event) => {
+                                                if (event.deadEntity === player) {
+                                                    system.clearRun(run);
+                                                    world.afterEvents.entityDie.unsubscribe(callback);
+                                                    resolve();
+                                                }
+                                            };
+
+                                            world.afterEvents.entityDie.subscribe(callback);
+
+                                            const run = system.runInterval(() => {
+                                                if (system.currentTick - tick >= 10) {
+                                                    system.clearRun(run);
+                                                    world.afterEvents.entityDie.unsubscribe(callback);
+                                                    reject();
+                                                }
+                                            }, 1);
+                                        }).then(() => {
                                             p.sendMessage(`§aThe player §b${selectedPlayersName}§a has been killed successfully.`);
                                             p.playSound("au.success");
-                                        }
+                                        }, () => {
+                                            p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
+                                            p.playSound("au.error");
+                                        });
                                     } catch (e) {
                                         p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
                                         p.playSound("au.error");
@@ -1517,13 +1538,13 @@ export function adminUtils(p) {
                                 if (result.canceled) return launchPlayer();
 
                                 const player = result.formValues[0];
+                                const rawPlayer = world.getPlayers({ name: player })?.[0];
 
                                 if (!isValidUsername(player)) {
                                     p.sendMessage('§cError, the username you entered is invalid.');
                                     p.playSound("au.error");
                                 } else {
-                                    const { successCount } = p.runCommand(`testfor "${player}"`);
-                                    if (successCount === 0) {
+                                    if (!rawPlayer) {
                                         p.sendMessage('§cError, the player you entered is not online.');
                                         p.playSound("au.error");
                                     } else {
@@ -3621,6 +3642,24 @@ export function isValidUsername(username) {
     } else if (username.match(/^ | $/) === null && username.match(/[^A-Za-z0-9À-ÿ\u00f1\u00d1 \(\)]+/) === null && username !== "") {
         return true;
     }
+}
+
+/**
+ *
+ * @param { EntityQueryOptions } queryOptions
+ * @param { number } tickInterval
+ * @return Promise
+ */
+function waitForPlayer(queryOptions, tickInterval = 1) {
+    return new Promise((resolve) => {
+        const run = system.runInterval(() => {
+            const player = world.getPlayers(queryOptions)?.[0];
+            if (player) {
+                system.clearRun(run);
+                resolve(player);
+            }
+        }, tickInterval);
+    });
 }
 
 function isAdmin(username) {
