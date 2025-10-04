@@ -5,11 +5,12 @@ export var HolderType;
     HolderType[HolderType["GROUP"] = 1] = "GROUP";
 })(HolderType || (HolderType = {}));
 export class PermissionHolder {
+    identifier;
+    nodeMap = new Map();
+    wildcardMap = new Map();
+    inheritanceMap = new Map();
+    cache = new Map;
     constructor(identifier) {
-        this.nodeMap = new Map();
-        this.wildcardMap = new Map();
-        this.inheritanceMap = new Map();
-        this.cache = new Map;
         this.identifier = identifier;
     }
     resolvePermission(permission) {
@@ -107,6 +108,7 @@ export class PermissionHolder {
         }
     }
 }
+// Prevents circular inheritance
 function isValidInheritance(parent) {
     const seen = new Set();
     for (const group of parent.getInheritance()) {

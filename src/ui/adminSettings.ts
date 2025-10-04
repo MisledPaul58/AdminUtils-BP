@@ -1,10 +1,11 @@
 import { server } from "../server";
 import { database } from "../database/index";
 import { Form } from "./builder";
+import { UiIndex } from "./index";
+import { UiLoader } from "./uiLoader";
+import { world } from "@minecraft/server";
 
-const register = (name: string, form: Form) => server.ui.register(name, form);
-
-register("mainSettings", {
+const mainSettings: Form = {
     title: "%settings.main.title",
     buttons: [
         {
@@ -38,27 +39,27 @@ register("mainSettings", {
     //     player.dimension.spawnEntity("bee", player.location);
     //     world.sendMessage(`${server.ui.displayingUI(player)}`);
     // }
-});
+};
 
-register("config", {
+const config: Form = {
     title: "%settings.config.title",
     inputs: {
         thanksMessage: {
             type: "toggle",
             name: "%settings.config.input1.name",
-            default: () => database.config.get("thanksMessage")
+            default: () => database.config.get("thanksMessage") as boolean
         },
         adminTag: {
             type: "textField",
             name: "%settings.config.input2.name",
             placeholder: "-auadmin",
-            default: () => database.config.get("adminTag")
+            default: () => database.config.get("adminTag") as string
         },
         ownerTag: {
             type: "textField",
             name: "%settings.config.input3.name",
             placeholder: "owner",
-            default: () => database.config.get("ownerTag")
+            default: () => database.config.get("ownerTag") as string
         }
     },
     submitText: "%ui.submitText.confirm",
@@ -69,9 +70,9 @@ register("config", {
     cancel: (player) => {
         server.ui.show("mainSettings", player);
     }
-});
+};
 
-register("manageAdmins", {
+const manageAdmins: Form = {
     title: "%settings.admins.main.title",
     body: "%settings.admins.main.body",
     buttons: [
@@ -79,11 +80,20 @@ register("manageAdmins", {
             text: "%settings.admins.main.button1.text",
             icon: "",
             action: () => {
-                
+
             }
         }
     ],
     back: "mainSettings"
-});
-
+};
 //TODO: cambiar el texto del submit button de show admins a Ok
+
+class AdminSettingsLoader extends UiLoader {
+    uiIndex: UiIndex = {
+        mainSettings,
+        config,
+        manageAdmins
+    };
+}
+
+export const adminSettingsLoader = new AdminSettingsLoader();

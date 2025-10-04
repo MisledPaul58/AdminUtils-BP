@@ -20,7 +20,6 @@ import { database } from "./database/index";
 import "./utils/players.js";
 import { server } from "./server";
 import "./events/events";
-import "./ui/index";
 import { freeCam } from "./systems/freeCam.js";
 import moment from "./utils/moment/moment";
 

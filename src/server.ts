@@ -5,15 +5,22 @@ import { EventEmitter } from "./events/eventEmitter";
 import { world, system, RawMessage } from "@minecraft/server";
 import { TranslationsType } from "./utils/translations";
 import { PermissionManager } from "./permissions/permissionManager";
+import { loadUIs } from "./ui/index";
 
-class ServerBootstrap extends EventEmitter{
+export abstract class ServerBootstrap extends EventEmitter{
     private _isInitialized: boolean = false;
+    public abstract ui: UIManager;
+    public abstract permission: PermissionManager;
 
     protected initAdminUtils() {
+        const self = this;
+        console.warn(`${JSON.stringify(Array.from(this.ui.forms.keys()))}`);
         system.runJob(function* () {
             yield* loadDatabases();
+            yield* loadUIs(self);
 
             server._isInitialized = true;
+            console.warn(`${JSON.stringify(Array.from(self.ui.forms.keys()))}`);
         }() as Generator<void, void, void>);
     }
 
@@ -23,13 +30,11 @@ class ServerBootstrap extends EventEmitter{
 }
 
 class Server extends ServerBootstrap {
-    public ui: UIManager;
-    public permission: PermissionManager;
+    public ui: UIManager = new UIManager();
+    public permission: PermissionManager = new PermissionManager();
 
     constructor() {
         super();
-        this.ui = new UIManager();
-        this.permission = new PermissionManager();
         this.initAdminUtils();
         //TODO inicializar todas las variables como ui fuera de la clase en server.once("ready"), por ejemplo
     }

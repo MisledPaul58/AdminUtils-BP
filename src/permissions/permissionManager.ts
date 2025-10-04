@@ -4,12 +4,12 @@ import { Player } from "@minecraft/server";
 import { Translations } from "../utils/translations";
 import { PermissionHolder } from "./model/permissionHolder";
 
-export enum Result {
+export enum PermissionCheckError {
     INVALID_PERMISSION
 }
 
 export class PermissionManager {
-    public groups = new Map<string, Group>();
+    private groups = new Map<string, Group>();
     private users = new Map<string, User>();
 
     constructor() {
@@ -24,7 +24,7 @@ export class PermissionManager {
             return sender.sendError(Translations.Msg.Permissions.InvalidName);
 
         if (this.groups.has(identifier))
-            return sender.sendError(Translations.Msg.Permissions.ExistingGroup);
+            return sender.sendError(Translations.Msg.Permissions.ExistingGroupError);
 
         this.groups.set(identifier, new Group(identifier, displayName, weight)); //TODO ofrecer también crear el grupo con los parents y guardar los groups a la rom?
         //Save
@@ -32,10 +32,14 @@ export class PermissionManager {
         return this.groups.get(identifier);
     }
 
-    hasPermission(permission: string, target: PermissionHolder): boolean | Result {
+    getGroups(): IteratorObject<Group> {
+        return this.groups.values();
+    }
+
+    hasPermission(permission: string, target: PermissionHolder): boolean | PermissionCheckError {
         //TODO check permission is valid, etc
         if (!isValidPermission(permission))
-            return Result.INVALID_PERMISSION;
+            return PermissionCheckError.INVALID_PERMISSION;
         return !!target.resolvePermission(permission);
     }
 }

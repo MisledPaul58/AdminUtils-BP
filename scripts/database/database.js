@@ -1,5 +1,7 @@
 import { world } from "@minecraft/server";
 export class Database {
+    tableName;
+    memory;
     constructor(tableName) {
         this.tableName = tableName;
         this.memory = {};

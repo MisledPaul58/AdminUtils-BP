@@ -4,13 +4,14 @@ export const Translations = Object.freeze({
         Permissions: {
             InvalidIdentifier: "permissions.invalidIdentifier" as const,
             InvalidName: "permissions.invalidName" as const,
-            ExistingGroup: "permissions.existingGroup" as const,
-            GroupCreated: "permissions.groupCreated" as const
+            ExistingGroupError: "permissions.existingGroupError" as const,
+            GroupCreated: "permissions.groupCreated" as const,
+            GroupPropertiesError: "permissions.groupPropertiesError" as const
         }
     },
     Ui: {
         General: {
-            BackButton: "%back.button" as const,
+            BackButton: "%back.button.text" as const,
             SubTextOpen: "%ui.subText.open" as const,
             SubTextEdit: "%ui.subText.edit" as const,
             SubTextManage: "%ui.subText.manage" as const,
@@ -54,6 +55,10 @@ export const Translations = Object.freeze({
                 Title: "%plugins.permissions.title" as const,
                 ConfirmEnableBody: "%plugins.permissions.confirmEnable.body" as const,
                 ConfirmDisableBody: "%plugins.permissions.confirmDisable.body" as const,
+                Groups: "%plugins.permissions.groups" as const,
+                Users: "%plugins.permissions.users" as const,
+                Permissions: "%plugins.permissions.permissions" as const,
+                CreateGroup: "%plugins.permissions.createGroup" as const
             }
         },
     },

@@ -4,15 +4,17 @@ import { database, loadDatabases } from "./database/index";
 import { EventEmitter } from "./events/eventEmitter";
 import { world, system } from "@minecraft/server";
 import { PermissionManager } from "./permissions/permissionManager";
-class ServerBootstrap extends EventEmitter {
-    constructor() {
-        super(...arguments);
-        this._isInitialized = false;
-    }
+import { loadUIs } from "./ui/index";
+export class ServerBootstrap extends EventEmitter {
+    _isInitialized = false;
     initAdminUtils() {
+        const self = this;
+        console.warn(`${JSON.stringify(Array.from(this.ui.forms.keys()))}`);
         system.runJob(function* () {
             yield* loadDatabases();
+            yield* loadUIs(self);
             server._isInitialized = true;
+            console.warn(`${JSON.stringify(Array.from(self.ui.forms.keys()))}`);
         }());
     }
     get isInitialized() {
@@ -20,10 +22,10 @@ class ServerBootstrap extends EventEmitter {
     }
 }
 class Server extends ServerBootstrap {
+    ui = new UIManager();
+    permission = new PermissionManager();
     constructor() {
         super();
-        this.ui = new UIManager();
-        this.permission = new PermissionManager();
         this.initAdminUtils();
         //TODO inicializar todas las variables como ui fuera de la clase en server.once("ready"), por ejemplo
     }

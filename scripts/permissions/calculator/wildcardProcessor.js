@@ -1,4 +1,6 @@
 export class WildcardProcessor {
+    static WILDCARD_SUFFIX = ".*";
+    static ROOT_WILDCARD = "*";
     static isRootWildcard(permission) {
         return permission === this.ROOT_WILDCARD;
     }
@@ -27,5 +29,3 @@ export class WildcardProcessor {
         return false;
     }
 }
-WildcardProcessor.WILDCARD_SUFFIX = ".*";
-WildcardProcessor.ROOT_WILDCARD = "*";

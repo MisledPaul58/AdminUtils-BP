@@ -1,10 +1,10 @@
 import { server } from "../server";
 import { adminUtils } from "../main";
 import { Form } from "./builder";
+import { UiIndex } from "./index";
+import { UiLoader } from "./uiLoader";
 
-const register = (name: string, form: Form) => server.ui.register(name, form);
-
-register("mainMenu", {
+const mainMenu: Form = {
     title: "%mainMenu.title",
     buttons: [
         {
@@ -31,5 +31,13 @@ register("mainMenu", {
                 server.ui.show("pluginsMain", player);
             }
         }
-    ],
-});
+    ]
+};
+
+class MainMenuLoader extends UiLoader {
+     uiIndex: UiIndex = {
+         mainMenu
+     };
+}
+
+export const mainMenuLoader = new MainMenuLoader();

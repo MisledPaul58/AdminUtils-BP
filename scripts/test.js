@@ -1,5 +1,8 @@
 import { world } from "@minecraft/server";
 class UIForm {
+    form;
+    cancelAction;
+    xd;
     constructor(form) {
         //xd
         this.form = form;

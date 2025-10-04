@@ -1,13 +1,13 @@
 import { Group } from "./model/group";
 import { Translations } from "../utils/translations";
-export var Result;
-(function (Result) {
-    Result[Result["INVALID_PERMISSION"] = 0] = "INVALID_PERMISSION";
-})(Result || (Result = {}));
+export var PermissionCheckError;
+(function (PermissionCheckError) {
+    PermissionCheckError[PermissionCheckError["INVALID_PERMISSION"] = 0] = "INVALID_PERMISSION";
+})(PermissionCheckError || (PermissionCheckError = {}));
 export class PermissionManager {
+    groups = new Map();
+    users = new Map();
     constructor() {
-        this.groups = new Map();
-        this.users = new Map();
     }
     createGroup(sender, identifier, displayName, weight, parents) {
         if (!isValidName(identifier))
@@ -15,16 +15,19 @@ export class PermissionManager {
         if (!isValidName(displayName))
             return sender.sendError(Translations.Msg.Permissions.InvalidName);
         if (this.groups.has(identifier))
-            return sender.sendError(Translations.Msg.Permissions.ExistingGroup);
+            return sender.sendError(Translations.Msg.Permissions.ExistingGroupError);
         this.groups.set(identifier, new Group(identifier, displayName, weight)); //TODO ofrecer también crear el grupo con los parents y guardar los groups a la rom?
         //Save
         sender.sendSuccess(Translations.Msg.Permissions.GroupCreated, [displayName]);
         return this.groups.get(identifier);
     }
+    getGroups() {
+        return this.groups.values();
+    }
     hasPermission(permission, target) {
         //TODO check permission is valid, etc
         if (!isValidPermission(permission))
-            return Result.INVALID_PERMISSION;
+            return PermissionCheckError.INVALID_PERMISSION;
         return !!target.resolvePermission(permission);
     }
 }

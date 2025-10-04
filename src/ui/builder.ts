@@ -6,13 +6,15 @@ import {
     ModalFormData,
     ModalFormResponse
 } from "@minecraft/server-ui";
-import { Player, RawMessage, system } from "@minecraft/server";
+import { Player, RawMessage, system, world } from "@minecraft/server";
 import { server } from "../server";
+import { Translations } from "../utils/translations";
 
 export type FormData = ActionFormData | ModalFormData | MessageFormData;
-export type UIAction<T> = (player: Player) => T;
-export type SubmitAction = (inputs: { [key: string]: string | number | boolean }, player: Player) => void;
+export type UIAction<T> = (player: Player, contextData: ContextData) => T;
+export type SubmitAction = (inputs: { [key: string]: string | number | boolean }, player: Player, contextData: ContextData) => void;
 export type BuildData = UIAction<void>[] | string[];
+export type ContextData = { [key: string]: any };
 export type LocalizedText =  string | RawMessage; //TODO add Translations type
 
 export type DynamicElement<T> = T | UIAction<T>;
@@ -51,7 +53,8 @@ export interface Dropdown extends BaseInput {
 type Input = TextField | Toggle | Slider | Dropdown;
 
 export interface Button {
-    text: DynamicElement<string>; // Cant be <LocalizedText> for now because text, subText etc. are my custom implementations
+    // Cant be <LocalizedText> for now because text, subText etc. are my custom implementations
+    text: DynamicElement<string>;
     action: UIAction<void>
 }
 
@@ -99,17 +102,18 @@ abstract class UIForm {
 
     protected abstract _build(player: Player): FormData;
 
-    abstract enter(player: Player, wait: boolean): Promise<boolean>;
+    abstract enter(player: Player, wait: boolean, contextData: ContextData): Promise<boolean>;
 
     protected abstract getBuildData(): BuildData;
 
     protected async _show(player: Player, wait: boolean, onRespond) {
         while (player.isValid && server.ui.inQueue(player, this)) {
+            world.sendMessage("aa")
             const form: FormData = this._build(player);
             const buildData: BuildData = this.getBuildData();
 
             let state = "pending"; //TODO make state an actual object
-
+            world.sendMessage("lol")
             const responsePromise = form.show(player).then((response: FormResponse) => {
                 if (!wait || response?.cancelationReason !== "UserBusy") {
                     state = "responded";
@@ -157,7 +161,7 @@ class ActionUIForm extends UIForm {
         formData.body(resolveElement(this.form.body) ?? "");
 
         if (this.form.back) {
-            formData.button("§l<-- %back.button.text", "textures/icons/back.png");
+            formData.button(`§l<-- ${Translations.Ui.General.BackButton}`, "textures/icons/back.png");
             this.actions.push((player: Player) => server.ui.show(resolveElement(this.form.back), player));
         }
 
@@ -170,11 +174,11 @@ class ActionUIForm extends UIForm {
         return formData;
     }
 
-    enter(player: Player, wait: boolean): Promise<boolean> {
+    enter(player: Player, wait: boolean, contextData: ContextData): Promise<boolean> {
         return this._show(player, wait, (response: ActionFormResponse, actions: UIAction<void>[]) => {
-            if (response.canceled) return this.cancelAction?.(player);
+            if (response.canceled) return this.cancelAction?.(player, contextData);
 
-            actions[response.selection as number]?.(player);
+            actions[response.selection as number]?.(player, contextData);
         });
     }
 
@@ -226,17 +230,18 @@ class ModalUIForm extends UIForm {
         return formData;
     }
 
-    enter(player: Player, wait: boolean): Promise<boolean> {
+    enter(player: Player, wait: boolean, contextData: ContextData): Promise<boolean> {
         return this._show(player, wait, (response: ModalFormResponse, inputNames: string[]) => {
-            if (response.canceled) return this.cancelAction?.(player);
+            if (response.canceled) return this.cancelAction?.(player, contextData);
 
             const inputs: { [key: string]: string | number | boolean } = {};
 
             for (const [index, value] of response.formValues!.entries()) {
+                if (value === undefined) continue;
                 inputs[inputNames[index]] = value;
             }
 
-            this.submitAction?.(inputs, player);
+            this.submitAction?.(inputs, player, contextData);
         });
     }
 
@@ -265,15 +270,15 @@ class MessageUIForm extends UIForm {
             .button2(resolveElement(this.form.button2.text));
     }
 
-    enter(player: Player, wait: boolean): Promise<boolean> {
+    enter(player: Player, wait: boolean, contextData: ContextData): Promise<boolean> {
         return this._show(player, wait, (response: MessageFormResponse, actions: UIAction<void>[]) => {
             if (response.canceled) {
-                this.cancelAction?.(player);
-                return this.onRespond?.(player);
+                this.cancelAction?.(player, contextData);
+                return this.onRespond?.(player, contextData);
             }
 
-            actions[response.selection as number](player);
-            this.onRespond?.(player);
+            actions[response.selection as number](player, contextData);
+            this.onRespond?.(player, contextData);
         });
     }
 
@@ -287,19 +292,19 @@ export class UIManager {
     queue = new Map<Player, UIForm>();
     active = new Map<Player, UIForm>();
 
-    register(name: string, form: Form): void { //TODO register forms with system.runJob in bootstrap?
+    register(name: string, form: Form): void {
         if (this.forms.has(name)) {
             throw `Error, the ui ${name} has already been registered.`;
         }
 
         if ("buttons" in form) {
-            this.forms.set(name, new ActionUIForm(form, name));
+            this.forms.set(name, new ActionUIForm(form as ActionForm, name));
 
         } else if ("inputs" in form) {
-            this.forms.set(name, new ModalUIForm(form, name));
+            this.forms.set(name, new ModalUIForm(form as ModalForm, name));
 
         } else if ("button1" in form) {
-            this.forms.set(name, new MessageUIForm(form, name));
+            this.forms.set(name, new MessageUIForm(form as MessageForm, name));
         }
     }
 
@@ -308,24 +313,27 @@ export class UIManager {
      * @param ui The name of the UI.
      * @param player The player that the UI will be shown to.
      * @param wait
-     * @returns True if
+     * @param contextData
+     * @returns True if the UI is found. False if the UI isn't found or the player is already in a UI.
      */
-    show(ui: string, player: Player, wait: boolean = false): boolean {
+    //TODO make this work with permissions
+    show(ui: string, player: Player, wait: boolean = false, contextData: ContextData = {}): boolean {
         if (this.displayingUI(player)) return false;
 
         const form = this.forms.get(ui);
         if (!form) {
             return false;
         } else {
+            world.sendMessage(`${this.inQueue(player, form)}`)
             this.queue.delete(player);
             this.queue.set(player, form);
-            form.enter(player, wait);
+            form.enter(player, wait, contextData);
 
             return true;
         }
     }
 
-    confirm(title: string, body: string, player: Player, yes: UIAction<void>, onRespond?: UIAction<void>, no?: UIAction<void>): void {
+    confirm(title: string, body: string, player: Player, yes: UIAction<void>, onRespond?: UIAction<void>, no?: UIAction<void>, contextData: ContextData = {}): void {
         const form = new MessageUIForm({
             title,
             body,
@@ -336,7 +344,7 @@ export class UIManager {
         });
         this.queue.delete(player);
         this.queue.set(player, form);
-        form.enter(player, false);
+        form.enter(player, false, contextData);
     }
 
     displayingUI(player: Player, ui: string | undefined = undefined): boolean {

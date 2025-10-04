@@ -1,7 +1,7 @@
 import { server } from "../server";
 import { database } from "../database/index";
-const register = (name, form) => server.ui.register(name, form);
-register("mainSettings", {
+import { UiLoader } from "./uiLoader";
+const mainSettings = {
     title: "%settings.main.title",
     buttons: [
         {
@@ -35,8 +35,8 @@ register("mainSettings", {
     //     player.dimension.spawnEntity("bee", player.location);
     //     world.sendMessage(`${server.ui.displayingUI(player)}`);
     // }
-});
-register("config", {
+};
+const config = {
     title: "%settings.config.title",
     inputs: {
         thanksMessage: {
@@ -65,8 +65,8 @@ register("config", {
     cancel: (player) => {
         server.ui.show("mainSettings", player);
     }
-});
-register("manageAdmins", {
+};
+const manageAdmins = {
     title: "%settings.admins.main.title",
     body: "%settings.admins.main.body",
     buttons: [
@@ -78,5 +78,13 @@ register("manageAdmins", {
         }
     ],
     back: "mainSettings"
-});
+};
 //TODO: cambiar el texto del submit button de show admins a Ok
+class AdminSettingsLoader extends UiLoader {
+    uiIndex = {
+        mainSettings,
+        config,
+        manageAdmins
+    };
+}
+export const adminSettingsLoader = new AdminSettingsLoader();

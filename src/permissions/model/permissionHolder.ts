@@ -129,6 +129,7 @@ export abstract class PermissionHolder {
     }
 }
 
+// Prevents circular inheritance
 function isValidInheritance(parent: Group): boolean {
     const seen = new Set<Group>();
     for (const group of parent.getInheritance()) {
