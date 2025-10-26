@@ -67,7 +67,6 @@ export abstract class PermissionHolder {
                 };
             }
         }
-
         const resolvedValue = highestPermission.value;
         if (resolvedValue !== undefined) {
             this.cache.set(permission, resolvedValue);

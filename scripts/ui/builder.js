@@ -1,5 +1,5 @@
 import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
-import { system, world } from "@minecraft/server";
+import { system } from "@minecraft/server";
 import { server } from "../server";
 import { Translations } from "../utils/translations";
 //TODO add error handling
@@ -14,11 +14,24 @@ class UIForm {
     }
     async _show(player, wait, onRespond) {
         while (player.isValid && server.ui.inQueue(player, this)) {
-            world.sendMessage("aa");
-            const form = this._build(player);
+            const buildError = this.form.buildErrorMsg;
+            let form;
+            try {
+                form = this._build(player);
+            }
+            catch (e) {
+                if (typeof buildError === "string") {
+                    player.sendError(buildError, [e?.name ?? "", e?.message ?? ""]);
+                }
+                else {
+                    player.sendError(Translations.Msg.GenericBuildError);
+                }
+                server.ui.queue.delete(player);
+                server.ui.active.delete(player);
+                throw e;
+            }
             const buildData = this.getBuildData();
             let state = "pending"; //TODO make state an actual object
-            world.sendMessage("lol");
             const responsePromise = form.show(player).then((response) => {
                 if (!wait || response?.cancelationReason !== "UserBusy") {
                     state = "responded";
@@ -60,15 +73,35 @@ class ActionUIForm extends UIForm {
         const formData = new ActionFormData();
         formData.title(resolveElement(this.form.title));
         formData.body(resolveElement(this.form.body) ?? "");
-        if (this.form.back) {
+        if (this.form.back) { //TODO add an automatic back button by saving the previous uis and adding it in a context object?
             formData.button(`§l<-- ${Translations.Ui.General.BackButton}`, "textures/icons/back.png");
             this.actions.push((player) => server.ui.show(resolveElement(this.form.back), player));
         }
-        for (const button of resolveElement(this.form.buttons)) {
-            const text = button.subText ? `${resolveElement(button.text)}\n§r§8[ §b§o${resolveElement(button.subText)}§r§8 ]` : resolveElement(button.text);
-            formData.button(text, button.icon);
-            this.actions.push(button.action);
+        for (const element of resolveElement(this.form.elements)) {
+            switch (element.type) {
+                case "button":
+                    const text = element.subText ? `${resolveElement(element.text)}\n§r§8[ §b§o${resolveElement(element.subText)}§r§8 ]` : resolveElement(element.text);
+                    formData.button(text, element.icon);
+                    this.actions.push(element.action);
+                    break;
+                case "header":
+                    formData.header(resolveElement(element.text));
+                    break;
+                case "label":
+                    formData.label(resolveElement(element.text));
+                    break;
+                case "divider":
+                    formData.divider();
+                    break;
+                default:
+                    break;
+            }
         }
+        // for (const button of resolveElement(this.form.buttons)) {
+        //     const text = button.subText ? `${resolveElement(button.text)}\n§r§8[ §b§o${resolveElement(button.subText)}§r§8 ]` : resolveElement(button.text);
+        //     formData.button(text, button.icon);
+        //     this.actions.push(button.action);
+        // }
         return formData;
     }
     enter(player, wait, contextData) {
@@ -94,27 +127,59 @@ class ModalUIForm extends UIForm {
         const resolveElement = (element) => this.resolve(element, player);
         const formData = new ModalFormData();
         formData.title(resolveElement(this.form.title));
-        const formInputs = resolveElement(this.form.inputs);
-        for (const inputId in formInputs) {
-            const input = formInputs[inputId];
-            switch (input.type) {
+        for (const element of resolveElement(this.form.elements)) {
+            switch (element.type) {
                 case "textField":
-                    formData.textField(resolveElement(input.name), resolveElement(input.placeholder), { defaultValue: resolveElement(input.default) });
+                    formData.textField(resolveElement(element.name), resolveElement(element.placeholder), { defaultValue: resolveElement(element.default) });
+                    this.inputNames.push(element.inputId);
                     break;
                 case "toggle":
-                    formData.toggle(resolveElement(input.name), { defaultValue: resolveElement(input.default) });
+                    formData.toggle(resolveElement(element.name), { defaultValue: resolveElement(element.default) });
+                    this.inputNames.push(element.inputId);
                     break;
                 case "slider":
-                    formData.slider(resolveElement(input.name), resolveElement(input.minimum), resolveElement(input.maximum), { defaultValue: resolveElement(input.default), valueStep: resolveElement(input.step) });
+                    formData.slider(resolveElement(element.name), resolveElement(element.minimum), resolveElement(element.maximum), { defaultValue: resolveElement(element.default), valueStep: resolveElement(element.step) });
+                    this.inputNames.push(element.inputId);
                     break;
                 case "dropdown":
-                    formData.dropdown(resolveElement(input.name), resolveElement(input.items), { defaultValueIndex: resolveElement(input.default) });
+                    formData.dropdown(resolveElement(element.name), resolveElement(element.items), { defaultValueIndex: resolveElement(element.default) });
+                    this.inputNames.push(element.inputId);
+                    break;
+                case "header":
+                    formData.header(resolveElement(element.text));
+                    break;
+                case "label":
+                    formData.label(resolveElement(element.text));
+                    break;
+                case "divider":
+                    formData.divider();
                     break;
                 default:
-                    continue;
+                    break;
             }
-            this.inputNames.push(inputId);
         }
+        // const formInputs = resolveElement(this.form.inputs);
+        // for (const inputId in formInputs) {
+        //     const input = formInputs[inputId];
+        //
+        //     switch (input.type) {
+        //         case "textField":
+        //             formData.textField(resolveElement(input.name), resolveElement(input.placeholder), { defaultValue: resolveElement(input.default) });
+        //             break;
+        //         case "toggle":
+        //             formData.toggle(resolveElement(input.name), { defaultValue: resolveElement(input.default) });
+        //             break;
+        //         case "slider":
+        //             formData.slider(resolveElement(input.name), resolveElement(input.minimum), resolveElement(input.maximum), { defaultValue: resolveElement(input.default), valueStep: resolveElement(input.step) });
+        //             break;
+        //         case "dropdown":
+        //             formData.dropdown(resolveElement(input.name), resolveElement(input.items), { defaultValueIndex: resolveElement(input.default) });
+        //             break;
+        //         default:
+        //             continue;
+        //     }
+        //     this.inputNames.push(inputId);
+        // }
         if (this.form.submitText)
             formData.submitButton(resolveElement(this.form.submitText));
         return formData;
@@ -174,13 +239,13 @@ export class UIManager {
         if (this.forms.has(name)) {
             throw `Error, the ui ${name} has already been registered.`;
         }
-        if ("buttons" in form) {
+        if (form.type === "action") {
             this.forms.set(name, new ActionUIForm(form, name));
         }
-        else if ("inputs" in form) {
+        else if (form.type === "modal") {
             this.forms.set(name, new ModalUIForm(form, name));
         }
-        else if ("button1" in form) {
+        else if (form.type === "message") {
             this.forms.set(name, new MessageUIForm(form, name));
         }
     }
@@ -201,7 +266,6 @@ export class UIManager {
             return false;
         }
         else {
-            world.sendMessage(`${this.inQueue(player, form)}`);
             this.queue.delete(player);
             this.queue.set(player, form);
             form.enter(player, wait, contextData);

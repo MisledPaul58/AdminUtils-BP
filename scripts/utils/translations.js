@@ -1,6 +1,7 @@
 export const Translations = Object.freeze({
     Msg: {
         SystemReload: "system.reload",
+        GenericBuildError: "ui.genericBuildError",
         Permissions: {
             InvalidIdentifier: "permissions.invalidIdentifier",
             InvalidName: "permissions.invalidName",
@@ -58,7 +59,15 @@ export const Translations = Object.freeze({
                 Groups: "%plugins.permissions.groups",
                 Users: "%plugins.permissions.users",
                 Permissions: "%plugins.permissions.permissions",
-                CreateGroup: "%plugins.permissions.createGroup"
+                CreateNewGroup: "%plugins.permissions.createNewGroup",
+                EditProperties: "%plugins.permissions.editProperties",
+                ManagePermissions: "%plugins.permissions.managePermissions",
+                ManageInheritance: "%plugins.permissions.manageInheritance",
+                CreateGroup: "%plugins.permissions.createGroup",
+                Identifier: "%plugins.permissions.identifier",
+                DisplayName: "%plugins.permissions.displayName",
+                Weight: "%plugins.permissions.weight",
+                InheritsFrom: "%plugins.permissions.inheritsFrom"
             }
         },
     },

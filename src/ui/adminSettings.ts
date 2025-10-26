@@ -1,22 +1,25 @@
 import { server } from "../server";
 import { database } from "../database/index";
-import { Form } from "./builder";
+import { ActionButton, ActionForm, Form, ModalElement, ModalForm, TextField, Toggle } from "./builder";
 import { UiIndex } from "./index";
 import { UiLoader } from "./uiLoader";
 import { world } from "@minecraft/server";
 
-const mainSettings: Form = {
+const mainSettings: ActionForm = {
+    type: "action",
     title: "%settings.main.title",
-    buttons: [
+    elements: [
         {
+            type: "button",
             text: "%settings.main.button1.text",
             subText: "%ui.subText.edit",
             icon: "textures/icons/settings1.png",
             action: (player) => {
                 server.ui.show("config", player);
             }
-        },
+        } as ActionButton,
         {
+            type: "button",
             text: "%settings.main.button2.text",
             subText: "%ui.subText.manage",
             icon: "textures/icons/settings2.png",
@@ -28,7 +31,7 @@ const mainSettings: Form = {
                     server.ui.show("mainSettings", player);
                 });
             }
-        }
+        } as ActionButton
     ],
     back: "mainMenu",
     // /**
@@ -41,27 +44,31 @@ const mainSettings: Form = {
     // }
 };
 
-const config: Form = {
+const config: ModalForm = {
+    type: "modal",
     title: "%settings.config.title",
-    inputs: {
-        thanksMessage: {
+    elements: [
+        {
             type: "toggle",
+            inputId: "thanksMessage",
             name: "%settings.config.input1.name",
             default: () => database.config.get("thanksMessage") as boolean
-        },
-        adminTag: {
+        } as Toggle,
+        {
             type: "textField",
+            inputId: "adminTag",
             name: "%settings.config.input2.name",
             placeholder: "-auadmin",
             default: () => database.config.get("adminTag") as string
-        },
-        ownerTag: {
+        } as TextField,
+        {
             type: "textField",
+            inputId: "ownerTag",
             name: "%settings.config.input3.name",
             placeholder: "owner",
             default: () => database.config.get("ownerTag") as string
-        }
-    },
+        } as TextField
+    ],
     submitText: "%ui.submitText.confirm",
     submit: (inputs, player) => {
         database.config.assignMemory(inputs);
@@ -72,17 +79,19 @@ const config: Form = {
     }
 };
 
-const manageAdmins: Form = {
+const manageAdmins: ActionForm = {
+    type: "action",
     title: "%settings.admins.main.title",
     body: "%settings.admins.main.body",
-    buttons: [
+    elements: [
         {
+            type: "button",
             text: "%settings.admins.main.button1.text",
             icon: "",
             action: () => {
 
             }
-        }
+        } as ActionButton
     ],
     back: "mainSettings"
 };

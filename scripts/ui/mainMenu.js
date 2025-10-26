@@ -2,9 +2,11 @@ import { server } from "../server";
 import { adminUtils } from "../main";
 import { UiLoader } from "./uiLoader";
 const mainMenu = {
+    type: "action",
     title: "%mainMenu.title",
-    buttons: [
+    elements: [
         {
+            type: "button",
             text: "%mainMenu.button1.text",
             subText: "%ui.subText.open",
             icon: "textures/icons/settings1.png",
@@ -13,6 +15,7 @@ const mainMenu = {
             }
         },
         {
+            type: "button",
             text: "%mainMenu.button2.text",
             subText: "%ui.subText.open",
             icon: "textures/icons/adminUtils.png",
@@ -21,6 +24,7 @@ const mainMenu = {
             }
         },
         {
+            type: "button",
             text: "%mainMenu.button3.text",
             subText: "%ui.subText.open",
             icon: "",

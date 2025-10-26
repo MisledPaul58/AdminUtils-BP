@@ -2,9 +2,11 @@ import { server } from "../server";
 import { database } from "../database/index";
 import { UiLoader } from "./uiLoader";
 const mainSettings = {
+    type: "action",
     title: "%settings.main.title",
-    buttons: [
+    elements: [
         {
+            type: "button",
             text: "%settings.main.button1.text",
             subText: "%ui.subText.edit",
             icon: "textures/icons/settings1.png",
@@ -13,6 +15,7 @@ const mainSettings = {
             }
         },
         {
+            type: "button",
             text: "%settings.main.button2.text",
             subText: "%ui.subText.manage",
             icon: "textures/icons/settings2.png",
@@ -37,26 +40,30 @@ const mainSettings = {
     // }
 };
 const config = {
+    type: "modal",
     title: "%settings.config.title",
-    inputs: {
-        thanksMessage: {
+    elements: [
+        {
             type: "toggle",
+            inputId: "thanksMessage",
             name: "%settings.config.input1.name",
             default: () => database.config.get("thanksMessage")
         },
-        adminTag: {
+        {
             type: "textField",
+            inputId: "adminTag",
             name: "%settings.config.input2.name",
             placeholder: "-auadmin",
             default: () => database.config.get("adminTag")
         },
-        ownerTag: {
+        {
             type: "textField",
+            inputId: "ownerTag",
             name: "%settings.config.input3.name",
             placeholder: "owner",
             default: () => database.config.get("ownerTag")
         }
-    },
+    ],
     submitText: "%ui.submitText.confirm",
     submit: (inputs, player) => {
         database.config.assignMemory(inputs);
@@ -67,10 +74,12 @@ const config = {
     }
 };
 const manageAdmins = {
+    type: "action",
     title: "%settings.admins.main.title",
     body: "%settings.admins.main.body",
-    buttons: [
+    elements: [
         {
+            type: "button",
             text: "%settings.admins.main.button1.text",
             icon: "",
             action: () => {

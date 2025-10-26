@@ -644,6 +644,15 @@ world.beforeEvents.itemUse.subscribe(data => {
             player.playSound("au.menuOpen");
         });
     }
+    system.run(() => {
+        new ModalFormData()
+            .title("xd")
+            .dropdown("Meows", ["a", "xd"])
+            .header("Header lol")
+            .label("Una label xd")
+            .divider()
+            .show(player);
+    });
 });
 world.afterEvents.projectileHitEntity.subscribe(event => {
     try {

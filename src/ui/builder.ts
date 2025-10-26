@@ -8,7 +8,7 @@ import {
 } from "@minecraft/server-ui";
 import { Player, RawMessage, system, world } from "@minecraft/server";
 import { server } from "../server";
-import { Translations } from "../utils/translations";
+import { Translations, TranslationsType } from "../utils/translations";
 
 export type FormData = ActionFormData | ModalFormData | MessageFormData;
 export type UIAction<T> = (player: Player, contextData: ContextData) => T;
@@ -21,6 +21,7 @@ export type DynamicElement<T> = T | UIAction<T>;
 
 export interface BaseInput {
     type: string;
+    inputId: string;
     name: DynamicElement<LocalizedText>;
     default?: DynamicElement<string | number | boolean>;
 }
@@ -50,9 +51,25 @@ export interface Dropdown extends BaseInput {
     default?: DynamicElement<number>;
 }
 
+export interface Header {
+    type: "header";
+    text: DynamicElement<string>;
+}
+
+export interface Label {
+    type: "label";
+    text: DynamicElement<string>;
+}
+
+export interface Divider {
+    type: "divider";
+}
+
 type Input = TextField | Toggle | Slider | Dropdown;
+export type ModalElement = Input | Header | Label | Divider;
 
 export interface Button {
+    type: "button";
     // Cant be <LocalizedText> for now because text, subText etc. are my custom implementations
     text: DynamicElement<string>;
     action: UIAction<void>
@@ -63,24 +80,31 @@ export interface ActionButton extends Button {
     icon?: string;
 }
 
+export type ActionElement = ActionButton | Header | Label | Divider;
+
 export interface BaseForm {
+    type: string;
     title: DynamicElement<LocalizedText>;
     cancel?: UIAction<void>;
+    buildErrorMsg?: string;
 }
 
 export interface ActionForm extends BaseForm {
-    buttons: DynamicElement<ActionButton[]>;
+    type: "action";
+    elements: DynamicElement<ActionElement[]>;
     body?: DynamicElement<LocalizedText>;
     back?: DynamicElement<string>;
 }
 
 export interface ModalForm extends BaseForm {
-    inputs: DynamicElement<{ [key: string]: Input }>;
+    type: "modal";
+    elements: DynamicElement<ModalElement[]>;
     submit: SubmitAction;
     submitText?: DynamicElement<LocalizedText>;
 }
 
 export interface MessageForm extends BaseForm {
+    type: "message";
     button1: Button;
     button2: Button;
     body?: DynamicElement<LocalizedText>;
@@ -108,12 +132,25 @@ abstract class UIForm {
 
     protected async _show(player: Player, wait: boolean, onRespond) {
         while (player.isValid && server.ui.inQueue(player, this)) {
-            world.sendMessage("aa")
-            const form: FormData = this._build(player);
+            const buildError: TranslationsType | undefined = this.form.buildErrorMsg;
+
+            let form: FormData;
+            try {
+                form = this._build(player);
+            } catch (e) {
+                if (typeof buildError === "string") {
+                    player.sendError(buildError, [(e as Error)?.name ?? "", (e as Error)?.message ?? ""]);
+                } else {
+                    player.sendError(Translations.Msg.GenericBuildError);
+                }
+                server.ui.queue.delete(player);
+                server.ui.active.delete(player);
+                throw e;
+            }
+
             const buildData: BuildData = this.getBuildData();
 
             let state = "pending"; //TODO make state an actual object
-            world.sendMessage("lol")
             const responsePromise = form.show(player).then((response: FormResponse) => {
                 if (!wait || response?.cancelationReason !== "UserBusy") {
                     state = "responded";
@@ -160,16 +197,41 @@ class ActionUIForm extends UIForm {
         formData.title(resolveElement(this.form.title));
         formData.body(resolveElement(this.form.body) ?? "");
 
-        if (this.form.back) {
+        if (this.form.back) { //TODO add an automatic back button by saving the previous uis and adding it in a context object?
             formData.button(`§l<-- ${Translations.Ui.General.BackButton}`, "textures/icons/back.png");
             this.actions.push((player: Player) => server.ui.show(resolveElement(this.form.back), player));
         }
 
-        for (const button of resolveElement(this.form.buttons)) {
-            const text = button.subText ? `${resolveElement(button.text)}\n§r§8[ §b§o${resolveElement(button.subText)}§r§8 ]` : resolveElement(button.text);
-            formData.button(text, button.icon);
-            this.actions.push(button.action);
+        for (const element of resolveElement(this.form.elements)) {
+            switch (element.type) {
+                case "button":
+                    const text = element.subText ? `${resolveElement(element.text)}\n§r§8[ §b§o${resolveElement(element.subText)}§r§8 ]` : resolveElement(element.text);
+                    formData.button(text, element.icon);
+                    this.actions.push(element.action);
+                    break;
+
+                case "header":
+                    formData.header(resolveElement(element.text));
+                    break;
+
+                case "label":
+                    formData.label(resolveElement(element.text));
+                    break;
+
+                case "divider":
+                    formData.divider();
+                    break;
+
+                default:
+                    break;
+            }
         }
+
+        // for (const button of resolveElement(this.form.buttons)) {
+        //     const text = button.subText ? `${resolveElement(button.text)}\n§r§8[ §b§o${resolveElement(button.subText)}§r§8 ]` : resolveElement(button.text);
+        //     formData.button(text, button.icon);
+        //     this.actions.push(button.action);
+        // }
 
         return formData;
     }
@@ -203,28 +265,67 @@ class ModalUIForm extends UIForm {
         const formData = new ModalFormData();
         formData.title(resolveElement(this.form.title));
 
-        const formInputs = resolveElement(this.form.inputs);
-        for (const inputId in formInputs) {
-            const input = formInputs[inputId];
-
-            switch (input.type) {
+        for (const element of resolveElement(this.form.elements) as ModalElement[]) {
+            switch (element.type) {
                 case "textField":
-                    formData.textField(resolveElement(input.name), resolveElement(input.placeholder), { defaultValue: resolveElement(input.default) });
+                    formData.textField(resolveElement(element.name), resolveElement(element.placeholder), { defaultValue: resolveElement(element.default) });
+                    this.inputNames.push(element.inputId);
                     break;
+
                 case "toggle":
-                    formData.toggle(resolveElement(input.name), { defaultValue: resolveElement(input.default) });
+                    formData.toggle(resolveElement(element.name), { defaultValue: resolveElement(element.default) });
+                    this.inputNames.push(element.inputId);
                     break;
+
                 case "slider":
-                    formData.slider(resolveElement(input.name), resolveElement(input.minimum), resolveElement(input.maximum), { defaultValue: resolveElement(input.default), valueStep: resolveElement(input.step) });
+                    formData.slider(resolveElement(element.name), resolveElement(element.minimum), resolveElement(element.maximum), { defaultValue: resolveElement(element.default), valueStep: resolveElement(element.step) });
+                    this.inputNames.push(element.inputId);
                     break;
+
                 case "dropdown":
-                    formData.dropdown(resolveElement(input.name), resolveElement(input.items), { defaultValueIndex: resolveElement(input.default) });
+                    formData.dropdown(resolveElement(element.name), resolveElement(element.items), { defaultValueIndex: resolveElement(element.default) });
+                    this.inputNames.push(element.inputId);
                     break;
+
+                case "header":
+                    formData.header(resolveElement(element.text));
+                    break;
+
+                case "label":
+                    formData.label(resolveElement(element.text));
+                    break;
+
+                case "divider":
+                    formData.divider();
+                    break;
+
                 default:
-                    continue;
+                    break;
             }
-            this.inputNames.push(inputId);
         }
+
+        // const formInputs = resolveElement(this.form.inputs);
+        // for (const inputId in formInputs) {
+        //     const input = formInputs[inputId];
+        //
+        //     switch (input.type) {
+        //         case "textField":
+        //             formData.textField(resolveElement(input.name), resolveElement(input.placeholder), { defaultValue: resolveElement(input.default) });
+        //             break;
+        //         case "toggle":
+        //             formData.toggle(resolveElement(input.name), { defaultValue: resolveElement(input.default) });
+        //             break;
+        //         case "slider":
+        //             formData.slider(resolveElement(input.name), resolveElement(input.minimum), resolveElement(input.maximum), { defaultValue: resolveElement(input.default), valueStep: resolveElement(input.step) });
+        //             break;
+        //         case "dropdown":
+        //             formData.dropdown(resolveElement(input.name), resolveElement(input.items), { defaultValueIndex: resolveElement(input.default) });
+        //             break;
+        //         default:
+        //             continue;
+        //     }
+        //     this.inputNames.push(inputId);
+        // }
 
         if (this.form.submitText) formData.submitButton(resolveElement(this.form.submitText));
         return formData;
@@ -297,13 +398,13 @@ export class UIManager {
             throw `Error, the ui ${name} has already been registered.`;
         }
 
-        if ("buttons" in form) {
+        if (form.type === "action") {
             this.forms.set(name, new ActionUIForm(form as ActionForm, name));
 
-        } else if ("inputs" in form) {
+        } else if (form.type === "modal") {
             this.forms.set(name, new ModalUIForm(form as ModalForm, name));
 
-        } else if ("button1" in form) {
+        } else if (form.type === "message") {
             this.forms.set(name, new MessageUIForm(form as MessageForm, name));
         }
     }
@@ -324,7 +425,6 @@ export class UIManager {
         if (!form) {
             return false;
         } else {
-            world.sendMessage(`${this.inQueue(player, form)}`)
             this.queue.delete(player);
             this.queue.set(player, form);
             form.enter(player, wait, contextData);
