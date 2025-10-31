@@ -145,8 +145,9 @@ export const createGroup: ModalForm = {
             type: "dropdown",
             inputId: "inheritsFrom",
             name: Translations.Ui.Plugins.Permissions.InheritsFrom,
-            items: player => {
-                
+            items: (_, contextData) => {
+                const groups = Array.from(server.permission.getGroups()).map(group => group.displayName);
+                return groups[0] ? groups : [Translations.Ui.Plugins.Permissions.NoGroups];
             }
         } as Dropdown
     ],

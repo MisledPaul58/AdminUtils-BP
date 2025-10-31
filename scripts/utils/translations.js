@@ -67,7 +67,8 @@ export const Translations = Object.freeze({
                 Identifier: "%plugins.permissions.identifier",
                 DisplayName: "%plugins.permissions.displayName",
                 Weight: "%plugins.permissions.weight",
-                InheritsFrom: "%plugins.permissions.inheritsFrom"
+                InheritsFrom: "%plugins.permissions.inheritsFrom",
+                NoGroups: "%plugins.permissions.noGroups"
             }
         },
     },
