@@ -7,6 +7,7 @@ export const Translations = Object.freeze({
             InvalidName: "permissions.invalidName" as const,
             ExistingGroupError: "permissions.existingGroupError" as const,
             GroupCreated: "permissions.groupCreated" as const,
+            AddParentFail: "permissions.addParentFail" as const,
             GroupPropertiesError: "permissions.groupPropertiesError" as const
         }
     },
@@ -68,7 +69,9 @@ export const Translations = Object.freeze({
                 DisplayName: "%plugins.permissions.displayName" as const,
                 Weight: "%plugins.permissions.weight" as const,
                 InheritsFrom: "%plugins.permissions.inheritsFrom" as const,
-                NoGroups: "%plugins.permissions.noGroups" as const
+                InheritsFromLabel: "%plugins.permissions.inheritsFromLabel" as const,
+                NoGroups: "%plugins.permissions.noGroups" as const,
+                None: "%plugins.permissions.none" as const
             }
         },
     },

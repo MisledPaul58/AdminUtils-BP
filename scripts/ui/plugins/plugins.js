@@ -1,21 +1,19 @@
-import { server } from "../../server";
 import { Translations } from "../../utils/translations";
 import { database } from "../../database/index";
 const pluginsMain = {
     type: "action",
-    title: "%pluginsMain.title",
+    title: Translations.Ui.Plugins.Main.Title,
     elements: [
         {
             type: "button",
             text: () => database.permissions.get("-auEnabled") ? `§l§a${Translations.Ui.Plugins.Main.PermissionsButtonText}§r` : `§c${Translations.Ui.Plugins.Main.PermissionsButtonText}§r`,
             subText: Translations.Ui.General.SubTextManage,
             icon: "",
-            action: (player) => {
-                server.ui.show("permissions", player);
+            action: (context) => {
+                context.goTo("permissions");
             }
         }
-    ],
-    back: "mainMenu"
+    ]
 };
 import { UiLoader } from "../uiLoader";
 import { permissions, groups, createGroup, groupConfig } from "./permissions";

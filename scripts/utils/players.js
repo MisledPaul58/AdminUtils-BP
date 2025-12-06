@@ -18,7 +18,7 @@ Player.prototype.sendCustomMessage = function (msg, args) {
         translate: msg,
         with: args
     };
-    this.sendMessage(['§l§cAU §6>>§r ', rawMessage]);
+    this.sendMessage(['§l§cAU §6>>§r ', rawMessage]); //TODO change to §l§9AU §3>> or §l§3AU §9>>? And keep this one for the errors
 };
 Player.prototype.sendSuccess = function (msg, args) {
     this.sendCustomMessage(msg, args);

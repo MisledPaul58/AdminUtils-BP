@@ -98,9 +98,11 @@ server.on("tick", async () => {
         }
         scoreboardsLoaded = true;
 
-        system.runTimeout(() => {
-            world.sendMessage("§l§4§kqww§r§l§bThanks for using Admin Utils! §aMade by §6MisledPaul58§4§kqww");
-        }, 8 * TicksPerSecond);
+        if (database.config.get("thanksMessage")) {
+            system.runTimeout(() => {
+                world.sendMessage("§l§4§kqww§r§l§bThanks for using Admin Utils! §aMade by §6MisledPaul58§4§kqww");
+            }, 8 * TicksPerSecond);
+        }
     }
 
     if (getInvSees()) {
@@ -444,14 +446,6 @@ world.beforeEvents.chatSend.subscribe(event => {
             server.ui.show("mainMenu", sender, true);
         });
     }
-
-    //TODO test (remove)
-    if (event.message.toLowerCase() === "a") {
-        system.run(() => {
-            server.permission.createGroup(event.sender, "admin", "Admin", 100);
-            world.sendMessage(server.permission.groups.get("admin")!.displayName);
-        });
-    }
 });
 
 world.afterEvents.playerJoin.subscribe(async event => {
@@ -669,15 +663,6 @@ world.beforeEvents.itemUse.subscribe(data => {
             player.playSound("au.menuOpen");
         });
     }
-    system.run(() => {
-        new ModalFormData()
-            .title("xd")
-            .dropdown("Meows", ["a", "xd"])
-            .header("Header lol")
-            .label("Una label xd")
-            .divider()
-            .show(player);
-    });
 });
 
 world.afterEvents.projectileHitEntity.subscribe(event => {

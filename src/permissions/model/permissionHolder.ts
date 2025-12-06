@@ -126,6 +126,12 @@ export abstract class PermissionHolder {
             yield* group.getInheritance();
         }
     }
+
+    save(): boolean {
+
+
+        return true;
+    }
 }
 
 // Prevents circular inheritance

@@ -1,92 +1,75 @@
-import { server } from "../server";
 import { database } from "../database/index";
 import { UiLoader } from "./uiLoader";
+import { Translations } from "../utils/translations";
 const mainSettings = {
     type: "action",
-    title: "%settings.main.title",
+    title: Translations.Ui.MainMenu.Title,
     elements: [
         {
             type: "button",
-            text: "%settings.main.button1.text",
-            subText: "%ui.subText.edit",
+            text: Translations.Ui.Settings.Main.Button1Text,
+            subText: Translations.Ui.General.SubTextEdit,
             icon: "textures/icons/settings1.png",
-            action: (player) => {
-                server.ui.show("config", player);
+            action: (context) => {
+                context.goTo("config");
             }
         },
         {
             type: "button",
-            text: "%settings.main.button2.text",
-            subText: "%ui.subText.manage",
+            text: Translations.Ui.MainMenu.Button2Text,
+            subText: Translations.Ui.General.SubTextManage,
             icon: "textures/icons/settings2.png",
-            action: (player) => {
-                // server.ui.show("", player);
-                server.ui.confirm("Database", "Are you sure you want to manage the database?", player, () => {
+            action: (context, player) => {
+                context.confirm("Database", "Are you sure you want to manage the database?", () => {
                     player.setOnFire(5);
-                }, () => {
-                    server.ui.show("mainSettings", player);
                 });
             }
         }
-    ],
-    back: "mainMenu",
-    // /**
-    //  *
-    //  * @param { Player } player
-    //  */
-    // cancel: (player) => {
-    //     player.dimension.spawnEntity("bee", player.location);
-    //     world.sendMessage(`${server.ui.displayingUI(player)}`);
-    // }
+    ]
 };
 const config = {
     type: "modal",
-    title: "%settings.config.title",
+    title: Translations.Ui.Settings.Config.Title,
     elements: [
         {
             type: "toggle",
             inputId: "thanksMessage",
-            name: "%settings.config.input1.name",
-            default: () => database.config.get("thanksMessage")
+            name: Translations.Ui.Settings.Config.Input1Name,
+            default: () => database.config.get("thanksMessage") ?? true
         },
         {
             type: "textField",
             inputId: "adminTag",
-            name: "%settings.config.input2.name",
+            name: Translations.Ui.Settings.Config.Input2Name,
             placeholder: "-auadmin",
-            default: () => database.config.get("adminTag")
+            default: () => database.config.get("adminTag") ?? "-auadmin"
         },
         {
             type: "textField",
             inputId: "ownerTag",
-            name: "%settings.config.input3.name",
+            name: Translations.Ui.Settings.Config.Input3Name,
             placeholder: "owner",
-            default: () => database.config.get("ownerTag")
+            default: () => database.config.get("ownerTag") ?? "owner"
         }
     ],
-    submitText: "%ui.submitText.confirm",
-    submit: (inputs, player) => {
+    submitText: Translations.Ui.General.SubmitTextConfirm,
+    submit: (inputs) => {
         database.config.assignMemory(inputs);
-        server.ui.show("mainSettings", player);
-    },
-    cancel: (player) => {
-        server.ui.show("mainSettings", player);
     }
 };
 const manageAdmins = {
     type: "action",
-    title: "%settings.admins.main.title",
-    body: "%settings.admins.main.body",
+    title: Translations.Ui.Settings.Admins.Title,
+    body: Translations.Ui.Settings.Admins.Body,
     elements: [
         {
             type: "button",
-            text: "%settings.admins.main.button1.text",
+            text: Translations.Ui.Settings.Admins.Button1Text,
             icon: "",
             action: () => {
             }
         }
-    ],
-    back: "mainSettings"
+    ]
 };
 //TODO: cambiar el texto del submit button de show admins a Ok
 class AdminSettingsLoader extends UiLoader {

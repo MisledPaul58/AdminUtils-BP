@@ -107,6 +107,9 @@ export class PermissionHolder {
             yield* group.getInheritance();
         }
     }
+    save() {
+        return true;
+    }
 }
 // Prevents circular inheritance
 function isValidInheritance(parent) {

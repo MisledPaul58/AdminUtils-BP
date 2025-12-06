@@ -1,10 +1,11 @@
 import { Translations } from "../../utils/translations";
 import { database } from "../../database/index";
 import { server } from "../../server";
+import { Group } from "../../permissions/model/group";
 export const permissions = {
     type: "action",
     title: Translations.Ui.Plugins.Permissions.Title,
-    elements: player => {
+    elements: () => {
         // Permissions enabled
         if (database.permissions.get("-auEnabled")) {
             return [
@@ -13,11 +14,10 @@ export const permissions = {
                     text: Translations.Ui.General.StateEnabled,
                     subText: Translations.Ui.General.SubTextToggle,
                     icon: "",
-                    action: (player) => {
-                        server.ui.confirm(Translations.Ui.Plugins.Permissions.Title, Translations.Ui.Plugins.Permissions.ConfirmDisableBody, player, () => {
+                    action: (context) => {
+                        context.confirm(Translations.Ui.Plugins.Permissions.Title, Translations.Ui.Plugins.Permissions.ConfirmDisableBody, (context) => {
                             database.permissions.set("-auEnabled", false);
-                        }, () => {
-                            server.ui.show("permissions", player);
+                            context.back();
                         });
                     }
                 },
@@ -25,8 +25,8 @@ export const permissions = {
                     type: "button",
                     text: Translations.Ui.Plugins.Permissions.Groups,
                     icon: "",
-                    action: (player) => {
-                        server.ui.show("groups", player);
+                    action: (context) => {
+                        context.goTo("groups");
                     }
                 },
                 {
@@ -52,29 +52,27 @@ export const permissions = {
                 text: Translations.Ui.General.StateDisabled,
                 subText: Translations.Ui.General.SubTextToggle,
                 icon: "",
-                action: (player) => {
-                    server.ui.confirm(Translations.Ui.Plugins.Permissions.Title, Translations.Ui.Plugins.Permissions.ConfirmEnableBody, player, () => {
+                action: (context) => {
+                    context.confirm(Translations.Ui.Plugins.Permissions.Title, Translations.Ui.Plugins.Permissions.ConfirmEnableBody, (context) => {
                         database.permissions.set("-auEnabled", true);
-                    }, () => {
-                        server.ui.show("permissions", player);
+                        context.back();
                     });
                 }
             }
         ];
-    },
-    back: "pluginsMain"
+    }
 };
 export const groups = {
     type: "action",
     title: Translations.Ui.Plugins.Permissions.Groups,
-    elements: (player) => {
+    elements: () => {
         const buttons = [
             {
                 type: "button",
                 text: Translations.Ui.Plugins.Permissions.CreateNewGroup,
                 icon: "",
-                action: player => {
-                    server.ui.show("createGroup", player);
+                action: (context) => {
+                    context.goTo("createGroup");
                 }
             }
         ];
@@ -84,15 +82,15 @@ export const groups = {
                 text: group.displayName,
                 icon: "",
                 subText: Translations.Ui.General.SubTextManage,
-                action: (player) => {
-                    server.ui.show();
+                action: (context) => {
+                    context.setData("selectedGroup", group);
+                    context.goTo("groupConfig");
                 }
             };
             buttons.push(button);
         }
         return buttons;
-    },
-    back: "permissions"
+    }
 };
 export const createGroup = {
     type: "modal",
@@ -122,24 +120,34 @@ export const createGroup = {
             type: "dropdown",
             inputId: "inheritsFrom",
             name: Translations.Ui.Plugins.Permissions.InheritsFrom,
-            items: (_, contextData) => {
-                const groups = Array.from(server.permission.getGroups()).map(group => group.displayName);
-                return groups[0] ? groups : [Translations.Ui.Plugins.Permissions.NoGroups];
+            items: () => {
+                const groups = Array.from(server.permission.getGroups()).map(group => group.identifier);
+                if (groups[0]) {
+                    // Adds a "None" option
+                    groups.unshift(Translations.Ui.Plugins.Permissions.None);
+                    return groups;
+                }
+                // If there are no groups
+                return [Translations.Ui.Plugins.Permissions.NoGroups];
             }
+        },
+        {
+            type: "label",
+            text: Translations.Ui.Plugins.Permissions.InheritsFromLabel
         }
     ],
     submitText: Translations.Ui.Plugins.Permissions.CreateGroup,
-    submit: (inputs, player, contextData) => {
-    },
-    cancel: player => {
-        server.ui.show("groups", player);
+    submit: (inputs, player, context) => {
+        const { identifier, displayName, weight } = inputs;
+        const inheritance = server.permission.getGroup(inputs.inheritsFrom);
+        server.permission.createGroup(player, identifier, displayName, weight, inheritance instanceof Group ? [inheritance] : undefined);
+        context.back();
     }
 };
 export const groupConfig = {
     type: "action",
-    title: (player, contextData) => {
-        const selectedGroup = contextData.selectedGroup;
-        return selectedGroup.displayName;
+    title: (context) => {
+        return context.getData("selectedGroup")?.displayName ?? "";
     },
     elements: [
         //Primer botón editar propiedades? Debajo editar herencia, permisos, etc.
@@ -147,35 +155,23 @@ export const groupConfig = {
             type: "button",
             text: Translations.Ui.Plugins.Permissions.EditProperties,
             icon: "",
-            action: (player, contextData) => {
+            action: (context) => {
             }
         },
         {
             type: "button",
             text: Translations.Ui.Plugins.Permissions.ManagePermissions,
             icon: "",
-            action: (player, contextData) => {
+            action: (context) => {
             }
         },
         {
             type: "button",
             text: Translations.Ui.Plugins.Permissions.ManageInheritance,
             icon: "",
-            action: (player, contextData) => {
+            action: (context) => {
             }
         }
     ],
-    back: "groups",
     buildErrorMsg: Translations.Msg.Permissions.GroupPropertiesError
 };
-// function getGroupProperty(property: keyof Group, player: Player, contextData: ContextData): string | number {
-//     const selectedGroup = contextData.selectedGroup;
-//     if (selectedGroup instanceof Group && Object.hasOwn(selectedGroup, property)) {
-//         const value = selectedGroup[property];
-//         if (typeof value === "string" || typeof value === "number") {
-//             return value;
-//         }
-//     }
-//     player.sendError(Translations.Msg.Permissions.GroupPropertiesError);
-//     throw "Error, the group properties couldn't be loaded.";
-// }

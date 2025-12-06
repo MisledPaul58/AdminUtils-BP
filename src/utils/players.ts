@@ -24,34 +24,34 @@ declare module "@minecraft/server" {
         /**
          * Send a custom message (AU >> ...).
          */
-        sendCustomMessage(msg: TranslationsType, args?: RawMessage | string[]): void;
+        sendCustomMessage(msg: TranslationsType | string, args?: RawMessage | string[]): void;
 
         /**
          * Send a success message with a sound.
          */
-        sendSuccess(msg: TranslationsType, args?: RawMessage | string[]): void;
+        sendSuccess(msg: TranslationsType | string, args?: RawMessage | string[]): void;
 
         /**
          * Send an error message with a sound.
          */
-        sendError(msg: TranslationsType, args?: RawMessage | string[]): void;
+        sendError(msg: TranslationsType | string, args?: RawMessage | string[]): void;
     }
 }
 
-Player.prototype.sendCustomMessage = function (msg: TranslationsType, args?: RawMessage | string[]): void {
+Player.prototype.sendCustomMessage = function (msg: TranslationsType | string, args?: RawMessage | string[]): void {
     const rawMessage: RawMessage = {
         translate: msg,
         with: args
     };
-    this.sendMessage(['§l§cAU §6>>§r ', rawMessage]);
+    this.sendMessage(['§l§cAU §6>>§r ', rawMessage]); //TODO change to §l§9AU §3>> or §l§3AU §9>>? And keep this one for the errors
 };
 
-Player.prototype.sendSuccess = function (msg: TranslationsType, args?: RawMessage | string[]): void {
+Player.prototype.sendSuccess = function (msg: TranslationsType | string, args?: RawMessage | string[]): void {
     this.sendCustomMessage(msg, args);
     this.playSound("au.success");
 };
 
-Player.prototype.sendError = function (msg: TranslationsType, args?: RawMessage | string[]): void {
+Player.prototype.sendError = function (msg: TranslationsType | string, args?: RawMessage | string[]): void {
     this.sendCustomMessage(msg, args);
     this.playSound("au.error");
 };

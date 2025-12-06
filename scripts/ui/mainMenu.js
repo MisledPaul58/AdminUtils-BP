@@ -1,38 +1,39 @@
-import { server } from "../server";
 import { adminUtils } from "../main";
 import { UiLoader } from "./uiLoader";
+import { Translations } from "../utils/translations";
 const mainMenu = {
     type: "action",
-    title: "%mainMenu.title",
+    title: Translations.Ui.MainMenu.Title,
     elements: [
         {
             type: "button",
-            text: "%mainMenu.button1.text",
-            subText: "%ui.subText.open",
+            text: Translations.Ui.MainMenu.Button1Text,
+            subText: Translations.Ui.General.SubTextOpen,
             icon: "textures/icons/settings1.png",
-            action: (player) => {
-                server.ui.show("mainSettings", player);
+            action: (context) => {
+                context.goTo("mainSettings");
             }
         },
         {
             type: "button",
-            text: "%mainMenu.button2.text",
-            subText: "%ui.subText.open",
+            text: Translations.Ui.MainMenu.Button2Text,
+            subText: Translations.Ui.General.SubTextOpen,
             icon: "textures/icons/adminUtils.png",
-            action: (player) => {
+            action: (_, player) => {
                 adminUtils(player);
             }
         },
         {
             type: "button",
-            text: "%mainMenu.button3.text",
-            subText: "%ui.subText.open",
+            text: Translations.Ui.MainMenu.Button3Text,
+            subText: Translations.Ui.General.SubTextOpen,
             icon: "",
-            action: (player) => {
-                server.ui.show("pluginsMain", player);
+            action: (context) => {
+                context.goTo("pluginsMain");
             }
         }
-    ]
+    ],
+    disableBackButton: true
 };
 class MainMenuLoader extends UiLoader {
     uiIndex = {

@@ -3,97 +3,84 @@ import { database } from "../database/index";
 import { ActionButton, ActionForm, Form, ModalElement, ModalForm, TextField, Toggle } from "./builder";
 import { UiIndex } from "./index";
 import { UiLoader } from "./uiLoader";
-import { world } from "@minecraft/server";
+import { Translations } from "../utils/translations";
 
 const mainSettings: ActionForm = {
     type: "action",
-    title: "%settings.main.title",
+    title: Translations.Ui.MainMenu.Title,
     elements: [
         {
             type: "button",
-            text: "%settings.main.button1.text",
-            subText: "%ui.subText.edit",
+            text: Translations.Ui.Settings.Main.Button1Text,
+            subText: Translations.Ui.General.SubTextEdit,
             icon: "textures/icons/settings1.png",
-            action: (player) => {
-                server.ui.show("config", player);
+            action: (context) => {
+                context.goTo("config");
             }
         } as ActionButton,
         {
             type: "button",
-            text: "%settings.main.button2.text",
-            subText: "%ui.subText.manage",
+            text: Translations.Ui.MainMenu.Button2Text,
+            subText: Translations.Ui.General.SubTextManage,
             icon: "textures/icons/settings2.png",
-            action: (player) => {
-                // server.ui.show("", player);
-                server.ui.confirm("Database", "Are you sure you want to manage the database?", player, () => {
-                    player.setOnFire(5);
-                }, () => {
-                    server.ui.show("mainSettings", player);
-                });
+            action: (context, player) => {
+                context.confirm(
+                    "Database",
+                    "Are you sure you want to manage the database?",
+                    () => {
+                        player.setOnFire(5);
+                    },
+                )
             }
         } as ActionButton
-    ],
-    back: "mainMenu",
-    // /**
-    //  *
-    //  * @param { Player } player
-    //  */
-    // cancel: (player) => {
-    //     player.dimension.spawnEntity("bee", player.location);
-    //     world.sendMessage(`${server.ui.displayingUI(player)}`);
-    // }
+    ]
 };
 
 const config: ModalForm = {
     type: "modal",
-    title: "%settings.config.title",
+    title: Translations.Ui.Settings.Config.Title,
     elements: [
         {
             type: "toggle",
             inputId: "thanksMessage",
-            name: "%settings.config.input1.name",
-            default: () => database.config.get("thanksMessage") as boolean
+            name: Translations.Ui.Settings.Config.Input1Name,
+            default: () => database.config.get("thanksMessage") ?? true
         } as Toggle,
         {
             type: "textField",
             inputId: "adminTag",
-            name: "%settings.config.input2.name",
+            name: Translations.Ui.Settings.Config.Input2Name,
             placeholder: "-auadmin",
-            default: () => database.config.get("adminTag") as string
+            default: () => database.config.get("adminTag") ?? "-auadmin"
         } as TextField,
         {
             type: "textField",
             inputId: "ownerTag",
-            name: "%settings.config.input3.name",
+            name: Translations.Ui.Settings.Config.Input3Name,
             placeholder: "owner",
-            default: () => database.config.get("ownerTag") as string
+            default: () => database.config.get("ownerTag") ?? "owner"
         } as TextField
     ],
-    submitText: "%ui.submitText.confirm",
-    submit: (inputs, player) => {
+    submitText: Translations.Ui.General.SubmitTextConfirm,
+    submit: (inputs) => {
         database.config.assignMemory(inputs);
-        server.ui.show("mainSettings", player);
-    },
-    cancel: (player) => {
-        server.ui.show("mainSettings", player);
     }
 };
 
 const manageAdmins: ActionForm = {
     type: "action",
-    title: "%settings.admins.main.title",
-    body: "%settings.admins.main.body",
+    title: Translations.Ui.Settings.Admins.Title,
+    body: Translations.Ui.Settings.Admins.Body,
     elements: [
         {
             type: "button",
-            text: "%settings.admins.main.button1.text",
+            text: Translations.Ui.Settings.Admins.Button1Text,
             icon: "",
             action: () => {
 
             }
         } as ActionButton
-    ],
-    back: "mainSettings"
+    ]
 };
 //TODO: cambiar el texto del submit button de show admins a Ok
 
