@@ -1,4 +1,4 @@
-import { HolderType, PermissionHolder } from "./permissionHolder";
+import { GroupSerializedData, HolderType, PermissionHolder } from "./permissionHolder";
 
 export class Group extends PermissionHolder {
     public readonly displayName: string;
@@ -12,5 +12,12 @@ export class Group extends PermissionHolder {
 
     public getType(): HolderType {
         return HolderType.GROUP;
+    }
+
+    protected getSpecificData(): GroupSerializedData {
+        return {
+            displayName: this.displayName,
+            weight: this.weight
+        };
     }
 }

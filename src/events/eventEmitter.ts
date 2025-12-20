@@ -1,4 +1,6 @@
-type ListenerObject = { eventName: string, listener: Listener, once: boolean, executed: boolean };
+export type EventName = "firstLoad" | "ready" | "tick";
+
+type ListenerObject = { eventName: EventName, listener: Listener, once: boolean, executed: boolean };
 type ListenerArg = { [key: string]: string | number | boolean };
 type Listener = (...args: ListenerArg[]) => void;
 
@@ -11,22 +13,22 @@ export class EventEmitter {
         this.maxListeners = 256;
     }
 
-    on(eventName: string, listener: Listener): EventEmitter {
+    on(eventName: EventName, listener: Listener): EventEmitter {
         this.#addListener(eventName, listener);
         return this;
     }
 
-    once(eventName: string, listener: Listener): EventEmitter {
+    once(eventName: EventName, listener: Listener): EventEmitter {
         this.#addListener(eventName, listener, true);
         return this;
     }
 
-    off(eventName: string, listenerOrIndex: Listener | number): EventEmitter {
+    off(eventName: EventName, listenerOrIndex: Listener | number): EventEmitter {
         this.#removeListener(eventName, listenerOrIndex);
         return this;
     }
 
-    emit(eventName: string, ...args: ListenerArg[]): boolean {
+    emit(eventName: EventName, ...args: ListenerArg[]): boolean {
         let status = false;
         for (const listenerObject of this.listeners) {
             if (listenerObject.eventName === eventName) {
@@ -41,7 +43,7 @@ export class EventEmitter {
         return status;
     }
 
-    #addListener(eventName: string, listener: Listener, once: boolean = false): void {
+    #addListener(eventName: EventName, listener: Listener, once: boolean = false): void {
         const listenerCount = this.#listenerCount(eventName);
         if (listenerCount >= this.maxListeners) {
             throw `Warning, possible EventEmitter memory leak detected and prevented. Current listeners for the event ${eventName}: ${listenerCount}.`
@@ -56,7 +58,7 @@ export class EventEmitter {
         this.listeners.push(data);
     }
 
-    #removeListener(eventName: string, listenerOrIndex: Listener | number): void {
+    #removeListener(eventName: EventName, listenerOrIndex: Listener | number): void {
         if (typeof listenerOrIndex === "number") {
             this.listeners.splice(listenerOrIndex, 1);
         } else {
@@ -67,7 +69,7 @@ export class EventEmitter {
         }
     }
 
-    #listenerCount(eventName: string): number {
+    #listenerCount(eventName: EventName): number {
         return eventName ? this.listeners.filter(listener => listener.eventName === eventName).length : this.listeners.length;
     }
 }

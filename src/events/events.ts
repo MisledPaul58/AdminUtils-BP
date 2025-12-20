@@ -1,6 +1,7 @@
 import { server } from "../server";
 import { system, world } from "@minecraft/server";
 import { database } from "../database/index";
+import { Translations } from "../utils/translations";
 
 let worldReady = false;
 let tickCount = 0;
@@ -28,7 +29,7 @@ system.runInterval(() => {
             server.emit("firstLoad");
             database.loadData.set("loadedAtLeastOnce", true);
 
-        } else if (tickCount <= 5) server.sendCustomMessage("system.reload", [msLoadTime.toString()]);
+        } else if (tickCount <= 5) server.sendCustomMessage(Translations.Msg.SystemReload, [msLoadTime.toString()]);
     }
 
     if (worldReady) {

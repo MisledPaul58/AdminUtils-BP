@@ -6,6 +6,7 @@ import { world, system, RawMessage } from "@minecraft/server";
 import { TranslationsType } from "./utils/translations";
 import { PermissionManager } from "./permissions/permissionManager";
 import { loadUIs } from "./ui/index";
+import { AutoSaveManager } from "./utils/persistence/autoSaveManager";
 
 export abstract class ServerBootstrap extends EventEmitter{
     private _isInitialized: boolean = false;
@@ -30,6 +31,8 @@ export abstract class ServerBootstrap extends EventEmitter{
 }
 
 class Server extends ServerBootstrap {
+    // public readonly autoSave = new AutoSaveManager(); //TODO pasarle this? para server server.tick y eso
+
     public ui: UIManager = new UIManager();
     public permission: PermissionManager = new PermissionManager();
 

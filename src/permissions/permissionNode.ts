@@ -1,5 +1,10 @@
 import { WildcardProcessor } from "./calculator/wildcardProcessor";
 
+export interface SerializedPermissionNode {
+    permission: string;
+    value: boolean;
+}
+
 //TODO make it serializable
 export class PermissionNode {
     public readonly NODE_SEPARATOR: string = ".";
@@ -20,7 +25,14 @@ export class PermissionNode {
         return this.wildcardLevel !== -1;
     }
 
-    public export() {
+    public equals(other: PermissionNode): boolean {
+        return this.permission === other.permission && this.value === other.value;
+    }
 
+    public export(): SerializedPermissionNode {
+        return {
+            permission: this.permission,
+            value: this.value
+        }
     }
 }

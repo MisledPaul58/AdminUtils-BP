@@ -455,7 +455,7 @@ export class UIManager {
     queue = new Map<Player, UIForm>();
     active = new Map<Player, UIForm>();
 
-    register(name: string, form: Form): void {
+    register(name: string, form: Form): void { //TODO create a type or an enum that contains all the possible ui names
         if (this.forms.has(name)) { //TODO prevent names that begin with __internal_confirm_
             throw `Error, the ui ${name} has already been registered.`;
         }

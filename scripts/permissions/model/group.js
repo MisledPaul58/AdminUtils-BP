@@ -10,4 +10,10 @@ export class Group extends PermissionHolder {
     getType() {
         return HolderType.GROUP;
     }
+    getSpecificData() {
+        return {
+            displayName: this.displayName,
+            weight: this.weight
+        };
+    }
 }

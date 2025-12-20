@@ -1,15 +1,35 @@
-import { PermissionNode } from "../permissionNode";
+import { PermissionNode, SerializedPermissionNode } from "../permissionNode";
 import { Group } from "./group";
 import { WildcardProcessor } from "../calculator/wildcardProcessor";
+import { ChangeType, Difference } from "./difference";
+import { PersistableEntity } from "../../utils/persistence/persistableEntity";
 
 export enum HolderType {
     USER,
     GROUP
 }
 
+export interface BaseSerializedData {
+    id: string;
+    type: HolderType;
+    nodes: SerializedPermissionNode[];
+    parents: string[];
+}
+
+export interface GroupSerializedData {
+    displayName: string;
+    weight: number;
+}
+
+export interface UserSerializedData {
+
+}
+
+export type SerializedData = BaseSerializedData & (GroupSerializedData | UserSerializedData);
+
 export type Tristate = boolean | undefined;
 
-export abstract class PermissionHolder {
+export abstract class PermissionHolder extends PersistableEntity {
     public readonly identifier: string;
 
     protected nodeMap = new Map<string, PermissionNode>();
@@ -17,11 +37,19 @@ export abstract class PermissionHolder {
     protected inheritanceMap = new Map<string, Group>();
     protected cache = new Map<string, Tristate>;
 
+    public readonly permissionChanges = new Difference<PermissionNode>(
+        (a, b) => a.equals(b)
+    );
+
+    public readonly inheritanceChanges = new Difference<string>();
+
     protected constructor(identifier: string) {
         this.identifier = identifier;
     }
 
     public abstract getType(): HolderType;
+
+    protected abstract getSpecificData(): GroupSerializedData | UserSerializedData;
 
     resolvePermission(permission: string): Tristate {
         if (WildcardProcessor.isWildcardPermission(permission)) return undefined;
@@ -79,9 +107,20 @@ export abstract class PermissionHolder {
 
     addPermissionNode(permissionNode: PermissionNode): boolean {
         const { permission } = permissionNode;
-        if (this.nodeMap.has(permission) || this.wildcardMap.has(permission)) return false;
-        //TODO add an enum with possible reasons the permission node couldn't be added
-        //TODO manage cache
+        //TODO add an enum with possible reasons the permission node couldn't be added?
+
+        if (this.nodeMap.has(permission)) {
+            const oldNode = this.nodeMap.get(permission)!;
+            if (oldNode.equals(permissionNode)) return false;
+
+            // If the node already exists but with a different value, the old node will be overridden
+            this.permissionChanges.recordChange(ChangeType.REMOVE, oldNode);
+        } else if (this.wildcardMap.has(permission)) {
+            const oldNode = this.wildcardMap.get(permission)!;
+            if (oldNode.equals(permissionNode)) return false;
+
+            this.permissionChanges.recordChange(ChangeType.REMOVE, oldNode);
+        }
 
         if (permissionNode.isWildcard()) {
             this.wildcardMap.set(permission, permissionNode);
@@ -91,6 +130,7 @@ export abstract class PermissionHolder {
             this.cache.set(permission, permissionNode.value);
         }
 
+        this.permissionChanges.recordChange(ChangeType.ADD, permissionNode);
         return true;
     }
 
@@ -127,8 +167,27 @@ export abstract class PermissionHolder {
         }
     }
 
-    save(): boolean {
+    export(): SerializedData { //TODO implement a Difference class to only save new changes
+        const allNodes = [
+            ...Array.from(this.nodeMap.values()),
+            ...Array.from(this.wildcardMap.values())
+        ].map(node => node.export());
+        const parents: string[] = Array.from(this.inheritanceMap.keys());
+        // TODO para guardar los nodos con lo de los changes guardar los strings de los permissions en nodes como keys y dentro de las keys el value del nodo
+        const baseData: BaseSerializedData = {
+            id: this.identifier,
+            type: this.getType(),
+            nodes: allNodes,
+            parents
+        };
 
+        return {
+            ...baseData,
+            ...this.getSpecificData()
+        };
+    }
+
+    save(): boolean {
 
         return true;
     }

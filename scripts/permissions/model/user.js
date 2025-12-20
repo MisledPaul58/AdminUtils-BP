@@ -6,4 +6,7 @@ export class User extends PermissionHolder {
     getType() {
         return HolderType.USER;
     }
+    getSpecificData() {
+        return {};
+    }
 }

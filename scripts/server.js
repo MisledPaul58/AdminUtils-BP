@@ -22,6 +22,7 @@ export class ServerBootstrap extends EventEmitter {
     }
 }
 class Server extends ServerBootstrap {
+    // public readonly autoSave = new AutoSaveManager(); //TODO pasarle this? para server server.tick y eso
     ui = new UIManager();
     permission = new PermissionManager();
     constructor() {

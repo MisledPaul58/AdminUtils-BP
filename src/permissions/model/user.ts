@@ -1,4 +1,4 @@
-import { HolderType, PermissionHolder } from "./permissionHolder";
+import { HolderType, PermissionHolder, UserSerializedData } from "./permissionHolder";
 
 export class User extends PermissionHolder {
     constructor(username: string) {
@@ -7,5 +7,9 @@ export class User extends PermissionHolder {
 
     public getType(): HolderType {
         return HolderType.USER;
+    }
+
+    protected getSpecificData(): UserSerializedData {
+        return {};
     }
 }

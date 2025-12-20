@@ -15,6 +15,13 @@ export class PermissionNode {
     isWildcard() {
         return this.wildcardLevel !== -1;
     }
+    equals(other) {
+        return this.permission === other.permission && this.value === other.value;
+    }
     export() {
+        return {
+            permission: this.permission,
+            value: this.value
+        };
     }
 }
