@@ -5,7 +5,6 @@ export interface SerializedPermissionNode {
     value: boolean;
 }
 
-//TODO make it serializable
 export class PermissionNode {
     public readonly NODE_SEPARATOR: string = ".";
 

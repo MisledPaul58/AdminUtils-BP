@@ -12,12 +12,6 @@ world.beforeEvents.playerLeave.subscribe(event => {
         freeCam.autoChunkLoad.lastLoadLoc = {};
         database.freeCam.set(player.name, freeCam);
     }
-    for (let i = 0; i < 100000000; i++) {
-        const a = Math.floor(Math.random() * (i + 1));
-        if (i === 99999999) {
-            database.config.set("thanksMessage", false);
-        }
-    }
 });
 Player.prototype.sendCustomMessage = function (msg, args) {
     const rawMessage = {

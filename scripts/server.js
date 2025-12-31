@@ -5,6 +5,7 @@ import { EventEmitter } from "./events/eventEmitter";
 import { world, system } from "@minecraft/server";
 import { PermissionManager } from "./permissions/permissionManager";
 import { loadUIs } from "./ui/index";
+import { AutoSaveManager } from "./utils/persistence/autoSaveManager";
 export class ServerBootstrap extends EventEmitter {
     _isInitialized = false;
     initAdminUtils() {
@@ -13,6 +14,9 @@ export class ServerBootstrap extends EventEmitter {
         system.runJob(function* () {
             yield* loadDatabases();
             yield* loadUIs(self);
+            if (database.permissions.get("-auEnabled")) {
+                yield* self.permission.loadPlugin();
+            }
             server._isInitialized = true;
             console.warn(`${JSON.stringify(Array.from(self.ui.forms.keys()))}`);
         }());
@@ -22,9 +26,9 @@ export class ServerBootstrap extends EventEmitter {
     }
 }
 class Server extends ServerBootstrap {
-    // public readonly autoSave = new AutoSaveManager(); //TODO pasarle this? para server server.tick y eso
+    globalAutoSave = new AutoSaveManager(this);
     ui = new UIManager();
-    permission = new PermissionManager();
+    permission = new PermissionManager(this.globalAutoSave);
     constructor() {
         super();
         this.initAdminUtils();

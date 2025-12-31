@@ -1,13 +1,17 @@
 import { Group } from "./model/group";
+import { User } from "./model/user";
 import { Translations } from "../utils/translations";
+import { database } from "../database/index";
 export var PermissionCheckError;
 (function (PermissionCheckError) {
     PermissionCheckError[PermissionCheckError["INVALID_PERMISSION"] = 0] = "INVALID_PERMISSION";
 })(PermissionCheckError || (PermissionCheckError = {}));
 export class PermissionManager {
+    autoSave;
     groups = new Map();
     users = new Map();
-    constructor() {
+    constructor(autoSaveManager) {
+        this.autoSave = autoSaveManager;
     }
     createGroup(sender, identifier, displayName, weight, parents) {
         if (!isValidIdentifier(identifier))
@@ -16,7 +20,7 @@ export class PermissionManager {
             return sender.sendError(Translations.Msg.Permissions.InvalidName);
         if (this.groups.has(identifier))
             return sender.sendError(Translations.Msg.Permissions.ExistingGroupError);
-        const group = new Group(identifier, displayName, weight);
+        const group = new Group(identifier, displayName, weight, this.autoSave.onEntityDirty);
         const failedInheritances = [];
         if (parents) {
             for (const parent of parents) {
@@ -27,6 +31,7 @@ export class PermissionManager {
         }
         //Save
         this.groups.set(identifier, group); //TODO ofrecer también crear el grupo con los parents y guardar los groups a la rom?
+        group.markAsNew(); // Adds the new group to the save queue immediately
         sender.sendSuccess(Translations.Msg.Permissions.GroupCreated, [displayName]);
         if (failedInheritances[0]) {
             sender.sendCustomMessage(Translations.Msg.Permissions.AddParentFail);
@@ -47,6 +52,39 @@ export class PermissionManager {
         if (!isValidPermission(permission))
             return PermissionCheckError.INVALID_PERMISSION;
         return !!target.resolvePermission(permission);
+    }
+    *loadPlugin() {
+        if (!database.permissions.get("-auEnabled"))
+            return; //TODO make sure to run this if the plugin is enabled later in game
+        try {
+            const groups = database.permissions.get("groups") ?? {};
+            const users = database.permissions.get("users") ?? {};
+            // Load groups
+            for (const groupData of Object.values(groups)) {
+                const { id, displayName, weight } = groupData;
+                const group = new Group(id, displayName, weight, this.autoSave.onEntityDirty);
+                yield* group.loadPermissionsFromData(groupData);
+                yield this.groups.set(id, group);
+            }
+            for (const group of this.groups.values()) {
+                const groupData = groups[group.identifier];
+                yield* group.loadParentsFromData(groupData, this.groups);
+            }
+            // Load users
+            for (const userData of Object.values(users)) {
+                const { id } = userData;
+                const user = new User(id, this.autoSave.onEntityDirty);
+                yield* user.loadPermissionsFromData(userData);
+                yield this.users.set(id, user);
+            }
+            for (const user of this.users.values()) {
+                const userData = users[user.identifier];
+                yield* user.loadParentsFromData(userData, this.groups);
+            }
+        }
+        catch (e) {
+            console.error("Couldn't load permissions plugin:", e);
+        }
     }
 }
 function isValidPermission(permission) {

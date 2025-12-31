@@ -74,6 +74,7 @@ export class Database {
 
     /**
      * Sets the specified `key` to the given `value` in the database table.
+     * Save is true by default.
      */
     set(key: string, value: DatabaseValue, save: boolean = true): Database {
         this.memory[key] = value;
@@ -85,7 +86,7 @@ export class Database {
      * Gets a value from this table.
      * @returns the value associated with the given key in the database table.
      */
-    get(key: string): DatabaseValue {
+    get(key: string): DatabaseValue | undefined {
         return this.memory[key];
     }
 

@@ -434,6 +434,11 @@ world.beforeEvents.chatSend.subscribe(event => {
             server.ui.show("mainMenu", sender, true);
         });
     }
+    else if (event.message === "lol") {
+        system.run(() => {
+            world.sendMessage(`${JSON.stringify(database.permissions.getTable())}`);
+        });
+    }
 });
 world.afterEvents.playerJoin.subscribe(async (event) => {
     const { playerName } = event;

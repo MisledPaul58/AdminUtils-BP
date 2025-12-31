@@ -2,29 +2,34 @@ import { system, world } from "@minecraft/server";
 export class AutoSaveManager {
     saveQueue = new Set();
     isSaving = false;
-    constructor(intervalTicks = 60) {
-        system.runInterval(() => this.processQueue(), intervalTicks); //TODO así no xd usar tick? pasándo el server como parámetro al constructor?
-        // 2. Guardado de seguridad al cerrar el servidor
-        world.beforeEvents.shutdown.subscribe(() => this.flush());
+    constructor(eventSource, intervalTicks = 60) {
+        eventSource.on("ready", () => {
+            system.runInterval(() => this.processQueue(), intervalTicks);
+            // Save before world closes
+            world.beforeEvents.playerLeave.subscribe((event) => {
+                if (world.getAllPlayers().length === 1 && world.getAllPlayers()[0] === event.player) {
+                    this.flush();
+                }
+            });
+        });
     }
-    onEntityDirty(entity) {
+    onEntityDirty = (entity) => {
         this.saveQueue.add(entity);
-    }
-    async processQueue() {
+    };
+    processQueue() {
         if (this.isSaving || this.saveQueue.size === 0)
             return;
         this.isSaving = true;
         const queueSnapshot = Array.from(this.saveQueue);
         this.saveQueue.clear();
-        const promises = queueSnapshot.map(async (entity) => {
+        for (const entity of queueSnapshot) {
             try {
-                const success = await entity.save();
+                const success = entity.save();
                 if (success) {
-                    entity.markClean(); // Reseteamos su estado a limpio
+                    entity.markClean();
                 }
                 else {
-                    // Si falló, lo volvemos a meter en la cola para el siguiente ciclo
-                    // (Opcional: añadir límite de reintentos)
+                    // If it failed, add the entity to the queue again
                     this.saveQueue.add(entity);
                 }
             }
@@ -32,12 +37,10 @@ export class AutoSaveManager {
                 console.error(`Error auto-saving entity: ${e}`);
                 this.saveQueue.add(entity);
             }
-        });
-        await Promise.all(promises);
+        }
         this.isSaving = false;
     }
     flush() {
-        console.warn(`[AutoSaveManager] Flushing ${this.saveQueue.size} entities on shutdown...`);
         for (const entity of this.saveQueue) {
             entity.save();
         }

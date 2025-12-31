@@ -8,7 +8,7 @@ import { PermissionManager } from "./permissions/permissionManager";
 import { loadUIs } from "./ui/index";
 import { AutoSaveManager } from "./utils/persistence/autoSaveManager";
 
-export abstract class ServerBootstrap extends EventEmitter{
+export abstract class ServerBootstrap extends EventEmitter {
     private _isInitialized: boolean = false;
     public abstract ui: UIManager;
     public abstract permission: PermissionManager;
@@ -19,6 +19,10 @@ export abstract class ServerBootstrap extends EventEmitter{
         system.runJob(function* () {
             yield* loadDatabases();
             yield* loadUIs(self);
+
+            if (database.permissions.get("-auEnabled")) {
+                yield* self.permission.loadPlugin();
+            }
 
             server._isInitialized = true;
             console.warn(`${JSON.stringify(Array.from(self.ui.forms.keys()))}`);
@@ -31,10 +35,10 @@ export abstract class ServerBootstrap extends EventEmitter{
 }
 
 class Server extends ServerBootstrap {
-    // public readonly autoSave = new AutoSaveManager(); //TODO pasarle this? para server server.tick y eso
+    public readonly globalAutoSave = new AutoSaveManager(this);
 
     public ui: UIManager = new UIManager();
-    public permission: PermissionManager = new PermissionManager();
+    public permission: PermissionManager = new PermissionManager(this.globalAutoSave);
 
     constructor() {
         super();

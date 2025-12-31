@@ -50,6 +50,7 @@ export class Database {
     }
     /**
      * Sets the specified `key` to the given `value` in the database table.
+     * Save is true by default.
      */
     set(key, value, save = true) {
         this.memory[key] = value;

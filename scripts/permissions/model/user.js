@@ -1,7 +1,7 @@
 import { HolderType, PermissionHolder } from "./permissionHolder";
 export class User extends PermissionHolder {
-    constructor(username) {
-        super(username);
+    constructor(username, onDirty) {
+        super(username, onDirty);
     }
     getType() {
         return HolderType.USER;

@@ -1,5 +1,4 @@
 import { WildcardProcessor } from "./calculator/wildcardProcessor";
-//TODO make it serializable
 export class PermissionNode {
     NODE_SEPARATOR = ".";
     permission;

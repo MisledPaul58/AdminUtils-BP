@@ -1,18 +1,21 @@
-import { PermissionNode, SerializedPermissionNode } from "../permissionNode";
+import { PermissionNode } from "../permissionNode";
 import { Group } from "./group";
 import { WildcardProcessor } from "../calculator/wildcardProcessor";
 import { ChangeType, Difference } from "./difference";
-import { PersistableEntity } from "../../utils/persistence/persistableEntity";
+import { DirtyListener, PersistableEntity } from "../../utils/persistence/persistableEntity";
+import { database } from "../../database/index";
+import { DatabaseObject } from "../../database/database";
 
 export enum HolderType {
-    USER,
-    GROUP
+    USER = "USER",
+    GROUP = "GROUP"
 }
 
 export interface BaseSerializedData {
     id: string;
     type: HolderType;
-    nodes: SerializedPermissionNode[];
+    permissions: { [key: string]: boolean };
+    wildcards: { [key: string]: boolean };
     parents: string[];
 }
 
@@ -43,7 +46,8 @@ export abstract class PermissionHolder extends PersistableEntity {
 
     public readonly inheritanceChanges = new Difference<string>();
 
-    protected constructor(identifier: string) {
+    protected constructor(identifier: string, onDirty?: DirtyListener) {
+        super(onDirty);
         this.identifier = identifier;
     }
 
@@ -113,8 +117,9 @@ export abstract class PermissionHolder extends PersistableEntity {
             const oldNode = this.nodeMap.get(permission)!;
             if (oldNode.equals(permissionNode)) return false;
 
-            // If the node already exists but with a different value, the old node will be overridden
+            // If the node already exists but with a different value (so it's not exactly equal), the old node will be overridden
             this.permissionChanges.recordChange(ChangeType.REMOVE, oldNode);
+
         } else if (this.wildcardMap.has(permission)) {
             const oldNode = this.wildcardMap.get(permission)!;
             if (oldNode.equals(permissionNode)) return false;
@@ -131,23 +136,49 @@ export abstract class PermissionHolder extends PersistableEntity {
         }
 
         this.permissionChanges.recordChange(ChangeType.ADD, permissionNode);
+        this.markDirty();
+        return true;
+    }
+
+    removePermissionNode(permission: string): boolean {
+        let node: PermissionNode | undefined;
+        if (this.nodeMap.has(permission)) {
+            node = this.nodeMap.get(permission)!;
+            this.nodeMap.delete(permission);
+
+        } else if (this.wildcardMap.has(permission)) {
+            node = this.wildcardMap.get(permission)!;
+            this.wildcardMap.delete(permission);
+
+        } else return false;
+
+        this.cache.delete(permission);
+        this.permissionChanges.recordChange(ChangeType.REMOVE, node);
+        this.markDirty();
         return true;
     }
 
     addParent(parent: Group): boolean {
-        if (this.inheritanceMap.has(parent.identifier) || !isValidInheritance(parent)) return false;
+        if (this.inheritanceMap.has(parent.identifier) || !isValidInheritance(parent, this)) return false;
 
         this.inheritanceMap.set(parent.identifier, parent);
+        this.inheritanceChanges.recordChange(ChangeType.ADD, parent.identifier); // Clearing cache shouldn't be necessary
+        this.markDirty();
+
         return true;
     }
 
     removeParent(parent: Group): boolean {
-        //Maybe update cache intelligently in this case in the future
-        this.cache.clear();
-        return this.inheritanceMap.delete(parent.identifier);
+        if (this.inheritanceMap.delete(parent.identifier)) {
+            this.cache.clear();
+            this.inheritanceChanges.recordChange(ChangeType.REMOVE, parent.identifier);
+            this.markDirty();
+            return true;
+        }
+        return false;
     }
 
-    *getInheritance(): Generator<Group> {
+    *getInheritanceTree(): Generator<Group> {
         // Breadth-first
         // const queue: Group[] = [...this.inheritanceMap.values()];
         //
@@ -163,21 +194,29 @@ export abstract class PermissionHolder extends PersistableEntity {
         // Depth-first
         for (const group of this.inheritanceMap.values()) {
             yield group;
-            yield* group.getInheritance();
+            yield* group.getInheritanceTree();
         }
     }
 
-    export(): SerializedData { //TODO implement a Difference class to only save new changes
-        const allNodes = [
-            ...Array.from(this.nodeMap.values()),
-            ...Array.from(this.wildcardMap.values())
-        ].map(node => node.export());
+    export(): SerializedData {
+        const permissions: { [key: string]: boolean } = {};
+        const wildcards: { [key: string]: boolean } = {};
+
+        for (const node of this.nodeMap.values()) {
+            permissions[node.permission] = node.value;
+        }
+
+        for (const node of this.wildcardMap.values()) {
+            wildcards[node.permission] = node.value;
+        }
+
         const parents: string[] = Array.from(this.inheritanceMap.keys());
-        // TODO para guardar los nodos con lo de los changes guardar los strings de los permissions en nodes como keys y dentro de las keys el value del nodo
+
         const baseData: BaseSerializedData = {
             id: this.identifier,
             type: this.getType(),
-            nodes: allNodes,
+            permissions,
+            wildcards,
             parents
         };
 
@@ -187,18 +226,112 @@ export abstract class PermissionHolder extends PersistableEntity {
         };
     }
 
+    //TODO add more safety?
     save(): boolean {
+        try {
+            if (this.permissionChanges.isEmpty() && this.inheritanceChanges.isEmpty() && !this.needsInitialSave) {
+                return true;
+            }
 
-        return true;
+            // If this PermissionHolder hasn't been saved before, or if it's the first time permissions are being used
+            if (!(database.permissions.get("groups") as DatabaseObject | undefined)?.[this.identifier] //TODO convertir esta condición y lo de dentro en 2 funciones para que quede más legible?
+                && !(database.permissions.get("users") as DatabaseObject | undefined)?.[this.identifier]) {
+
+                const packedData = packData(this.export(), this.identifier);
+
+                database.permissions.assign(this.getType() === HolderType.GROUP ? "groups" : "users", packedData as {});
+
+                this.permissionChanges.clear();
+                this.inheritanceChanges.clear();
+                return true;
+
+            }
+
+            let memory: SerializedData;
+            // Find the memory
+            if (this.getType() === HolderType.GROUP) {
+                memory = (database.permissions.get("groups") as DatabaseObject)[this.identifier] as unknown as SerializedData;
+
+            } else {
+                memory = (database.permissions.get("users") as DatabaseObject)[this.identifier] as unknown as SerializedData;
+            }
+
+            // Apply any permission change
+            for (const change of this.permissionChanges.getChanges()) {
+                const node = change.value;
+                if (change.type === ChangeType.ADD) {
+                    addPermissionChange(memory, node);
+                } else {
+                    delete memory[node.isWildcard() ? "wildcards" : "permissions"][node.permission];
+                }
+            }
+
+            // Apply any inheritance change
+            for (const change of this.inheritanceChanges.getChanges()) {
+                if (change.type === ChangeType.ADD) {
+                    memory["parents"].push(change.value);
+                } else {
+                    memory["parents"].splice(memory["parents"].indexOf(change.value), 1);
+                }
+            }
+
+            // Save and clear everything
+            const packedData = packData(memory, this.identifier);
+
+            database.permissions.assign(this.getType() === HolderType.GROUP ? "groups" : "users", packedData as {});
+            this.permissionChanges.clear();
+            this.inheritanceChanges.clear();
+            return true;
+        } catch (e) {
+            console.error(`Failed to save ${this.identifier}:`, e);
+            return false;
+        }
+    }
+
+    *loadPermissionsFromData(data: SerializedData) {
+        for (const [permission, value] of Object.entries(data.permissions)) {
+            const node = new PermissionNode(permission, value);
+            yield this.nodeMap.set(permission, node);
+        }
+
+        for (const [permission, value] of Object.entries(data.wildcards)) {
+            const wildcard = new PermissionNode(permission, value);
+            yield this.wildcardMap.set(permission, wildcard);
+        }
+    }
+
+    *loadParentsFromData(data: SerializedData, groupMap: Map<string, Group>) {
+        for (const groupId of data.parents) {
+            const group = groupMap.get(groupId);
+            if (group) {
+                yield this.inheritanceMap.set(groupId, group);
+            }
+        }
     }
 }
 
 // Prevents circular inheritance
-function isValidInheritance(parent: Group): boolean {
+function isValidInheritance(parent: Group, origin: PermissionHolder): boolean {
+    if (parent === origin) return false;
+
     const seen = new Set<Group>();
-    for (const group of parent.getInheritance()) {
-        if (seen.has(group)) return false;
+    for (const group of parent.getInheritanceTree()) {
+        if (seen.has(group) || group === origin) return false;
         seen.add(group);
     }
     return true;
+}
+
+function packData<T>(data: T, withKey: string) {
+    const packedData: { [key: string]: T } = {};
+    packedData[withKey] = data;
+    return packedData;
+}
+
+function addPermissionChange(memory: SerializedData, permissionNode: PermissionNode) {
+    const directory = permissionNode.isWildcard() ? "wildcards" : "permissions";
+    if (typeof memory[directory] !== "object") {
+        memory[directory] = {};
+    }
+    memory[directory][permissionNode.permission] = permissionNode.value;
 }
