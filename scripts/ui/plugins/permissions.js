@@ -2,12 +2,15 @@ import { Translations } from "../../utils/translations";
 import { database } from "../../database/index";
 import { server } from "../../server";
 import { Group } from "../../permissions/model/group";
+import { system } from "@minecraft/server";
 export const permissions = {
     type: "action",
     title: Translations.Ui.Plugins.Permissions.Title,
     elements: () => {
         // Permissions enabled
         if (database.permissions.get("-auEnabled")) {
+            // Load plugin
+            system.runJob(server.permission.loadPlugin());
             return [
                 {
                     type: "button",
@@ -156,6 +159,7 @@ export const groupConfig = {
             text: Translations.Ui.Plugins.Permissions.EditProperties,
             icon: "",
             action: (context) => {
+                context.goTo("groupProperties");
             }
         },
         {
@@ -174,4 +178,35 @@ export const groupConfig = {
         }
     ],
     buildErrorMsg: Translations.Msg.Permissions.GroupPropertiesError
+};
+//TODO WIP
+export const groupProperties = {
+    type: "modal",
+    title: (context) => {
+        return { translate: Translations.Ui.Plugins.Permissions.Group.PropertiesTitle, with: [context.getData("selectedGroup")?.displayName ?? ""] };
+    },
+    elements: [
+        {
+            type: "textField",
+            inputId: "displayName",
+            name: Translations.Ui.Plugins.Permissions.DisplayName,
+            default: context => {
+                return context.getData("selectedGroup")?.displayName ?? "";
+            }
+        },
+        {
+            type: "slider",
+            inputId: "weight",
+            name: Translations.Ui.Plugins.Permissions.Weight,
+            minimum: -100,
+            maximum: 100,
+            default: context => {
+                return context.getData("selectedGroup")?.weight ?? "";
+            }
+        }
+    ],
+    submitText: Translations.Ui.General.SubmitTextSave,
+    submit: (inputs, player, context) => {
+        context.back();
+    }
 };

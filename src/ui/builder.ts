@@ -34,7 +34,7 @@ export interface BaseInput {
 
 export interface TextField extends BaseInput {
     type: "textField";
-    placeholder: DynamicElement<LocalizedText>;
+    placeholder?: DynamicElement<LocalizedText>;
     default?: DynamicElement<string>;
 }
 
@@ -272,7 +272,7 @@ class ModalUIForm extends UIForm {
         for (const element of resolveElement(this.form.elements) as ModalElement[]) {
             switch (element.type) {
                 case "textField":
-                    formData.textField(resolveElement(element.name), resolveElement(element.placeholder), { defaultValue: resolveElement(element.default) });
+                    formData.textField(resolveElement(element.name), resolveElement(element.placeholder ?? ""), { defaultValue: resolveElement(element.default) });
                     inputData.push({ id: element.inputId });
                     break;
 
@@ -501,20 +501,20 @@ export class UIManager {
         }
     }
 
-    confirm(title: string, body: string, player: Player, yes: UIAction<void>, onRespond?: UIAction<void>, no?: UIAction<void>, contextData: ContextData = {}): void {
-        const formId = `__internal_confirm_${Date.now()}`;
-        const form = new MessageUIForm({
-            title,
-            body,
-            button1: { text: "%ui.confirm.yes", action: yes },
-            button2: { text: "%ui.confirm.no", action: no ?? (() => {}) },
-            onRespond, //TODO está mal?, he estado usando el onrespond como un cancel?
-            cancel: no
-        }, formId);
-        this.queue.delete(player);
-        this.queue.set(player, form);
-        form.enter(player, false, contextData);
-    }
+    // confirm(title: string, body: string, player: Player, yes: UIAction<void>, onRespond?: UIAction<void>, no?: UIAction<void>, contextData: ContextData = {}): void {
+    //     const formId = `__internal_confirm_${Date.now()}`;
+    //     const form = new MessageUIForm({
+    //         title,
+    //         body,
+    //         button1: { text: "%ui.confirm.yes", action: yes },
+    //         button2: { text: "%ui.confirm.no", action: no ?? (() => {}) },
+    //         onRespond, //TODO está mal?, he estado usando el onrespond como un cancel?
+    //         cancel: no
+    //     }, formId);
+    //     this.queue.delete(player);
+    //     this.queue.set(player, form);
+    //     form.enter(player, false, contextData);
+    // }
 
     displayingUI(player: Player, ui: string | undefined = undefined): boolean {
         if (!this.active.has(player)) return false;

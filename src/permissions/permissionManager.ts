@@ -17,6 +17,7 @@ export enum PermissionCheckError {
     INVALID_PERMISSION
 }
 
+//TODO put permissions folder inside plugins?
 export class PermissionManager {
     private autoSave: AutoSaveManager;
 
@@ -60,6 +61,31 @@ export class PermissionManager {
         return group;
     }
 
+    setGroupWeight(targetGroup: Group, weight: number): boolean {
+        if (targetGroup.weight === weight) return false;
+        targetGroup.weight = weight;
+
+        targetGroup.cache.clear();
+        targetGroup.metadataChanged = true;
+        targetGroup.markDirty();
+
+        // Clear cache for safety from permission holders that inherited from the target group
+        for (const otherGroup of this.groups.values()) {
+            if (otherGroup === targetGroup) continue;
+
+            if (otherGroup.isChildOf(targetGroup)) {
+                otherGroup.cache.clear();
+            }
+        }
+
+        for (const user of this.users.values()) {
+            if (user.isChildOf(targetGroup)) {
+                user.cache.clear();
+            }
+        }
+        return true;
+    }
+
     getGroup(identifier: string): Group | undefined {
         return this.groups.get(identifier);
     }
@@ -76,8 +102,7 @@ export class PermissionManager {
     }
 
     *loadPlugin() {
-        if (!database.permissions.get("-auEnabled")) return; //TODO make sure to run this if the plugin is enabled later in game
-
+        //TODO make sure to run this if the plugin is enabled later in game
         try {
             const groups = database.permissions.get("groups") ?? {}
             const users = database.permissions.get("users") ?? {};

@@ -3,6 +3,7 @@ import { database } from "../../database/index";
 import { server } from "../../server";
 import { ActionButton, ActionForm, ContextData, Dropdown, Form, Label, ModalForm, Slider, TextField } from "../builder";
 import { Group } from "../../permissions/model/group";
+import { RawMessage, system } from "@minecraft/server";
 
 export const permissions: ActionForm = {
     type: "action",
@@ -10,6 +11,9 @@ export const permissions: ActionForm = {
     elements: () => {
         // Permissions enabled
         if (database.permissions.get("-auEnabled")) {
+            // Load plugin
+            system.runJob(server.permission.loadPlugin() as Generator<void, void, void>);
+
             return [
                 {
                     type: "button",
@@ -163,7 +167,7 @@ export const createGroup: ModalForm = {
     }
 };
 
-export const groupConfig: ActionForm = { //TODO add dividers, headers and labels?
+export const groupConfig: ActionForm = {
     type: "action",
     title: (context) => {
         return context.getData<Group>("selectedGroup")?.displayName ?? "";
@@ -175,7 +179,7 @@ export const groupConfig: ActionForm = { //TODO add dividers, headers and labels
             text: Translations.Ui.Plugins.Permissions.EditProperties,
             icon: "",
             action: (context) => {
-
+                context.goTo("groupProperties");
             }
         } as ActionButton,
         {
@@ -196,4 +200,37 @@ export const groupConfig: ActionForm = { //TODO add dividers, headers and labels
         } as ActionButton
     ],
     buildErrorMsg: Translations.Msg.Permissions.GroupPropertiesError
-}
+};
+
+//TODO WIP
+export const groupProperties: ModalForm = {
+    type: "modal",
+    title: (context) => {
+        return { translate: Translations.Ui.Plugins.Permissions.Group.PropertiesTitle, with: [context.getData<Group>("selectedGroup")?.displayName ?? ""] } as RawMessage
+    },
+    elements: [
+        {
+            type: "textField",
+            inputId: "displayName",
+            name: Translations.Ui.Plugins.Permissions.DisplayName,
+            default: context => {
+                return context.getData<Group>("selectedGroup")?.displayName ?? "";
+            }
+        } as TextField,
+        {
+            type: "slider",
+            inputId: "weight",
+            name: Translations.Ui.Plugins.Permissions.Weight,
+            minimum: -100,
+            maximum: 100,
+            default: context => {
+                return context.getData<Group>("selectedGroup")?.weight ?? "";
+            }
+        } as Slider
+    ],
+    submitText: Translations.Ui.General.SubmitTextSave,
+    submit: (inputs, player, context) => {
+
+        context.back();
+    }
+};

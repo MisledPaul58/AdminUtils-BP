@@ -10,6 +10,14 @@ export class Group extends PermissionHolder {
     getType() {
         return HolderType.GROUP;
     }
+    setDisplayName(displayName) {
+        if (this.displayName === displayName)
+            return false;
+        this.displayName = displayName;
+        this.metadataChanged = true;
+        this.markDirty();
+        return true;
+    }
     getSpecificData() {
         return {
             displayName: this.displayName,

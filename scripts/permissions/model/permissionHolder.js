@@ -16,6 +16,7 @@ export class PermissionHolder extends PersistableEntity {
     cache = new Map;
     permissionChanges = new Difference((a, b) => a.equals(b));
     inheritanceChanges = new Difference();
+    metadataChanged = false;
     constructor(identifier, onDirty) {
         super(onDirty);
         this.identifier = identifier;
@@ -149,6 +150,13 @@ export class PermissionHolder extends PersistableEntity {
             yield* group.getInheritanceTree();
         }
     }
+    isChildOf(parent) {
+        for (const group of this.getInheritanceTree()) {
+            if (group === parent)
+                return true;
+        }
+        return false;
+    }
     export() {
         const permissions = {};
         const wildcards = {};
@@ -174,26 +182,14 @@ export class PermissionHolder extends PersistableEntity {
     //TODO add more safety?
     save() {
         try {
-            if (this.permissionChanges.isEmpty() && this.inheritanceChanges.isEmpty() && !this.needsInitialSave) {
+            if (this.permissionChanges.isEmpty() && this.inheritanceChanges.isEmpty() && !this.metadataChanged && !this.needsInitialSave) {
                 return true;
             }
             // If this PermissionHolder hasn't been saved before, or if it's the first time permissions are being used
-            if (!database.permissions.get("groups")?.[this.identifier] //TODO convertir esta condición y lo de dentro en 2 funciones para que quede más legible?
-                && !database.permissions.get("users")?.[this.identifier]) {
-                const packedData = packData(this.export(), this.identifier);
-                database.permissions.assign(this.getType() === HolderType.GROUP ? "groups" : "users", packedData);
-                this.permissionChanges.clear();
-                this.inheritanceChanges.clear();
-                return true;
-            }
-            let memory;
-            // Find the memory
-            if (this.getType() === HolderType.GROUP) {
-                memory = database.permissions.get("groups")[this.identifier];
-            }
-            else {
-                memory = database.permissions.get("users")[this.identifier];
-            }
+            if (isInitialSave(this))
+                return initialSave(this);
+            const keyType = this.getType() === HolderType.GROUP ? "groups" : "users";
+            const memory = database.permissions.get(keyType)[this.identifier];
             // Apply any permission change
             for (const change of this.permissionChanges.getChanges()) {
                 const node = change.value;
@@ -213,9 +209,12 @@ export class PermissionHolder extends PersistableEntity {
                     memory["parents"].splice(memory["parents"].indexOf(change.value), 1);
                 }
             }
+            // Apply any metadata change
+            if (this.metadataChanged)
+                Object.assign(memory, this.getSpecificData());
             // Save and clear everything
             const packedData = packData(memory, this.identifier);
-            database.permissions.assign(this.getType() === HolderType.GROUP ? "groups" : "users", packedData);
+            database.permissions.assign(keyType, packedData);
             this.permissionChanges.clear();
             this.inheritanceChanges.clear();
             return true;
@@ -260,6 +259,18 @@ function packData(data, withKey) {
     const packedData = {};
     packedData[withKey] = data;
     return packedData;
+}
+function isInitialSave(permissionHolder) {
+    const keyType = permissionHolder.getType() === HolderType.GROUP ? "groups" : "users";
+    return !database.permissions.get(keyType)?.[permissionHolder.identifier];
+}
+function initialSave(permissionHolder) {
+    const keyType = permissionHolder.getType() === HolderType.GROUP ? "groups" : "users";
+    const packedData = packData(permissionHolder.export(), permissionHolder.identifier);
+    database.permissions.assign(keyType, packedData);
+    permissionHolder.permissionChanges.clear();
+    permissionHolder.inheritanceChanges.clear();
+    return true;
 }
 function addPermissionChange(memory, permissionNode) {
     const directory = permissionNode.isWildcard() ? "wildcards" : "permissions";

@@ -2344,7 +2344,7 @@ function jailPlayer(p) {
                                 p.sendMessage(`§cError, you must enter a reason.`);
                                 p.playSound("au.error");
                             }
-                            else if (result.formValues.slice(3).every(value => value === 0)) {
+                            else if (result.formValues.slice(2).every(value => value === 0)) {
                                 p.sendMessage(`§cError, you must specify a jail time.`);
                             }
                             else if (isBanned(selectedPlayer)) {

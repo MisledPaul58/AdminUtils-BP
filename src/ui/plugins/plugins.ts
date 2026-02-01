@@ -21,7 +21,7 @@ const pluginsMain: ActionForm = {
 }
 
 import { UiLoader } from "../uiLoader";
-import { permissions, groups, createGroup, groupConfig } from "./permissions";
+import { permissions, groups, createGroup, groupConfig, groupProperties } from "./permissions";
 
 class PluginsLoader extends UiLoader {
     uiIndex: UiIndex = {
@@ -29,7 +29,8 @@ class PluginsLoader extends UiLoader {
         permissions,
         groups,
         createGroup,
-        groupConfig
+        groupConfig,
+        groupProperties
     }
 }
 

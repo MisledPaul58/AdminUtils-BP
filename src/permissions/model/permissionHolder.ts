@@ -38,13 +38,14 @@ export abstract class PermissionHolder extends PersistableEntity {
     protected nodeMap = new Map<string, PermissionNode>();
     protected wildcardMap = new Map<string, PermissionNode>();
     protected inheritanceMap = new Map<string, Group>();
-    protected cache = new Map<string, Tristate>;
+    public cache = new Map<string, Tristate>;
 
     public readonly permissionChanges = new Difference<PermissionNode>(
         (a, b) => a.equals(b)
     );
 
     public readonly inheritanceChanges = new Difference<string>();
+    public metadataChanged: boolean = false;
 
     protected constructor(identifier: string, onDirty?: DirtyListener) {
         super(onDirty);
@@ -198,6 +199,13 @@ export abstract class PermissionHolder extends PersistableEntity {
         }
     }
 
+    isChildOf(parent: Group): boolean {
+        for (const group of this.getInheritanceTree()) {
+            if (group === parent) return true;
+        }
+        return false;
+    }
+
     export(): SerializedData {
         const permissions: { [key: string]: boolean } = {};
         const wildcards: { [key: string]: boolean } = {};
@@ -229,32 +237,15 @@ export abstract class PermissionHolder extends PersistableEntity {
     //TODO add more safety?
     save(): boolean {
         try {
-            if (this.permissionChanges.isEmpty() && this.inheritanceChanges.isEmpty() && !this.needsInitialSave) {
+            if (this.permissionChanges.isEmpty() && this.inheritanceChanges.isEmpty() && !this.metadataChanged && !this.needsInitialSave) {
                 return true;
             }
 
             // If this PermissionHolder hasn't been saved before, or if it's the first time permissions are being used
-            if (!(database.permissions.get("groups") as DatabaseObject | undefined)?.[this.identifier] //TODO convertir esta condición y lo de dentro en 2 funciones para que quede más legible?
-                && !(database.permissions.get("users") as DatabaseObject | undefined)?.[this.identifier]) {
+            if (isInitialSave(this)) return initialSave(this);
 
-                const packedData = packData(this.export(), this.identifier);
-
-                database.permissions.assign(this.getType() === HolderType.GROUP ? "groups" : "users", packedData as {});
-
-                this.permissionChanges.clear();
-                this.inheritanceChanges.clear();
-                return true;
-
-            }
-
-            let memory: SerializedData;
-            // Find the memory
-            if (this.getType() === HolderType.GROUP) {
-                memory = (database.permissions.get("groups") as DatabaseObject)[this.identifier] as unknown as SerializedData;
-
-            } else {
-                memory = (database.permissions.get("users") as DatabaseObject)[this.identifier] as unknown as SerializedData;
-            }
+            const keyType = this.getType() === HolderType.GROUP ? "groups" : "users";
+            const memory = (database.permissions.get(keyType) as DatabaseObject)[this.identifier] as unknown as SerializedData;
 
             // Apply any permission change
             for (const change of this.permissionChanges.getChanges()) {
@@ -275,10 +266,13 @@ export abstract class PermissionHolder extends PersistableEntity {
                 }
             }
 
+            // Apply any metadata change
+            if (this.metadataChanged) Object.assign(memory, this.getSpecificData());
+
             // Save and clear everything
             const packedData = packData(memory, this.identifier);
 
-            database.permissions.assign(this.getType() === HolderType.GROUP ? "groups" : "users", packedData as {});
+            database.permissions.assign(keyType, packedData as {});
             this.permissionChanges.clear();
             this.inheritanceChanges.clear();
             return true;
@@ -326,6 +320,22 @@ function packData<T>(data: T, withKey: string) {
     const packedData: { [key: string]: T } = {};
     packedData[withKey] = data;
     return packedData;
+}
+
+function isInitialSave(permissionHolder: PermissionHolder): boolean {
+    const keyType = permissionHolder.getType() === HolderType.GROUP ? "groups" : "users";
+    return !(database.permissions.get(keyType) as DatabaseObject | undefined)?.[permissionHolder.identifier];
+}
+
+function initialSave(permissionHolder: PermissionHolder): boolean {
+    const keyType = permissionHolder.getType() === HolderType.GROUP ? "groups" : "users";
+    const packedData = packData(permissionHolder.export(), permissionHolder.identifier);
+
+    database.permissions.assign(keyType, packedData as {});
+
+    permissionHolder.permissionChanges.clear();
+    permissionHolder.inheritanceChanges.clear();
+    return true;
 }
 
 function addPermissionChange(memory: SerializedData, permissionNode: PermissionNode) {

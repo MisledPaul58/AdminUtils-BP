@@ -2,8 +2,8 @@ import { GroupSerializedData, HolderType, PermissionHolder } from "./permissionH
 import { DirtyListener } from "../../utils/persistence/persistableEntity";
 
 export class Group extends PermissionHolder {
-    public readonly displayName: string;
-    public readonly weight: number;
+    public displayName: string;
+    public weight: number;
 
     constructor(identifier: string, displayName: string, weight: number, onDirty: DirtyListener) {
         super(identifier, onDirty);
@@ -13,6 +13,15 @@ export class Group extends PermissionHolder {
 
     public getType(): HolderType {
         return HolderType.GROUP;
+    }
+
+    setDisplayName(displayName: string): boolean {
+        if (this.displayName === displayName) return false;
+        this.displayName = displayName;
+
+        this.metadataChanged = true;
+        this.markDirty();
+        return true;
     }
 
     protected getSpecificData(): GroupSerializedData {

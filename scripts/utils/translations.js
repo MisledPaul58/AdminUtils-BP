@@ -19,6 +19,7 @@ export const Translations = Object.freeze({
             SubTextManage: "%ui.subText.manage",
             SubTextToggle: "%ui.subText.toggle",
             SubmitTextConfirm: "%ui.submitText.confirm",
+            SubmitTextSave: "%ui.submitText.save",
             ConfirmYes: "%ui.confirm.yes",
             ConfirmNo: "%ui.confirm.no",
             StateEnabled: "%ui.StateEnabled",
@@ -71,7 +72,10 @@ export const Translations = Object.freeze({
                 InheritsFrom: "%plugins.permissions.inheritsFrom",
                 InheritsFromLabel: "%plugins.permissions.inheritsFromLabel",
                 NoGroups: "%plugins.permissions.noGroups",
-                None: "%plugins.permissions.none"
+                None: "%plugins.permissions.none",
+                Group: {
+                    PropertiesTitle: "%plugins.permissions.group.propertiesTitle"
+                }
             }
         },
     },

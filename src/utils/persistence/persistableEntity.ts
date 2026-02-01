@@ -14,7 +14,7 @@ export abstract class PersistableEntity {
         this.markDirty();
     }
 
-    protected markDirty(): void {
+    public markDirty(): void {
         if (this._isDirty) return;
 
         this._isDirty = true;

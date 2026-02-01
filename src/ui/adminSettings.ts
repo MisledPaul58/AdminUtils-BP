@@ -20,7 +20,7 @@ const mainSettings: ActionForm = {
         } as ActionButton,
         {
             type: "button",
-            text: Translations.Ui.MainMenu.Button2Text,
+            text: Translations.Ui.Settings.Main.Button2Text,
             subText: Translations.Ui.General.SubTextManage,
             icon: "textures/icons/settings2.png",
             action: (context, player) => {
