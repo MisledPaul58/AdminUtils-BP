@@ -2,6 +2,7 @@ export const Translations = Object.freeze({
     Msg: {
         SystemReload: "system.reload" as const,
         GenericBuildError: "ui.genericBuildError" as const,
+        SaveSuccess: "ui.saveSuccess" as const,
         Permissions: {
             InvalidIdentifier: "permissions.invalidIdentifier" as const,
             InvalidName: "permissions.invalidName" as const,
@@ -74,7 +75,9 @@ export const Translations = Object.freeze({
                 NoGroups: "%plugins.permissions.noGroups" as const,
                 None: "%plugins.permissions.none" as const,
                 Group: {
-                    PropertiesTitle: "%plugins.permissions.group.propertiesTitle" as const
+                    PropertiesTitle: "%plugins.permissions.group.propertiesTitle" as const,
+                    PermissionsTitle: "%plugins.permissions.group.permissionsTitle" as const,
+                    AddPermission: "%plugins.permissions.group.addPermission" as const
                 }
             }
         },

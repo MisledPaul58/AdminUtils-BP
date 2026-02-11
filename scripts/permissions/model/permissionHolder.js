@@ -182,7 +182,7 @@ export class PermissionHolder extends PersistableEntity {
     //TODO add more safety?
     save() {
         try {
-            if (this.permissionChanges.isEmpty() && this.inheritanceChanges.isEmpty() && !this.metadataChanged && !this.needsInitialSave) {
+            if (!this.needsInitialSave && this.permissionChanges.isEmpty() && this.inheritanceChanges.isEmpty() && !this.metadataChanged) {
                 return true;
             }
             // If this PermissionHolder hasn't been saved before, or if it's the first time permissions are being used

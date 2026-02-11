@@ -187,7 +187,7 @@ export const groupConfig: ActionForm = {
             text: Translations.Ui.Plugins.Permissions.ManagePermissions,
             icon: "",
             action: (context) => {
-
+                context.goTo("");
             }
         } as ActionButton,
         {
@@ -202,11 +202,13 @@ export const groupConfig: ActionForm = {
     buildErrorMsg: Translations.Msg.Permissions.GroupPropertiesError
 };
 
-//TODO WIP
 export const groupProperties: ModalForm = {
     type: "modal",
     title: (context) => {
-        return { translate: Translations.Ui.Plugins.Permissions.Group.PropertiesTitle, with: [context.getData<Group>("selectedGroup")?.displayName ?? ""] } as RawMessage
+        return {
+            translate: Translations.Ui.Plugins.Permissions.Group.PropertiesTitle,
+            with: [context.getData<Group>("selectedGroup")?.displayName ?? ""]
+        } as RawMessage
     },
     elements: [
         {
@@ -224,13 +226,42 @@ export const groupProperties: ModalForm = {
             minimum: -100,
             maximum: 100,
             default: context => {
-                return context.getData<Group>("selectedGroup")?.weight ?? "";
+                return context.getData<Group>("selectedGroup")?.weight ?? 0;
             }
         } as Slider
     ],
     submitText: Translations.Ui.General.SubmitTextSave,
     submit: (inputs, player, context) => {
-
+        const group = context.getData<Group>("selectedGroup");
+        if (group) {
+            const result = server.permission.setGroupDisplayName(group, inputs.displayName as string);
+            if (!result) {
+                return player.sendError(Translations.Msg.Permissions.InvalidName);
+            } else {
+                server.permission.setGroupWeight(group, inputs.weight as number);
+                player.sendSuccess(Translations.Msg.SaveSuccess);
+            }
+        }
         context.back();
     }
+};
+
+export const groupPermissions: ActionForm = {
+    type: "action",
+    title: context => {
+        return {
+            translate: Translations.Ui.Plugins.Permissions.Group.PermissionsTitle,
+            with: [context.getData<Group>("selectedGroup")?.displayName ?? ""]
+        } as RawMessage
+    },
+    elements: [
+        {
+            type: "button",
+            text: Translations.Ui.Plugins.Permissions.Group.AddPermission,
+            icon: "",
+            action: context => {
+
+            }
+        } as ActionButton,
+    ]
 };

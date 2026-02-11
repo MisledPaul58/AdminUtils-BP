@@ -237,7 +237,7 @@ export abstract class PermissionHolder extends PersistableEntity {
     //TODO add more safety?
     save(): boolean {
         try {
-            if (this.permissionChanges.isEmpty() && this.inheritanceChanges.isEmpty() && !this.metadataChanged && !this.needsInitialSave) {
+            if (!this.needsInitialSave && this.permissionChanges.isEmpty() && this.inheritanceChanges.isEmpty() && !this.metadataChanged) {
                 return true;
             }
 

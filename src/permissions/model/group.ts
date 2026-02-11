@@ -15,15 +15,6 @@ export class Group extends PermissionHolder {
         return HolderType.GROUP;
     }
 
-    setDisplayName(displayName: string): boolean {
-        if (this.displayName === displayName) return false;
-        this.displayName = displayName;
-
-        this.metadataChanged = true;
-        this.markDirty();
-        return true;
-    }
-
     protected getSpecificData(): GroupSerializedData {
         return {
             displayName: this.displayName,

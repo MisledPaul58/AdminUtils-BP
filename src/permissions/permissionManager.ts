@@ -48,7 +48,7 @@ export class PermissionManager {
         }
 
         //Save
-        this.groups.set(identifier, group); //TODO ofrecer también crear el grupo con los parents y guardar los groups a la rom?
+        this.groups.set(identifier, group);
         group.markAsNew(); // Adds the new group to the save queue immediately
 
         sender.sendSuccess(Translations.Msg.Permissions.GroupCreated, [displayName]);
@@ -62,7 +62,7 @@ export class PermissionManager {
     }
 
     setGroupWeight(targetGroup: Group, weight: number): boolean {
-        if (targetGroup.weight === weight) return false;
+        if (targetGroup.weight === weight) return true;
         targetGroup.weight = weight;
 
         targetGroup.cache.clear();
@@ -83,6 +83,18 @@ export class PermissionManager {
                 user.cache.clear();
             }
         }
+        return true;
+    }
+
+    //TODO add sender parameter to send error message?
+    setGroupDisplayName(targetGroup: Group, displayName: string): boolean {
+        if (targetGroup.displayName === displayName) return true;
+        if (!isValidDisplayName(displayName)) return false;
+
+        targetGroup.displayName = displayName
+
+        targetGroup.metadataChanged = true;
+        targetGroup.markDirty();
         return true;
     }
 
