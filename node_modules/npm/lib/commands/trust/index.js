@@ -3,10 +3,12 @@ const BaseCommand = require('../../base-cmd.js')
 class Trust extends BaseCommand {
   static description = 'Create a trusted relationship between a package and a OIDC provider'
   static name = 'trust'
+  static usage = null
 
   static subcommands = {
     github: require('./github.js'),
     gitlab: require('./gitlab.js'),
+    circleci: require('./circleci.js'),
     list: require('./list.js'),
     revoke: require('./revoke.js'),
   }

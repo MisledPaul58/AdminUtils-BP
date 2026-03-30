@@ -7,18 +7,18 @@
         "product_type": "addon"
     },
     "header": {
-        "name": "§l§o§cAdmin§aUtils §b[26.0]",
+        "name": "§l§o§cAdmin§aUtils §b[26.10]",
         "description": "§l§sAdminUtils offers a wide range of tools to help you control and improve your world/server.\n§l§cYou can also troll your friends with some tools!\n§l§o§6Enjoy!",
         "min_engine_version": [
             1,
             26,
-            0
+            10
         ],
         "uuid": "9bf627d5-d1e0-4195-b581-897a2a34f372",
         "version": [
             1,
             1,
-            17
+            18
         ]
     },
     "modules": [
@@ -54,12 +54,12 @@
             "version": [
                 1,
                 1,
-                17
+                18
             ]
         },
         {
             "module_name": "@minecraft/server",
-            "version": "2.6.0-beta"
+            "version": "2.7.0-beta"
         },
         {
             "module_name": "@minecraft/server-ui",
