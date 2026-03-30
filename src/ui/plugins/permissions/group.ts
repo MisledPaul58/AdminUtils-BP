@@ -1,83 +1,8 @@
-import { Translations } from "../../utils/translations";
-import { database } from "../../database/index";
-import { server } from "../../server";
-import { ActionButton, ActionForm, ContextData, Dropdown, Form, Label, ModalForm, Slider, TextField } from "../builder";
-import { Group } from "../../permissions/model/group";
-import { RawMessage, system } from "@minecraft/server";
-
-export const permissions: ActionForm = {
-    type: "action",
-    title: Translations.Ui.Plugins.Permissions.Title,
-    elements: () => {
-        // Permissions enabled
-        if (database.permissions.get("-auEnabled")) {
-            // Load plugin
-            system.runJob(server.permission.loadPlugin() as Generator<void, void, void>);
-
-            return [
-                {
-                    type: "button",
-                    text: Translations.Ui.General.StateEnabled,
-                    subText: Translations.Ui.General.SubTextToggle,
-                    icon: "",
-                    action: (context) => {
-                        context.confirm(Translations.Ui.Plugins.Permissions.Title,
-                            Translations.Ui.Plugins.Permissions.ConfirmDisableBody,
-                            (context) => {
-                                database.permissions.set("-auEnabled", false);
-                                context.back();
-                            }
-                        );
-                    }
-                } as ActionButton,
-                {
-                    type: "button",
-                    text: Translations.Ui.Plugins.Permissions.Groups,
-                    icon: "",
-                    action: (context) => {
-                        context.goTo("groups");
-                    }
-                } as ActionButton,
-                {
-                    type: "button",
-                    text: Translations.Ui.Plugins.Permissions.Users,
-                    icon: "",
-                    action: (player) => {
-
-                    }
-                } as ActionButton,
-                {
-                    type: "button",
-                    text: Translations.Ui.Plugins.Permissions.Permissions,
-                    icon: "",
-                    action: (player) => {
-
-                    }
-                } as ActionButton
-            ];
-        }
-
-        // Permissions disabled
-        return [
-            {
-                type: "button",
-                text: Translations.Ui.General.StateDisabled,
-                subText: Translations.Ui.General.SubTextToggle,
-                icon: "",
-                action: (context) => {
-                    context.confirm(
-                        Translations.Ui.Plugins.Permissions.Title,
-                        Translations.Ui.Plugins.Permissions.ConfirmEnableBody,
-                        (context) => {
-                            database.permissions.set("-auEnabled", true);
-                            context.back();
-                        }
-                    )
-                }
-            } as ActionButton
-        ];
-    }
-};
+import { ActionButton, ActionForm, Dropdown, Label, ModalForm, Slider, TextField } from "../../builder";
+import { Translations } from "../../../utils/translations";
+import { server } from "../../../server";
+import { Group } from "../../../permissions/model/group";
+import { RawMessage, world } from "@minecraft/server";
 
 export const groups: ActionForm = {
     type: "action",
@@ -187,7 +112,7 @@ export const groupConfig: ActionForm = {
             text: Translations.Ui.Plugins.Permissions.ManagePermissions,
             icon: "",
             action: (context) => {
-                context.goTo("");
+                context.goTo("manageGroupPermissions");
             }
         } as ActionButton,
         {
@@ -196,6 +121,26 @@ export const groupConfig: ActionForm = {
             icon: "",
             action: (context) => {
 
+            }
+        } as ActionButton,
+        {
+            type: "button",
+            text: "%plugins.permissions.deleteGroup",
+            icon: "",
+            action: (context, player) => {
+                context.confirm(
+                    context.getData<Group>("selectedGroup")?.displayName ?? "",
+                    "%plugins.permissions.confirmDeleteGroup",
+                    () => {
+                        const selectedGroup = context.getData<Group>("selectedGroup");
+                        if (selectedGroup) {
+                            server.permission.deleteGroup(selectedGroup);
+                            player.sendSuccess("permissions.groupDeleted", [selectedGroup.displayName]);
+                        }
+
+                        context.back(2);
+                    }
+                );
             }
         } as ActionButton
     ],
@@ -211,6 +156,15 @@ export const groupProperties: ModalForm = {
         } as RawMessage
     },
     elements: [
+        {
+            type: "label",
+            text: context => {
+                return {
+                    translate: "%plugins.permissions.group.identifierLabel",
+                    with: [context.getData<Group>("selectedGroup")?.identifier ?? ""],
+                } as RawMessage;
+            }
+        } as Label,
         {
             type: "textField",
             inputId: "displayName",
@@ -246,22 +200,40 @@ export const groupProperties: ModalForm = {
     }
 };
 
-export const groupPermissions: ActionForm = {
+export const manageGroupPermissions: ActionForm = {
     type: "action",
     title: context => {
         return {
             translate: Translations.Ui.Plugins.Permissions.Group.PermissionsTitle,
             with: [context.getData<Group>("selectedGroup")?.displayName ?? ""]
-        } as RawMessage
+        } as RawMessage;
     },
-    elements: [
-        {
-            type: "button",
-            text: Translations.Ui.Plugins.Permissions.Group.AddPermission,
-            icon: "",
-            action: context => {
+    elements: (context) => {
+        const buttons: ActionButton[] = [
+            {
+                type: "button",
+                text: Translations.Ui.Plugins.Permissions.Group.AddPermission,
+                icon: "",
+                action: context => {
+                    context.setData("selectedPHolder", context.getData("selectedGroup") as Group);
+                    context.goTo("addPermission");
+                }
+            } as ActionButton
+        ]
 
-            }
-        } as ActionButton,
-    ]
+        for (const permission of context.getData<Group>("selectedGroup")?.getPermissionNodes() ?? []) {
+            buttons.push({
+                type: "button",
+                text: `§l${permission.permission}`,
+                subText: (context) => `%plugins.permissions.value: ${permission.value ? "%plugins.permissions.true" : "%plugins.permissions.false"}`,
+                icon: "",
+                action: (context) => {
+                    context.setData("selectedPermNode", permission);
+                    context.goTo(""); //TODO
+                }
+            } as ActionButton);
+        }
+
+        return buttons;
+    }
 };

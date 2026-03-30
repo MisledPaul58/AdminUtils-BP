@@ -1,5 +1,5 @@
 import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
-import { system } from "@minecraft/server";
+import { system, world } from "@minecraft/server";
 import { Translations } from "../utils/translations";
 //TODO add error handling
 class UIForm {
@@ -170,10 +170,13 @@ class ModalUIForm extends UIForm {
                 return this.cancelAction(context, context.player);
             }
             const inputs = {};
+            world.sendMessage(`${JSON.stringify(response.formValues)}`);
             for (const [index, value] of response.formValues.entries()) {
-                if (value === undefined)
+                if (value === undefined || value === null)
                     continue;
                 const currentInput = inputData[index];
+                if (currentInput === undefined || currentInput === null)
+                    continue;
                 if ("items" in currentInput) { // If the input is a dropdown
                     const itemIndex = value;
                     inputs[currentInput.id] = currentInput.items[itemIndex]; // Save in inputs the selected item with the input name as the key
@@ -242,11 +245,14 @@ class MenuContext {
             this.stack.push(form); //TODO vigilar bien los confirms o los messageformdatas en this.stack
         return this.manager._goTo(ui, this.player, this, wait);
     }
-    back() {
+    back(n = 1) {
         const currentForm = this.stack.pop(); // Remove current form from stack
-        let previousForm = this.stack.pop();
-        while (previousForm?.id.startsWith("__internal_confirm_")) { // If the previous form was a confirm menu or a MessageFormData
+        let previousForm;
+        for (let i = 0; i < n; i++) {
             previousForm = this.stack.pop();
+            while (previousForm?.id.startsWith("__internal_confirm_")) { // If the previous form was a confirm menu or a MessageFormData
+                previousForm = this.stack.pop();
+            }
         }
         if (!(currentForm instanceof UIForm) || !(previousForm instanceof UIForm))
             return;
@@ -302,7 +308,7 @@ export class UIManager {
      * @param wait
      * @returns True if the UI is found. False if the UI isn't found or the player is already in a UI.
      */
-    //TODO make this work with permissions
+    //TODO make this work with permissions!! Actually implement it while building the uis for a player!
     show(ui, player, wait = false) {
         if (this.displayingUI(player))
             return false;

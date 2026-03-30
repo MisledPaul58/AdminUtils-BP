@@ -199,6 +199,11 @@ export abstract class PermissionHolder extends PersistableEntity {
         }
     }
 
+    *getPermissionNodes(): Generator<PermissionNode> {
+        yield* this.nodeMap.values();
+        yield* this.wildcardMap.values();
+    }
+
     isChildOf(parent: Group): boolean {
         for (const group of this.getInheritanceTree()) {
             if (group === parent) return true;

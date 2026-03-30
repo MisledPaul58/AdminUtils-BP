@@ -1,4 +1,3 @@
-import { server } from "../../server";
 import { Translations } from "../../utils/translations";
 import { database } from "../../database/index";
 import { ActionButton, ActionForm, Form } from "../builder";
@@ -21,7 +20,8 @@ const pluginsMain: ActionForm = {
 }
 
 import { UiLoader } from "../uiLoader";
-import { permissions, groups, createGroup, groupConfig, groupProperties } from "./permissions";
+import { permissions, addPermission } from "./permissions/permissions";
+import { createGroup, groupConfig, groupProperties, groups, manageGroupPermissions } from "./permissions/group";
 
 class PluginsLoader extends UiLoader {
     uiIndex: UiIndex = {
@@ -30,7 +30,9 @@ class PluginsLoader extends UiLoader {
         groups,
         createGroup,
         groupConfig,
-        groupProperties
+        groupProperties,
+        manageGroupPermissions,
+        addPermission,
     }
 }
 

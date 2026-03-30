@@ -6,13 +6,16 @@ export var PermissionCheckError;
 (function (PermissionCheckError) {
     PermissionCheckError[PermissionCheckError["INVALID_PERMISSION"] = 0] = "INVALID_PERMISSION";
 })(PermissionCheckError || (PermissionCheckError = {}));
-//TODO put permissions folder inside plugins?
 export class PermissionManager {
     autoSave;
     groups = new Map();
     users = new Map();
     constructor(autoSaveManager) {
         this.autoSave = autoSaveManager;
+    }
+    isValidPermission(permission) {
+        const permissionRegex = /^([a-zA-Z0-9_-]+)(\.([a-zA-Z0-9_-]+))*(\.\*)?$/;
+        return permissionRegex.test(permission);
     }
     createGroup(sender, identifier, displayName, weight, parents) {
         if (!isValidIdentifier(identifier))
@@ -41,6 +44,18 @@ export class PermissionManager {
             }
         }
         return group;
+    }
+    deleteGroup(selectedGroup) {
+        for (const group of this.getGroups()) {
+            group.removeParent(selectedGroup);
+        }
+        for (const user of this.getUsers()) {
+            user.removeParent(selectedGroup);
+        }
+        const memory = database.permissions.get("groups");
+        delete memory[selectedGroup.identifier];
+        database.permissions.saveData();
+        return this.groups.delete(selectedGroup.identifier);
     }
     setGroupWeight(targetGroup, weight) {
         if (targetGroup.weight === weight)
@@ -81,14 +96,19 @@ export class PermissionManager {
     getGroups() {
         return this.groups.values();
     }
-    hasPermission(permission, target) {
+    getUsers() {
+        return this.users.values();
+    }
+    hasPermission(permission, target, defaultTrue = false) {
         //TODO check permission is valid, etc
-        if (!isValidPermission(permission))
+        if (!this.isValidPermission(permission))
             return PermissionCheckError.INVALID_PERMISSION;
-        return !!target.resolvePermission(permission);
+        const result = target.resolvePermission(permission);
+        if (defaultTrue && result === undefined)
+            return true;
+        return !!result;
     }
     *loadPlugin() {
-        //TODO make sure to run this if the plugin is enabled later in game
         try {
             const groups = database.permissions.get("groups") ?? {};
             const users = database.permissions.get("users") ?? {};
@@ -119,10 +139,6 @@ export class PermissionManager {
             console.error("Couldn't load permissions plugin:", e);
         }
     }
-}
-function isValidPermission(permission) {
-    const permissionRegex = /^([a-zA-Z0-9_-]+)(\.([a-zA-Z0-9_-]+))*(\.\*)?$/;
-    return permissionRegex.test(permission);
 }
 function isValidIdentifier(identifier) {
     return /^[a-zA-Z0-9_]+$/.test(identifier);

@@ -59,12 +59,12 @@ export interface Dropdown extends BaseInput {
 
 export interface Header {
     type: "header";
-    text: DynamicElement<string>;
+    text: DynamicElement<LocalizedText>;
 }
 
 export interface Label {
     type: "label";
-    text: DynamicElement<string>;
+    text: DynamicElement<LocalizedText>;
 }
 
 export interface Divider {
@@ -194,7 +194,7 @@ abstract class UIForm {
     }
 }
 
-class ActionUIForm extends UIForm {
+class ActionUIForm extends UIForm { //TODO add only view buttons if you have a permission
     readonly form: ActionForm;
 
     constructor(form: ActionForm, name: string) {
@@ -324,10 +324,13 @@ class ModalUIForm extends UIForm {
 
             const inputs: { [key: string]: any } = {};
 
+            world.sendMessage(`${JSON.stringify(response.formValues)}`)
             for (const [index, value] of response.formValues!.entries()) {
-                if (value === undefined) continue;
+                if (value === undefined || value === null) continue;
 
                 const currentInput = inputData[index];
+
+                if (currentInput === undefined || currentInput === null) continue;
                 if ("items" in currentInput)  { // If the input is a dropdown
                     const itemIndex = value as number;
                     inputs[currentInput.id] = currentInput.items[itemIndex]; // Save in inputs the selected item with the input name as the key
@@ -408,12 +411,16 @@ class MenuContext { //TODO hacer que si yo pongo un cancel que se overridee la u
         return this.manager._goTo(ui, this.player, this, wait);
     }
 
-    back() {
+    back(n: number = 1) {
         const currentForm = this.stack.pop(); // Remove current form from stack
-        let previousForm = this.stack.pop();
+        let previousForm;
 
-        while (previousForm?.id.startsWith("__internal_confirm_")) { // If the previous form was a confirm menu or a MessageFormData
+        for (let i = 0; i < n; i++) {
             previousForm = this.stack.pop();
+
+            while (previousForm?.id.startsWith("__internal_confirm_")) { // If the previous form was a confirm menu or a MessageFormData
+                previousForm = this.stack.pop();
+            }
         }
 
         if (!(currentForm instanceof UIForm) || !(previousForm instanceof UIForm)) return;
@@ -478,7 +485,7 @@ export class UIManager {
      * @param wait
      * @returns True if the UI is found. False if the UI isn't found or the player is already in a UI.
      */
-    //TODO make this work with permissions
+    //TODO make this work with permissions!! Actually implement it while building the uis for a player!
     show(ui: string, player: Player, wait: boolean = false): boolean {
         if (this.displayingUI(player)) return false;
 

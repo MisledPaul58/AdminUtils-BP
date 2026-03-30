@@ -11,13 +11,12 @@ import {
 } from "./model/permissionHolder";
 import { AutoSaveManager } from "../utils/persistence/autoSaveManager";
 import { database } from "../database/index";
-import { DatabaseObject } from "../database/database";
+import { DatabaseObject, DatabaseValue } from "../database/database";
 
 export enum PermissionCheckError {
     INVALID_PERMISSION
 }
 
-//TODO put permissions folder inside plugins?
 export class PermissionManager {
     private autoSave: AutoSaveManager;
 
@@ -26,6 +25,11 @@ export class PermissionManager {
 
     constructor(autoSaveManager: AutoSaveManager) {
         this.autoSave = autoSaveManager;
+    }
+
+    public isValidPermission(permission: string): boolean {
+        const permissionRegex = /^([a-zA-Z0-9_-]+)(\.([a-zA-Z0-9_-]+))*(\.\*)?$/;
+        return permissionRegex.test(permission);
     }
 
     createGroup(sender: Player, identifier: string, displayName: string, weight: number, parents?: Group[]): Group | void {
@@ -59,6 +63,22 @@ export class PermissionManager {
             }
         }
         return group;
+    }
+
+    deleteGroup(selectedGroup: Group): boolean {
+        for (const group of this.getGroups()) {
+            group.removeParent(selectedGroup);
+        }
+
+        for (const user of this.getUsers()) {
+            user.removeParent(selectedGroup);
+        }
+
+        const memory = database.permissions.get("groups") as DatabaseObject;
+        delete memory[selectedGroup.identifier];
+        database.permissions.saveData();
+
+        return this.groups.delete(selectedGroup.identifier);
     }
 
     setGroupWeight(targetGroup: Group, weight: number): boolean {
@@ -106,15 +126,22 @@ export class PermissionManager {
         return this.groups.values();
     }
 
-    hasPermission(permission: string, target: PermissionHolder): boolean | PermissionCheckError { //TODO check if the plugin is actually enabled, if not, just check if the player is an admin or operator?
+    getUsers(): IteratorObject<User> {
+        return this.users.values();
+    }
+
+    hasPermission(permission: string, target: PermissionHolder, defaultTrue: boolean = false): boolean | PermissionCheckError { //TODO check if the plugin is actually enabled, if not, just check if the player is an admin or operator?
         //TODO check permission is valid, etc
-        if (!isValidPermission(permission))
+        if (!this.isValidPermission(permission))
             return PermissionCheckError.INVALID_PERMISSION;
-        return !!target.resolvePermission(permission);
+
+        const result = target.resolvePermission(permission);
+        if (defaultTrue && result === undefined) return true;
+
+        return !!result;
     }
 
     *loadPlugin() {
-        //TODO make sure to run this if the plugin is enabled later in game
         try {
             const groups = database.permissions.get("groups") ?? {}
             const users = database.permissions.get("users") ?? {};
@@ -153,11 +180,6 @@ export class PermissionManager {
             console.error("Couldn't load permissions plugin:", e);
         }
     }
-}
-
-function isValidPermission(permission: string): boolean {
-    const permissionRegex = /^([a-zA-Z0-9_-]+)(\.([a-zA-Z0-9_-]+))*(\.\*)?$/;
-    return permissionRegex.test(permission);
 }
 
 function isValidIdentifier(identifier: string): boolean {
