@@ -15,7 +15,7 @@ import {
     Dimension,
     Entity
 } from "@minecraft/server";
-import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
+import { ActionFormData, MessageFormData, ModalFormData, CustomForm, Observable } from "@minecraft/server-ui";
 import { database } from "./database/index";
 import "./utils/players.js";
 import { server } from "./server";
@@ -447,8 +447,11 @@ world.beforeEvents.chatSend.subscribe(event => {
         });
     } else if (event.message === "lol") {
         system.run(() => {
-            world.sendMessage(`${JSON.stringify(database.permissions.getTable())}`);
-        })
+            const playerName = Observable.create<string>("Player", { clientWritable: true });
+
+            // CustomForm.create(event.sender, "Game Settings")
+            //     .closeButton()
+        });
     }
 });
 

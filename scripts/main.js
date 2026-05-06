@@ -3,7 +3,7 @@
  * a little bit messy, as I didn't think AdminUtils would be this big. The other files are better though, and they will continue to improve in the next updates :]
  */
 import { EffectTypes, EntityComponentTypes, GameMode, ItemComponentTypes, Player, system, TicksPerSecond, world } from "@minecraft/server";
-import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
+import { ActionFormData, MessageFormData, ModalFormData, Observable } from "@minecraft/server-ui";
 import { database } from "./database/index";
 import "./utils/players.js";
 import { server } from "./server";
@@ -436,7 +436,9 @@ world.beforeEvents.chatSend.subscribe(event => {
     }
     else if (event.message === "lol") {
         system.run(() => {
-            world.sendMessage(`${JSON.stringify(database.permissions.getTable())}`);
+            const playerName = Observable.create("Player", { clientWritable: true });
+            // CustomForm.create(event.sender, "Game Settings")
+            //     .closeButton()
         });
     }
 });

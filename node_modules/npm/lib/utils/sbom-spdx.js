@@ -48,11 +48,23 @@ const spdxOutput = ({ npm, nodes, packageType }) => {
     }
     seen.add(node)
 
+    // A node can have multiple outgoing edges resolving to the same
+    // `name@version` of the same edge type (e.g. via npm aliases), which
+    // would produce identical relationship triples. Dedupe per source node.
+    const seenRels = new Set()
     const rels = [...node.edgesOut.values()]
       // Filter out edges that are linking to nodes not in the list
       .filter(edge => nodes.find(n => n === edge.to))
       .map(edge => toSpdxRelationship(node, edge))
       .filter(rel => rel)
+      .filter(rel => {
+        const key = `${rel.spdxElementId}|${rel.relatedSpdxElement}|${rel.relationshipType}`
+        if (seenRels.has(key)) {
+          return false
+        }
+        seenRels.add(key)
+        return true
+      })
 
     relationships.push(...rels)
   }
@@ -110,6 +122,11 @@ const toSpdxItem = (node, { packageType }) => {
     if (typeof license === 'object') {
       license = license.type
     }
+  } else if (Array.isArray(node.package?.licenses)) {
+    license = node.package.licenses
+      .map(l => (typeof l === 'object' ? l.type : l))
+      .filter(Boolean)
+      .join(' OR ')
   }
 
   const pkg = {

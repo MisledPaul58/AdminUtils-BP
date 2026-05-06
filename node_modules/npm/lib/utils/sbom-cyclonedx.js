@@ -84,15 +84,20 @@ const toCyclonedxItem = (node, { packageType }) => {
     node.package = toNormalize.content
   }
 
+  let license = node.package?.license
+  if (license) {
+    if (typeof license === 'object') {
+      license = license.type
+    }
+  } else if (Array.isArray(node.package?.licenses)) {
+    license = node.package.licenses
+      .map(l => (typeof l === 'object' ? l.type : l))
+      .filter(Boolean)
+      .join(' OR ')
+  }
+
   let parsedLicense
   try {
-    let license = node.package?.license
-    if (license) {
-      if (typeof license === 'object') {
-        license = license.type
-      }
-    }
-
     parsedLicense = parseLicense(license)
   } catch {
     parsedLicense = null
@@ -158,20 +163,27 @@ const toCyclonedxItem = (node, { packageType }) => {
     component.licenses = [{ license: { id: parsedLicense.license } }]
     // If license is a conjunction, use the expression field
   } else if (parsedLicense?.conjunction) {
-    component.licenses = [{ expression: node.package.license }]
+    component.licenses = [{ expression: license }]
   }
 
   return component
 }
 
 const toCyclonedxDependency = (node, nodes) => {
-  return {
-    ref: toCyclonedxID(node),
-    dependsOn: [...node.edgesOut.values()]
+  // A node can have multiple outgoing edges resolving to the same
+  // `name@version` (e.g. via npm aliases like `foo: npm:bar@1` alongside a
+  // direct `bar: ^1` dep), which would produce duplicate entries in
+  // `dependsOn`. CycloneDX 1.5 requires unique items, so dedupe by ref.
+  const dependsOn = [...new Set(
+    [...node.edgesOut.values()]
       // Filter out edges that are linking to nodes not in the list
       .filter(edge => nodes.find(n => n === edge.to))
       .map(edge => toCyclonedxID(edge.to))
-      .filter(id => id),
+      .filter(id => id)
+  )]
+  return {
+    ref: toCyclonedxID(node),
+    dependsOn,
   }
 }
 
