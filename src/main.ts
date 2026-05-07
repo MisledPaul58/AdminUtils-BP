@@ -445,14 +445,35 @@ world.beforeEvents.chatSend.subscribe(event => {
             sender.playSound("au.menuOpen");
             server.ui.show("mainMenu", sender, true);
         });
-    } else if (event.message === "lol") {
-        system.run(() => {
-            const playerName = Observable.create<string>("Player", { clientWritable: true });
-
-            // CustomForm.create(event.sender, "Game Settings")
-            //     .closeButton()
-        });
-    }
+    } //else if (event.message === "lol") {
+    //     system.run(async () => {
+    //         await delay(20);
+    //         const playerName = Observable.create<string>("Player", { clientWritable: true });
+    //
+    //         CustomForm.create(event.sender, "Game settings")
+    //             .closeButton()
+    //             .spacer()
+    //             .label("General settings")
+    //             .spacer()
+    //             .divider()
+    //             .textField("Player name", playerName, {
+    //                 description: "Your display name in-game"
+    //             })
+    //             .spacer()
+    //             .button("Botón", () => {
+    //                 server.sendCustomMessage("Botón enviado!");
+    //             }, {
+    //                 tooltip: "Tooltip"
+    //             })
+    //             .show()
+    //             .then(() => {
+    //                 console.log("meow")
+    //             })
+    //             .catch(e => {
+    //                 console.error(e);
+    //             })
+    //     });
+    // }
 });
 
 world.afterEvents.playerJoin.subscribe(async event => {
