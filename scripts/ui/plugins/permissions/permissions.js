@@ -96,7 +96,7 @@ export const addPermission = {
         {
             type: "dropdown",
             inputId: "permissionList",
-            name: Translations.Ui.Plugins.Permissions.PermissionList,
+            name: Translations.Ui.Plugins.Permissions.PermissionList, //TODO make a global list, even with the permissions you manually create
             items: context => {
                 return [""];
             }
@@ -112,5 +112,52 @@ export const addPermission = {
         const prefixColor = value ? "§b" : "§c";
         player.sendSuccess(Translations.Msg.Permissions.AddPermSuccess, [permission, `${prefixColor}${value.toString()}`]);
         context.back();
+    }
+};
+export const editPermission = {
+    type: "action",
+    title: context => {
+        const node = context.getData("selectedPermNode");
+        return {
+            translate: "plugins.permissions.editPermission",
+            with: [node?.permission ?? ""]
+        };
+    },
+    elements: context => {
+        const node = context.getData("selectedPermNode");
+        if (!node)
+            throw Error("The selected permission couldn't be found.");
+        return [
+            {
+                type: "button",
+                text: `§l%plugins.permissions.value:§r ${node.value ? "%plugins.permissions.true" : "%plugins.permissions.false"}`,
+                subText: "%ui.subText.toggle",
+                action: context1 => {
+                    try {
+                        const holder = context.getData("selectedPHolder");
+                        if (!holder) {
+                            return context1.player.sendError("a");
+                        }
+                        const result = holder.removePermissionNode(node.permission);
+                        if (!result)
+                            throw Error();
+                        const newNode = new PermissionNode(node.permission, !node.value);
+                        holder.addPermissionNode(newNode);
+                        context1.setData("selectedPermNode", newNode);
+                        context1.goTo("editPermission");
+                        context1.player.sendSuccess("permissions.permValChangeSuccess");
+                    }
+                    catch (e) {
+                        context1.player.sendError("permissions.permValChangeError");
+                    }
+                }
+            },
+            {
+                type: "button",
+                text: "%plugins.permissions.deletePermission",
+                action: context1 => {
+                }
+            }
+        ];
     }
 };

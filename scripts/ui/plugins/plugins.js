@@ -16,18 +16,19 @@ const pluginsMain = {
     ]
 };
 import { UiLoader } from "../uiLoader";
-import { permissions, addPermission } from "./permissions/permissions";
+import { permissions, addPermission, editPermission } from "./permissions/permissions";
 import { createGroup, groupConfig, groupProperties, groups, manageGroupPermissions } from "./permissions/group";
 class PluginsLoader extends UiLoader {
     uiIndex = {
         pluginsMain,
         permissions,
-        groups,
+        addPermission,
+        editPermission,
         createGroup,
         groupConfig,
         groupProperties,
-        manageGroupPermissions,
-        addPermission,
+        groups,
+        manageGroupPermissions
     };
 }
 export const pluginsLoader = new PluginsLoader();

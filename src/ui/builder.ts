@@ -324,10 +324,10 @@ class ModalUIForm extends UIForm {
 
             const inputs: { [key: string]: any } = {};
 
-            world.sendMessage(`${JSON.stringify(response.formValues)}`)
-            for (const [index, value] of response.formValues!.entries()) {
-                if (value === undefined || value === null) continue;
+            // Filter out wrong values due to labels, dividers, etc.
+            const filteredFormValues = response.formValues!.filter(element => element !== undefined && element !== null);
 
+            for (const [index, value] of filteredFormValues.entries()) {
                 const currentInput = inputData[index];
 
                 if (currentInput === undefined || currentInput === null) continue;

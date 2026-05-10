@@ -212,10 +212,12 @@ export const manageGroupPermissions = {
                 icon: "",
                 action: (context) => {
                     context.setData("selectedPermNode", permission);
-                    context.goTo(""); //TODO
+                    context.setData("selectedPHolder", context.getData("selectedGroup"));
+                    context.goTo("editPermission");
                 }
             });
         }
         return buttons;
     }
 };
+//TODO para editar un permiso, borrarlo y añadirlo de nuevo

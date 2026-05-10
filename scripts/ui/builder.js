@@ -1,5 +1,5 @@
 import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
-import { system, world } from "@minecraft/server";
+import { system } from "@minecraft/server";
 import { Translations } from "../utils/translations";
 //TODO add error handling
 class UIForm {
@@ -170,10 +170,9 @@ class ModalUIForm extends UIForm {
                 return this.cancelAction(context, context.player);
             }
             const inputs = {};
-            world.sendMessage(`${JSON.stringify(response.formValues)}`);
-            for (const [index, value] of response.formValues.entries()) {
-                if (value === undefined || value === null)
-                    continue;
+            // Filter out wrong values due to labels, dividers, etc.
+            const filteredFormValues = response.formValues.filter(element => element !== undefined && element !== null);
+            for (const [index, value] of filteredFormValues.entries()) {
                 const currentInput = inputData[index];
                 if (currentInput === undefined || currentInput === null)
                     continue;
