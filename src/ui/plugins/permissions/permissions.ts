@@ -5,6 +5,8 @@ import { ActionButton, ActionForm, Divider, Dropdown, Label, ModalForm, TextFiel
 import { RawMessage, system } from "@minecraft/server";
 import { PermissionHolder } from "../../../permissions/model/permissionHolder";
 import { PermissionNode } from "../../../permissions/permissionNode";
+import { Group } from "../../../permissions/model/group";
+import { User } from "../../../permissions/model/user";
 
 export const permissions: ActionForm = {
     type: "action",
@@ -80,6 +82,44 @@ export const permissions: ActionForm = {
     }
 };
 
+export const managePermissions: ActionForm = {
+    type: "action",
+    title: context => {
+        return {
+            translate: "%plugins.permissions.generic.title",
+            with: [context.getData<Group>("selectedPHolder")?.displayName ?? context.getData<User>("selectedPHolder")?.identifier]
+        } as RawMessage;
+    },
+    elements: (context) => {
+        const buttons: ActionButton[] = [
+            {
+                type: "button",
+                text: "%plugins.permissions.generic.addNewPermission",
+                icon: "",
+                action: context => {
+                    context.goTo("addPermission");
+                }
+            } as ActionButton
+        ]
+
+        // Show all permissions
+        for (const permission of context.getData<PermissionHolder>("selectedPHolder")?.getPermissionNodes() ?? []) {
+            buttons.push({
+                type: "button",
+                text: `§l${permission.permission}`,
+                subText: (context) => `%plugins.permissions.value: ${permission.value ? "%plugins.permissions.true" : "%plugins.permissions.false"}`,
+                icon: "",
+                action: (context) => {
+                    context.setData("selectedPermNode", permission);
+                    context.goTo("editPermission");
+                }
+            } as ActionButton);
+        }
+
+        return buttons;
+    }
+};
+
 export const addPermission: ModalForm = {
     type: "modal",
     title: context => {
@@ -144,7 +184,9 @@ export const editPermission: ActionForm = {
     elements: context => {
         const node = context.getData<PermissionNode>("selectedPermNode");
         if (!node) throw Error("The selected permission couldn't be found.");
+
         return [
+            // Toggle value
             {
                 type: "button",
                 text: `§l%plugins.permissions.value:§r ${node.value ? "%plugins.permissions.true" : "%plugins.permissions.false"}`,
@@ -153,29 +195,49 @@ export const editPermission: ActionForm = {
                     try {
                         const holder = context.getData<PermissionHolder>("selectedPHolder");
                         if (!holder) {
-                            return context1.player.sendError("a");
+                            return context1.player.sendError("permissions.holderNotFound");
                         }
 
-                        const result = holder.removePermissionNode(node.permission);
-                        if (!result) throw Error();
+                        const removed = holder.removePermissionNode(node.permission);
+                        if (!removed) {
+                            return context1.player.sendError("permissions.permValChangeError");
+                        }
 
-                        const newNode = new PermissionNode(node.permission, !node.value);
-                        holder.addPermissionNode(newNode);
+                        const updatedNode = new PermissionNode(node.permission, !node.value);
 
-                        context1.setData("selectedPermNode", newNode);
+                        holder.addPermissionNode(updatedNode);
+
+                        context1.setData("selectedPermNode", updatedNode);
                         context1.goTo("editPermission");
 
                         context1.player.sendSuccess("permissions.permValChangeSuccess");
                     } catch (e) {
+                        console.error(e);
                         context1.player.sendError("permissions.permValChangeError");
                     }
                 }
             } as ActionButton,
+            // Delete permission
             {
                 type: "button",
                 text: "%plugins.permissions.deletePermission",
                 action: context1 => {
+                    const holder = context.getData<PermissionHolder>("selectedPHolder");
+                    if (!holder) {
+                        return context1.player.sendError("permissions.holderNotFound");
+                    }
 
+                    context1.confirm(
+                        { translate: "plugins.permissions.deletePermTitle", with: [node.permission] } as RawMessage,
+                        { translate: "plugins.permissions.confirmDeletePerm", with: [node.permission, holder.identifier] } as RawMessage,
+                        (context) => {
+                            const removed = holder.removePermissionNode(node.permission);
+                            if (!removed) return context.player.sendError("permissions.permNotFound");
+
+                            context.player.sendSuccess("permissions.permDeleteSuccess", [node.permission]);
+                            context.goTo("managePermissions");
+                        }
+                    );
                 }
             } as ActionButton
         ];

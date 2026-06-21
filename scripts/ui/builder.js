@@ -222,7 +222,7 @@ class MessageUIForm extends UIForm {
     }
 }
 class MenuContext {
-    stack = [];
+    stack = []; // Hacer que con cada form guardado aquí se guarde también data aparte?
     data = {};
     player;
     manager;
@@ -245,6 +245,7 @@ class MenuContext {
         return this.manager._goTo(ui, this.player, this, wait);
     }
     back(n = 1) {
+        // Hacer también que se resetee la data actual a la data que tenía el form anterior?
         const currentForm = this.stack.pop(); // Remove current form from stack
         let previousForm;
         for (let i = 0; i < n; i++) {

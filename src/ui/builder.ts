@@ -384,7 +384,7 @@ class MessageUIForm extends UIForm {
 }
 
 class MenuContext { //TODO hacer que si yo pongo un cancel que se overridee la ui anterior en el stack y utilice el cancel que le he puesto, lo mismo con el back
-    private stack: UIForm[] = [];
+    private stack: UIForm[] = []; // Hacer que con cada form guardado aquí se guarde también data aparte?
     private data: ContextData = {};
     public readonly player: Player;
     public readonly manager: UIManager;
@@ -411,7 +411,8 @@ class MenuContext { //TODO hacer que si yo pongo un cancel que se overridee la u
         return this.manager._goTo(ui, this.player, this, wait);
     }
 
-    back(n: number = 1) {
+    back(n: number = 1) { //Hacer que se pueda hacer back pero solo para borrar un poco el stack, sin mostrar ui? para holder.ts manageSelectedParent editGroup
+        // Hacer también que se resetee la data actual a la data que tenía el form anterior?
         const currentForm = this.stack.pop(); // Remove current form from stack
         let previousForm;
 

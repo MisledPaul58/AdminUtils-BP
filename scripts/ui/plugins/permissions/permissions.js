@@ -65,6 +65,41 @@ export const permissions = {
         ];
     }
 };
+export const managePermissions = {
+    type: "action",
+    title: context => {
+        return {
+            translate: "%plugins.permissions.generic.title",
+            with: [context.getData("selectedPHolder")?.displayName ?? context.getData("selectedPHolder")?.identifier]
+        };
+    },
+    elements: (context) => {
+        const buttons = [
+            {
+                type: "button",
+                text: "%plugins.permissions.generic.addNewPermission",
+                icon: "",
+                action: context => {
+                    context.goTo("addPermission");
+                }
+            }
+        ];
+        // Show all permissions
+        for (const permission of context.getData("selectedPHolder")?.getPermissionNodes() ?? []) {
+            buttons.push({
+                type: "button",
+                text: `§l${permission.permission}`,
+                subText: (context) => `%plugins.permissions.value: ${permission.value ? "%plugins.permissions.true" : "%plugins.permissions.false"}`,
+                icon: "",
+                action: (context) => {
+                    context.setData("selectedPermNode", permission);
+                    context.goTo("editPermission");
+                }
+            });
+        }
+        return buttons;
+    }
+};
 export const addPermission = {
     type: "modal",
     title: context => {
@@ -128,6 +163,7 @@ export const editPermission = {
         if (!node)
             throw Error("The selected permission couldn't be found.");
         return [
+            // Toggle value
             {
                 type: "button",
                 text: `§l%plugins.permissions.value:§r ${node.value ? "%plugins.permissions.true" : "%plugins.permissions.false"}`,
@@ -136,26 +172,40 @@ export const editPermission = {
                     try {
                         const holder = context.getData("selectedPHolder");
                         if (!holder) {
-                            return context1.player.sendError("a");
+                            return context1.player.sendError("permissions.holderNotFound");
                         }
-                        const result = holder.removePermissionNode(node.permission);
-                        if (!result)
-                            throw Error();
-                        const newNode = new PermissionNode(node.permission, !node.value);
-                        holder.addPermissionNode(newNode);
-                        context1.setData("selectedPermNode", newNode);
+                        const removed = holder.removePermissionNode(node.permission);
+                        if (!removed) {
+                            return context1.player.sendError("permissions.permValChangeError");
+                        }
+                        const updatedNode = new PermissionNode(node.permission, !node.value);
+                        holder.addPermissionNode(updatedNode);
+                        context1.setData("selectedPermNode", updatedNode);
                         context1.goTo("editPermission");
                         context1.player.sendSuccess("permissions.permValChangeSuccess");
                     }
                     catch (e) {
+                        console.error(e);
                         context1.player.sendError("permissions.permValChangeError");
                     }
                 }
             },
+            // Delete permission
             {
                 type: "button",
                 text: "%plugins.permissions.deletePermission",
                 action: context1 => {
+                    const holder = context.getData("selectedPHolder");
+                    if (!holder) {
+                        return context1.player.sendError("permissions.holderNotFound");
+                    }
+                    context1.confirm({ translate: "plugins.permissions.deletePermTitle", with: [node.permission] }, { translate: "plugins.permissions.confirmDeletePerm", with: [node.permission, holder.identifier] }, (context) => {
+                        const removed = holder.removePermissionNode(node.permission);
+                        if (!removed)
+                            return context.player.sendError("permissions.permNotFound");
+                        context.player.sendSuccess("permissions.permDeleteSuccess", [node.permission]);
+                        context.goTo("managePermissions");
+                    });
                 }
             }
         ];

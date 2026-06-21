@@ -103,7 +103,8 @@ export const groupConfig = {
             text: Translations.Ui.Plugins.Permissions.ManagePermissions,
             icon: "",
             action: (context) => {
-                context.goTo("manageGroupPermissions");
+                context.setData("selectedPHolder", context.getData("selectedGroup"));
+                context.goTo("managePermissions");
             }
         },
         {
@@ -111,6 +112,8 @@ export const groupConfig = {
             text: Translations.Ui.Plugins.Permissions.ManageInheritance,
             icon: "",
             action: (context) => {
+                context.setData("selectedPHolder", context.getData("selectedGroup"));
+                context.goTo("manageInheritance");
             }
         },
         {
@@ -129,7 +132,8 @@ export const groupConfig = {
             }
         }
     ],
-    buildErrorMsg: Translations.Msg.Permissions.GroupPropertiesError
+    buildErrorMsg: Translations.Msg.Permissions.GroupPropertiesError,
+    back: "groups"
 };
 export const groupProperties = {
     type: "modal",
@@ -184,40 +188,42 @@ export const groupProperties = {
         context.back();
     }
 };
-export const manageGroupPermissions = {
-    type: "action",
-    title: context => {
-        return {
-            translate: Translations.Ui.Plugins.Permissions.Group.PermissionsTitle,
-            with: [context.getData("selectedGroup")?.displayName ?? ""]
-        };
-    },
-    elements: (context) => {
-        const buttons = [
-            {
-                type: "button",
-                text: Translations.Ui.Plugins.Permissions.Group.AddPermission,
-                icon: "",
-                action: context => {
-                    context.setData("selectedPHolder", context.getData("selectedGroup"));
-                    context.goTo("addPermission");
-                }
-            }
-        ];
-        for (const permission of context.getData("selectedGroup")?.getPermissionNodes() ?? []) {
-            buttons.push({
-                type: "button",
-                text: `§l${permission.permission}`,
-                subText: (context) => `%plugins.permissions.value: ${permission.value ? "%plugins.permissions.true" : "%plugins.permissions.false"}`,
-                icon: "",
-                action: (context) => {
-                    context.setData("selectedPermNode", permission);
-                    context.setData("selectedPHolder", context.getData("selectedGroup"));
-                    context.goTo("editPermission");
-                }
-            });
-        }
-        return buttons;
-    }
-};
-//TODO para editar un permiso, borrarlo y añadirlo de nuevo
+// export const manageGroupPermissions: ActionForm = {
+//     type: "action",
+//     title: context => {
+//         return {
+//             translate: Translations.Ui.Plugins.Permissions.Group.PermissionsTitle,
+//             with: [context.getData<Group>("selectedGroup")?.displayName ?? ""]
+//         } as RawMessage;
+//     },
+//     elements: (context) => {
+//         const buttons: ActionButton[] = [
+//             {
+//                 type: "button",
+//                 text: Translations.Ui.Plugins.Permissions.Group.AddPermission,
+//                 icon: "",
+//                 action: context => {
+//                     context.setData("selectedPHolder", context.getData("selectedGroup") as Group);
+//                     context.goTo("addPermission");
+//                 }
+//             } as ActionButton
+//         ]
+//
+//         // Show all permissions
+//         for (const permission of context.getData<Group>("selectedGroup")?.getPermissionNodes() ?? []) {
+//             buttons.push({
+//                 type: "button",
+//                 text: `§l${permission.permission}`,
+//                 subText: (context) => `%plugins.permissions.value: ${permission.value ? "%plugins.permissions.true" : "%plugins.permissions.false"}`,
+//                 icon: "",
+//                 action: (context) => {
+//                     context.setData("selectedPermNode", permission);
+//                     context.setData("selectedPHolder", context.getData("selectedGroup") as Group);
+//                     context.goTo("editPermission");
+//                 }
+//             } as ActionButton);
+//         }
+//
+//         return buttons;
+//     }
+// };
