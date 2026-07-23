@@ -21,6 +21,25 @@ export class PermissionHolder extends PersistableEntity {
         super(onDirty);
         this.identifier = identifier;
     }
+    // Prevents circular inheritance
+    isNewParentValid(parentCandidate) {
+        if (parentCandidate === (this))
+            return false;
+        // Check the inheritance tree of this holder
+        const currentTree = Array.from(this.getInheritanceTree());
+        if (currentTree.some(treeGroup => treeGroup === parentCandidate))
+            return false;
+        // Check the inheritance tree of the possible parent
+        const seen = new Set();
+        for (const group of parentCandidate.getInheritanceTree()) {
+            if (seen.has(group) || group === (this))
+                return false;
+            if (currentTree.some(treeGroup => group === treeGroup))
+                return false;
+            seen.add(group);
+        }
+        return true;
+    }
     resolvePermission(permission) {
         if (WildcardProcessor.isWildcardPermission(permission))
             return undefined;
@@ -116,7 +135,7 @@ export class PermissionHolder extends PersistableEntity {
         return true;
     }
     addParent(parent) {
-        if (this.inheritanceMap.has(parent.identifier) || !isValidInheritance(parent, this))
+        if (this.inheritanceMap.has(parent.identifier) || !this.isNewParentValid(parent))
             return false;
         this.inheritanceMap.set(parent.identifier, parent);
         this.inheritanceChanges.recordChange(ChangeType.ADD, parent.identifier); // Clearing cache shouldn't be necessary
@@ -153,6 +172,11 @@ export class PermissionHolder extends PersistableEntity {
     *getPermissionNodes() {
         yield* this.nodeMap.values();
         yield* this.wildcardMap.values();
+    }
+    *getDirectParents() {
+        for (const group of this.inheritanceMap.values()) {
+            yield group;
+        }
     }
     isChildOf(parent) {
         for (const group of this.getInheritanceTree()) {
@@ -246,18 +270,6 @@ export class PermissionHolder extends PersistableEntity {
             }
         }
     }
-}
-// Prevents circular inheritance
-function isValidInheritance(parent, origin) {
-    if (parent === origin)
-        return false;
-    const seen = new Set();
-    for (const group of parent.getInheritanceTree()) {
-        if (seen.has(group) || group === origin)
-            return false;
-        seen.add(group);
-    }
-    return true;
 }
 function packData(data, withKey) {
     const packedData = {};

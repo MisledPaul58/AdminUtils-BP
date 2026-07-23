@@ -56,6 +56,24 @@ export abstract class PermissionHolder extends PersistableEntity {
 
     protected abstract getSpecificData(): GroupSerializedData | UserSerializedData;
 
+    // Prevents circular inheritance
+    public isNewParentValid(parentCandidate: Group): boolean {
+        if (parentCandidate === (this) as PermissionHolder) return false;
+
+        // Check the inheritance tree of this holder
+        const currentTree = Array.from(this.getInheritanceTree());
+        if (currentTree.some(treeGroup => treeGroup === parentCandidate)) return false;
+
+        // Check the inheritance tree of the possible parent
+        const seen = new Set<Group>();
+        for (const group of parentCandidate.getInheritanceTree()) {
+            if (seen.has(group) || group === (this) as PermissionHolder) return false;
+            if (currentTree.some(treeGroup => group === treeGroup)) return false;
+            seen.add(group);
+        }
+        return true;
+    }
+
     resolvePermission(permission: string): Tristate {
         if (WildcardProcessor.isWildcardPermission(permission)) return undefined;
 
@@ -160,7 +178,7 @@ export abstract class PermissionHolder extends PersistableEntity {
     }
 
     addParent(parent: Group): boolean {
-        if (this.inheritanceMap.has(parent.identifier) || !isValidInheritance(parent, this)) return false;
+        if (this.inheritanceMap.has(parent.identifier) || !this.isNewParentValid(parent)) return false;
 
         this.inheritanceMap.set(parent.identifier, parent);
         this.inheritanceChanges.recordChange(ChangeType.ADD, parent.identifier); // Clearing cache shouldn't be necessary
@@ -202,6 +220,12 @@ export abstract class PermissionHolder extends PersistableEntity {
     *getPermissionNodes(): Generator<PermissionNode> {
         yield* this.nodeMap.values();
         yield* this.wildcardMap.values();
+    }
+
+    *getDirectParents(): Generator<Group> {
+        for (const group of this.inheritanceMap.values()) {
+            yield group;
+        }
     }
 
     isChildOf(parent: Group): boolean {
@@ -307,18 +331,6 @@ export abstract class PermissionHolder extends PersistableEntity {
             }
         }
     }
-}
-
-// Prevents circular inheritance
-function isValidInheritance(parent: Group, origin: PermissionHolder): boolean {
-    if (parent === origin) return false;
-
-    const seen = new Set<Group>();
-    for (const group of parent.getInheritanceTree()) {
-        if (seen.has(group) || group === origin) return false;
-        seen.add(group);
-    }
-    return true;
 }
 
 function packData<T>(data: T, withKey: string) {

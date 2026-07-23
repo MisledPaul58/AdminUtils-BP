@@ -1,5 +1,6 @@
 import { Group } from "./model/group";
 import { User } from "./model/user";
+import { CommandPermissionLevel, PlayerPermissionLevel, world } from "@minecraft/server";
 import { Translations } from "../utils/translations";
 import { database } from "../database/index";
 export var PermissionCheckError;
@@ -10,12 +11,21 @@ export class PermissionManager {
     autoSave;
     groups = new Map();
     users = new Map();
+    PERMISSIONS = [
+        "adminWand",
+        "settings",
+        "au",
+        "plugins"
+    ];
     constructor(autoSaveManager) {
         this.autoSave = autoSaveManager;
     }
     isValidPermission(permission) {
         const permissionRegex = /^([a-zA-Z0-9_-]+)(\.([a-zA-Z0-9_-]+))*(\.\*)?$/;
         return permissionRegex.test(permission);
+    }
+    isEnabled() {
+        return !!database.permissions.get("-auEnabled");
     }
     createGroup(sender, identifier, displayName, weight, parents) {
         if (!isValidIdentifier(identifier))
@@ -99,10 +109,19 @@ export class PermissionManager {
     getUsers() {
         return this.users.values();
     }
-    hasPermission(permission, target, defaultTrue = false) {
-        //TODO check permission is valid, etc
+    hasPermission(permission, player, defaultTrue = false) {
         if (!this.isValidPermission(permission))
             return PermissionCheckError.INVALID_PERMISSION;
+        if (!this.isEnabled()) {
+            return player.commandPermissionLevel === CommandPermissionLevel.Admin
+                || player.commandPermissionLevel === CommandPermissionLevel.Host
+                || player.commandPermissionLevel === CommandPermissionLevel.Owner;
+        }
+        if (player.playerPermissionLevel === PlayerPermissionLevel.Operator)
+            return true;
+        const target = this.users.get(player.name);
+        if (!target)
+            return false;
         const result = target.resolvePermission(permission);
         if (defaultTrue && result === undefined)
             return true;
@@ -134,6 +153,21 @@ export class PermissionManager {
                 const userData = users[user.identifier];
                 yield* user.loadParentsFromData(userData, this.groups);
             }
+            // Load new users
+            for (const player of world.getPlayers()) {
+                if (this.users.has(player.name))
+                    continue;
+                const newUser = new User(player.name, this.autoSave.onEntityDirty);
+                this.users.set(player.name, newUser);
+            }
+            const callback = world.afterEvents.playerJoin.subscribe(event => {
+                if (!this.isEnabled())
+                    return world.afterEvents.playerJoin.unsubscribe(callback);
+                if (this.users.has(event.playerName))
+                    return;
+                const newUser = new User(event.playerName, this.autoSave.onEntityDirty);
+                this.users.set(event.playerName, newUser);
+            });
         }
         catch (e) {
             console.error("Couldn't load permissions plugin:", e);

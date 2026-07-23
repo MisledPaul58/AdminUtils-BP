@@ -5,7 +5,7 @@ export class AutoSaveManager {
     constructor(eventSource, intervalTicks = 60) {
         eventSource.on("ready", () => {
             system.runInterval(() => this.processQueue(), intervalTicks);
-            // Save before the world closes TODO is this actually necessary? Also, servers?
+            // Save before the world closes
             world.beforeEvents.playerLeave.subscribe((event) => {
                 if (world.getAllPlayers().length === 1 && world.getAllPlayers()[0] === event.player) {
                     this.flush();
@@ -23,6 +23,8 @@ export class AutoSaveManager {
         const queueSnapshot = Array.from(this.saveQueue);
         this.saveQueue.clear();
         for (const entity of queueSnapshot) {
+            if (!entity.isDirty())
+                continue;
             try {
                 const success = entity.save();
                 if (success) {
@@ -42,7 +44,11 @@ export class AutoSaveManager {
     }
     flush() {
         for (const entity of this.saveQueue) {
+            if (!entity.isDirty())
+                continue;
             entity.save();
+            entity.markClean();
         }
+        this.saveQueue.clear();
     }
 }

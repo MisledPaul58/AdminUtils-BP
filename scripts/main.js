@@ -90,9 +90,9 @@ server.on("tick", async () => {
         catch (e) {
         }
         scoreboardsLoaded = true;
-        if (database.config.get("thanksMessage")) {
+        if (database.config.get("startupMsg")) {
             system.runTimeout(() => {
-                world.sendMessage("§l§4§kqww§r§l§bThanks for using Admin Utils! §aMade by §6MisledPaul58§4§kqww");
+                world.sendMessage("%adminutils.startupMsg");
             }, 8 * TicksPerSecond);
         }
     }
@@ -433,35 +433,13 @@ world.beforeEvents.chatSend.subscribe(event => {
             sender.playSound("au.menuOpen");
             server.ui.show("mainMenu", sender, true);
         });
-    } //else if (event.message === "lol") {
-    //     system.run(async () => {
-    //         await delay(20);
-    //         const playerName = Observable.create<string>("Player", { clientWritable: true });
-    //
-    //         CustomForm.create(event.sender, "Game settings")
-    //             .closeButton()
-    //             .spacer()
-    //             .label("General settings")
-    //             .spacer()
-    //             .divider()
-    //             .textField("Player name", playerName, {
-    //                 description: "Your display name in-game"
-    //             })
-    //             .spacer()
-    //             .button("Botón", () => {
-    //                 server.sendCustomMessage("Botón enviado!");
-    //             }, {
-    //                 tooltip: "Tooltip"
-    //             })
-    //             .show()
-    //             .then(() => {
-    //                 console.log("meow")
-    //             })
-    //             .catch(e => {
-    //                 console.error(e);
-    //             })
-    //     });
-    // }
+    }
+    else if (event.message === "meow") {
+        system.run(() => {
+            event.sender.chatNamePrefix = "Admin> <";
+            world.sendMessage(`${event.sender.commandPermissionLevel}`);
+        });
+    }
 });
 world.afterEvents.playerJoin.subscribe(async (event) => {
     const { playerName } = event;
@@ -3680,10 +3658,7 @@ function isBanTimeOver(player) {
         const currentDate = moment();
         const remainingTime = moment.duration(unBanDate.diff(currentDate));
         const milliseconds = remainingTime.asMilliseconds();
-        if (milliseconds <= 0)
-            return true;
-        else
-            return false;
+        return milliseconds <= 0;
     }
     catch (e) {
         return;

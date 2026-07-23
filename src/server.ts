@@ -20,6 +20,11 @@ export abstract class ServerBootstrap extends EventEmitter {
             yield* loadDatabases();
             yield* loadUIs(self);
 
+            if (database.loadData.get("loadedAtLeastOnce") === false) {
+                // First time loading
+                self.resetConfig();
+            }
+
             if (database.permissions.get("-auEnabled")) {
                 yield* self.permission.loadPlugin();
             }
@@ -31,6 +36,11 @@ export abstract class ServerBootstrap extends EventEmitter {
 
     get isInitialized() {
         return this._isInitialized;
+    }
+
+    resetConfig() {
+        database.config.clear();
+        database.config.assignMemory(defaultConfig);
     }
 }
 
@@ -57,15 +67,10 @@ class Server extends ServerBootstrap {
         };
         world.sendMessage(['§l§cAU §6>>§r ', rawMessage]);
     }
-
-    fetchDefaultConfig() {
-        database.config.clear();
-        database.config.assignMemory(defaultConfig);
-    }
 }
 
 export const server = new Server();
 
 server.once("firstLoad", () => {
-    server.fetchDefaultConfig();
+    server.resetConfig();
 });

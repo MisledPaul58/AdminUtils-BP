@@ -34,7 +34,8 @@ export const permissions = {
                     type: "button",
                     text: Translations.Ui.Plugins.Permissions.Users,
                     icon: "",
-                    action: (player) => {
+                    action: (context) => {
+                        context.goTo("users");
                     }
                 },
                 {
@@ -56,8 +57,8 @@ export const permissions = {
                 action: (context) => {
                     context.confirm(Translations.Ui.Plugins.Permissions.Title, Translations.Ui.Plugins.Permissions.ConfirmEnableBody, (context) => {
                         // Load plugin
-                        system.runJob(server.permission.loadPlugin());
                         database.permissions.set("-auEnabled", true);
+                        system.runJob(server.permission.loadPlugin());
                         context.back();
                     });
                 }
@@ -204,7 +205,7 @@ export const editPermission = {
                         if (!removed)
                             return context.player.sendError("permissions.permNotFound");
                         context.player.sendSuccess("permissions.permDeleteSuccess", [node.permission]);
-                        context.goTo("managePermissions");
+                        context.back(2);
                     });
                 }
             }

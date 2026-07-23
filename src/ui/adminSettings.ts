@@ -1,6 +1,6 @@
 import { server } from "../server";
 import { database } from "../database/index";
-import { ActionButton, ActionForm, Form, ModalElement, ModalForm, TextField, Toggle } from "./builder";
+import { ActionButton, ActionForm, Divider, Form, Label, ModalElement, ModalForm, TextField, Toggle } from "./builder";
 import { UiIndex } from "./index";
 import { UiLoader } from "./uiLoader";
 import { Translations } from "../utils/translations";
@@ -11,7 +11,22 @@ const mainSettings: ActionForm = {
     elements: [
         {
             type: "button",
-            text: Translations.Ui.Settings.Main.Button1Text,
+            text: "%settings.main.resetConfig",
+            action: context => {
+                context.confirm(
+                    "%settings.main.resetConfig",
+                    "%settings.main.confirmResetConfig",
+                    (context, player) => {
+                        server.resetConfig();
+                        player.sendSuccess("%settings.resetConfigSuccess");
+                        context.back();
+                    }
+                );
+            }
+        } as ActionButton,
+        {
+            type: "button",
+            text: Translations.Ui.Settings.Main.Config,
             subText: Translations.Ui.General.SubTextEdit,
             icon: "textures/icons/settings1.png",
             action: (context) => {
@@ -19,8 +34,11 @@ const mainSettings: ActionForm = {
             }
         } as ActionButton,
         {
+            type: "divider"
+        } as Divider,
+        {
             type: "button",
-            text: Translations.Ui.Settings.Main.Button2Text,
+            text: Translations.Ui.Settings.Main.Database,
             subText: Translations.Ui.General.SubTextManage,
             icon: "textures/icons/settings2.png",
             action: (context, player) => {
@@ -42,32 +60,34 @@ const config: ModalForm = {
     elements: [
         {
             type: "toggle",
-            inputId: "thanksMessage",
+            inputId: "startupMsg",
             name: Translations.Ui.Settings.Config.Input1Name,
-            default: () => database.config.get("thanksMessage") ?? true
+            default: () => database.config.get("startupMsg")
         } as Toggle,
         {
             type: "textField",
             inputId: "adminTag",
             name: Translations.Ui.Settings.Config.Input2Name,
             placeholder: "-auadmin",
-            default: () => database.config.get("adminTag") ?? "-auadmin"
+            default: () => database.config.get("adminTag")
         } as TextField,
         {
             type: "textField",
             inputId: "ownerTag",
             name: Translations.Ui.Settings.Config.Input3Name,
             placeholder: "owner",
-            default: () => database.config.get("ownerTag") ?? "owner"
+            default: () => database.config.get("ownerTag")
         } as TextField
     ],
-    submitText: Translations.Ui.General.SubmitTextConfirm,
-    submit: (inputs) => {
+    submitText: "%ui.submitText.save",
+    submit: (inputs, player, context) => {
         database.config.assignMemory(inputs);
+        player.sendSuccess("%ui.saveSuccess");
+        context.back();
     }
 };
 
-const manageAdmins: ActionForm = {
+const manageAdmins: ActionForm = { //TODO ya no hacen falta los admins?
     type: "action",
     title: Translations.Ui.Settings.Admins.Title,
     body: Translations.Ui.Settings.Admins.Body,
@@ -82,7 +102,6 @@ const manageAdmins: ActionForm = {
         } as ActionButton
     ]
 };
-//TODO: cambiar el texto del submit button de show admins a Ok
 
 class AdminSettingsLoader extends UiLoader {
     uiIndex: UiIndex = {

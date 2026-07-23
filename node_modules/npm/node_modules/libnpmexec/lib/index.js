@@ -4,6 +4,7 @@ const { dirname, join, resolve } = require('node:path')
 const crypto = require('node:crypto')
 const { mkdir } = require('node:fs/promises')
 const Arborist = require('@npmcli/arborist')
+const strictAllowScriptsPreflight = require('./strict-allow-scripts-preflight.js')
 const ciInfo = require('ci-info')
 const { log, input } = require('proc-log')
 const npa = require('npm-package-arg')
@@ -86,9 +87,14 @@ const missingFromTree = async ({ spec, tree, flatOptions, isNpxTree, shallow }) 
   }
 }
 
+// Strict-mode pre-flight for `npm exec` / `npx` lives in
+// ./strict-allow-scripts-preflight.js
+
 // see if the package.json at `path` has an entry that matches `cmd`
+// the path is a known-local directory, not a user-supplied dep, so
+// allow-directory must not gate this introspection
 const hasPkgBin = (path, cmd, flatOptions) =>
-  pacote.manifest(path, flatOptions)
+  pacote.manifest(path, { ...flatOptions, allowDirectory: 'all' })
     .then(manifest => manifest?.bin?.[cmd]).catch(() => null)
 
 const exec = async (opts) => {
@@ -147,6 +153,8 @@ const exec = async (opts) => {
         // we have to install the local package into the npx cache so that its
         // bin links get set up
         flatOptions.installLinks = false
+        // self-execution of a local bin, not a directory dep install
+        flatOptions.allowDirectory = 'all'
         // args[0] will exist when the package is installed
         packages.push(p)
         yes = true
@@ -297,11 +305,16 @@ const exec = async (opts) => {
           }
         }
       }
-      await withLock(lockPath, () => npxArb.reify({
-        ...flatOptions,
-        save: true,
-        add,
-      }))
+      await withLock(lockPath, async () => {
+        // Hard-fail before reify if --strict-allow-scripts is set and
+        // any node has install scripts not covered by allowScripts.
+        await strictAllowScriptsPreflight(npxArb, { ...flatOptions, add })
+        await npxArb.reify({
+          ...flatOptions,
+          save: true,
+          add,
+        })
+      })
     }
     binPaths.push(resolve(installDir, 'node_modules/.bin'))
     const pkgJson = await PackageJson.load(installDir)

@@ -1,3 +1,4 @@
+import { server } from "../server";
 import { database } from "../database/index";
 import { UiLoader } from "./uiLoader";
 import { Translations } from "../utils/translations";
@@ -7,7 +8,18 @@ const mainSettings = {
     elements: [
         {
             type: "button",
-            text: Translations.Ui.Settings.Main.Button1Text,
+            text: "%settings.main.resetConfig",
+            action: context => {
+                context.confirm("%settings.main.resetConfig", "%settings.main.confirmResetConfig", (context, player) => {
+                    server.resetConfig();
+                    player.sendSuccess("%settings.resetConfigSuccess");
+                    context.back();
+                });
+            }
+        },
+        {
+            type: "button",
+            text: Translations.Ui.Settings.Main.Config,
             subText: Translations.Ui.General.SubTextEdit,
             icon: "textures/icons/settings1.png",
             action: (context) => {
@@ -15,8 +27,11 @@ const mainSettings = {
             }
         },
         {
+            type: "divider"
+        },
+        {
             type: "button",
-            text: Translations.Ui.Settings.Main.Button2Text,
+            text: Translations.Ui.Settings.Main.Database,
             subText: Translations.Ui.General.SubTextManage,
             icon: "textures/icons/settings2.png",
             action: (context, player) => {
@@ -33,28 +48,30 @@ const config = {
     elements: [
         {
             type: "toggle",
-            inputId: "thanksMessage",
+            inputId: "startupMsg",
             name: Translations.Ui.Settings.Config.Input1Name,
-            default: () => database.config.get("thanksMessage") ?? true
+            default: () => database.config.get("startupMsg")
         },
         {
             type: "textField",
             inputId: "adminTag",
             name: Translations.Ui.Settings.Config.Input2Name,
             placeholder: "-auadmin",
-            default: () => database.config.get("adminTag") ?? "-auadmin"
+            default: () => database.config.get("adminTag")
         },
         {
             type: "textField",
             inputId: "ownerTag",
             name: Translations.Ui.Settings.Config.Input3Name,
             placeholder: "owner",
-            default: () => database.config.get("ownerTag") ?? "owner"
+            default: () => database.config.get("ownerTag")
         }
     ],
-    submitText: Translations.Ui.General.SubmitTextConfirm,
-    submit: (inputs) => {
+    submitText: "%ui.submitText.save",
+    submit: (inputs, player, context) => {
         database.config.assignMemory(inputs);
+        player.sendSuccess("%ui.saveSuccess");
+        context.back();
     }
 };
 const manageAdmins = {
@@ -71,7 +88,6 @@ const manageAdmins = {
         }
     ]
 };
-//TODO: cambiar el texto del submit button de show admins a Ok
 class AdminSettingsLoader extends UiLoader {
     uiIndex = {
         mainSettings,

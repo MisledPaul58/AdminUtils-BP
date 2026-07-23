@@ -8,6 +8,7 @@ import {
 } from "@minecraft/server-ui";
 import { Player, RawMessage, system, world } from "@minecraft/server";
 import { Translations, TranslationsType } from "../utils/translations";
+import { server } from "../server";
 
 export type FormData = ActionFormData | ModalFormData | MessageFormData;
 
@@ -24,6 +25,11 @@ export type ContextData = { [key: string]: any };
 export type LocalizedText =  string | RawMessage; //TODO add Translations type
 
 export type DynamicElement<T> = T | UIAction<T>;
+
+export interface StackFrame {
+    form: UIForm,
+    data: ContextData
+}
 
 export interface BaseInput {
     type: string;
@@ -84,6 +90,7 @@ export interface Button {
 export interface ActionButton extends Button {
     subText?: DynamicElement<string>;
     icon?: string;
+    permission?: string;
 }
 
 export type ActionElement = ActionButton | Header | Label | Divider;
@@ -218,6 +225,9 @@ class ActionUIForm extends UIForm { //TODO add only view buttons if you have a p
         for (const element of resolveElement(this.form.elements)) {
             switch (element.type) {
                 case "button":
+                    if (element.permission && !server.permission.hasPermission(element.permission, context.player))
+                        continue;
+
                     const text = element.subText ? `${resolveElement(element.text)}\n§r§8[ §b§o${resolveElement(element.subText)}§r§8 ]` : resolveElement(element.text);
                     formData.button(text, element.icon);
                     actions.push(element.action);
@@ -287,7 +297,8 @@ class ModalUIForm extends UIForm {
                     break;
 
                 case "dropdown":
-                    const items: LocalizedText[] = resolveElement(element.items);
+                    let items: LocalizedText[] = resolveElement(element.items);
+                    if (items.length === 0) items = [""];
                     formData.dropdown(resolveElement(element.name), items, { defaultValueIndex: resolveElement(element.default) });
                     inputData.push({ id: element.inputId, items });
                     break;
@@ -384,7 +395,7 @@ class MessageUIForm extends UIForm {
 }
 
 class MenuContext { //TODO hacer que si yo pongo un cancel que se overridee la ui anterior en el stack y utilice el cancel que le he puesto, lo mismo con el back
-    private stack: UIForm[] = []; // Hacer que con cada form guardado aquí se guarde también data aparte?
+    private stack: StackFrame[] = [];
     private data: ContextData = {};
     public readonly player: Player;
     public readonly manager: UIManager;
@@ -407,24 +418,31 @@ class MenuContext { //TODO hacer que si yo pongo un cancel que se overridee la u
 
         if (this.stack.length >= 100) throw Error("UI stack overflow");
 
-        if (form && this.stack[this.stack.length - 1] !== form) this.stack.push(form); //TODO vigilar bien los confirms o los messageformdatas en this.stack
+        if (form && this.stack[this.stack.length - 1]?.form !== form) { //TODO vigilar bien los confirms o los messageformdatas en this.stack
+            this.stack.push({ form, data: {...this.data} });
+        }
         return this.manager._goTo(ui, this.player, this, wait);
     }
 
     back(n: number = 1) { //Hacer que se pueda hacer back pero solo para borrar un poco el stack, sin mostrar ui? para holder.ts manageSelectedParent editGroup
-        // Hacer también que se resetee la data actual a la data que tenía el form anterior?
-        const currentForm = this.stack.pop(); // Remove current form from stack
-        let previousForm;
+        const currentFrame = this.stack.pop(); // Remove current form from stack
+        let previousFrame: StackFrame | undefined;
 
         for (let i = 0; i < n; i++) {
-            previousForm = this.stack.pop();
+            previousFrame = this.stack.pop();
 
-            while (previousForm?.id.startsWith("__internal_confirm_")) { // If the previous form was a confirm menu or a MessageFormData
-                previousForm = this.stack.pop();
+            while (previousFrame?.form.id.startsWith("__internal_confirm_")) { // If the previous form was a confirm menu or a MessageFormData
+                previousFrame = this.stack.pop();
             }
         }
 
-        if (!(currentForm instanceof UIForm) || !(previousForm instanceof UIForm)) return;
+        if (!currentFrame || !previousFrame) return;
+
+        const currentForm = currentFrame.form;
+        const previousForm = previousFrame.form;
+
+        this.data = {...previousFrame.data};
+
         if (currentForm instanceof ActionUIForm) {
             if (!currentForm.form.back) {
                 return this.goTo(previousForm.id);
@@ -451,7 +469,8 @@ class MenuContext { //TODO hacer que si yo pongo un cancel que se overridee la u
             cancel: defaultAction
         }, formId);
 
-        this.stack.push(form);
+        this.stack.push({ form, data: { ...this.data } });
+
         this.manager.queue.delete(this.player);
         this.manager.queue.set(this.player, form);
         form.enter(this, false);

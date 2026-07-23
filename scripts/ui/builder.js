@@ -1,6 +1,7 @@
 import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
 import { system } from "@minecraft/server";
 import { Translations } from "../utils/translations";
+import { server } from "../server";
 //TODO add error handling
 class UIForm {
     id;
@@ -85,6 +86,8 @@ class ActionUIForm extends UIForm {
         for (const element of resolveElement(this.form.elements)) {
             switch (element.type) {
                 case "button":
+                    if (element.permission && !server.permission.hasPermission(element.permission, context.player))
+                        continue;
                     const text = element.subText ? `${resolveElement(element.text)}\n§r§8[ §b§o${resolveElement(element.subText)}§r§8 ]` : resolveElement(element.text);
                     formData.button(text, element.icon);
                     actions.push(element.action);
@@ -140,7 +143,9 @@ class ModalUIForm extends UIForm {
                     inputData.push({ id: element.inputId });
                     break;
                 case "dropdown":
-                    const items = resolveElement(element.items);
+                    let items = resolveElement(element.items);
+                    if (items.length === 0)
+                        items = [""];
                     formData.dropdown(resolveElement(element.name), items, { defaultValueIndex: resolveElement(element.default) });
                     inputData.push({ id: element.inputId, items });
                     break;
@@ -222,7 +227,7 @@ class MessageUIForm extends UIForm {
     }
 }
 class MenuContext {
-    stack = []; // Hacer que con cada form guardado aquí se guarde también data aparte?
+    stack = [];
     data = {};
     player;
     manager;
@@ -240,22 +245,25 @@ class MenuContext {
         const form = this.manager.forms.get(ui);
         if (this.stack.length >= 100)
             throw Error("UI stack overflow");
-        if (form && this.stack[this.stack.length - 1] !== form)
-            this.stack.push(form); //TODO vigilar bien los confirms o los messageformdatas en this.stack
+        if (form && this.stack[this.stack.length - 1]?.form !== form) { //TODO vigilar bien los confirms o los messageformdatas en this.stack
+            this.stack.push({ form, data: { ...this.data } });
+        }
         return this.manager._goTo(ui, this.player, this, wait);
     }
     back(n = 1) {
-        // Hacer también que se resetee la data actual a la data que tenía el form anterior?
-        const currentForm = this.stack.pop(); // Remove current form from stack
-        let previousForm;
+        const currentFrame = this.stack.pop(); // Remove current form from stack
+        let previousFrame;
         for (let i = 0; i < n; i++) {
-            previousForm = this.stack.pop();
-            while (previousForm?.id.startsWith("__internal_confirm_")) { // If the previous form was a confirm menu or a MessageFormData
-                previousForm = this.stack.pop();
+            previousFrame = this.stack.pop();
+            while (previousFrame?.form.id.startsWith("__internal_confirm_")) { // If the previous form was a confirm menu or a MessageFormData
+                previousFrame = this.stack.pop();
             }
         }
-        if (!(currentForm instanceof UIForm) || !(previousForm instanceof UIForm))
+        if (!currentFrame || !previousFrame)
             return;
+        const currentForm = currentFrame.form;
+        const previousForm = previousFrame.form;
+        this.data = { ...previousFrame.data };
         if (currentForm instanceof ActionUIForm) {
             if (!currentForm.form.back) {
                 return this.goTo(previousForm.id);
@@ -277,7 +285,7 @@ class MenuContext {
             onRespond,
             cancel: defaultAction
         }, formId);
-        this.stack.push(form);
+        this.stack.push({ form, data: { ...this.data } });
         this.manager.queue.delete(this.player);
         this.manager.queue.set(this.player, form);
         form.enter(this, false);

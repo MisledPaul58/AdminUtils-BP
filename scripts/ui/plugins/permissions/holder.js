@@ -18,7 +18,7 @@ export const manageInheritance = {
             }
         ];
         // Show all parents
-        for (const parent of context.getData("selectedPHolder").getInheritanceTree()) {
+        for (const parent of context.getData("selectedPHolder").getDirectParents()) {
             const button = {
                 type: "button",
                 text: parent.displayName,
@@ -43,15 +43,17 @@ export const addParent = {
             name: "%plugins.permissions.inheritance.availableParents",
             items: context => {
                 const currentHolder = context.getData("selectedPHolder");
-                return Array.from(server.permission.getGroups()).filter(group => group !== currentHolder && !currentHolder.isChildOf(group)).map(group => group.identifier);
+                return Array.from(server.permission.getGroups()).filter(group => currentHolder.isNewParentValid(group)).map(group => group.identifier);
             }
         }
     ],
     submit: (inputs, player, context) => {
         const parent = server.permission.getGroup(inputs.selectedGroup);
         const currentHolder = context.getData("selectedPHolder");
-        if (!parent)
+        if (!parent) {
+            context.back();
             return player.sendError("permissions.inheritance.errorFindParent");
+        }
         currentHolder.addParent(parent);
         player.sendSuccess("permissions.inheritance.parentAdded", [parent.displayName, currentHolder.identifier]);
         context.back();

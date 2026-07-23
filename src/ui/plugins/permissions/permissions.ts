@@ -42,8 +42,8 @@ export const permissions: ActionForm = {
                     type: "button",
                     text: Translations.Ui.Plugins.Permissions.Users,
                     icon: "",
-                    action: (player) => {
-
+                    action: (context) => {
+                        context.goTo("users");
                     }
                 } as ActionButton,
                 {
@@ -70,9 +70,9 @@ export const permissions: ActionForm = {
                         Translations.Ui.Plugins.Permissions.ConfirmEnableBody,
                         (context) => {
                             // Load plugin
+                            database.permissions.set("-auEnabled", true);
                             system.runJob(server.permission.loadPlugin() as Generator<void, void, void>);
 
-                            database.permissions.set("-auEnabled", true);
                             context.back();
                         }
                     )
@@ -235,7 +235,7 @@ export const editPermission: ActionForm = {
                             if (!removed) return context.player.sendError("permissions.permNotFound");
 
                             context.player.sendSuccess("permissions.permDeleteSuccess", [node.permission]);
-                            context.goTo("managePermissions");
+                            context.back(2);
                         }
                     );
                 }

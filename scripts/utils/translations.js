@@ -37,8 +37,8 @@ export const Translations = Object.freeze({
         Settings: {
             Main: {
                 Title: "%settings.main.title",
-                Button1Text: "%settings.main.button1.text",
-                Button2Text: "%settings.main.button2.text",
+                Config: "%settings.main.config",
+                Database: "%settings.main.database",
             },
             Config: {
                 Title: "%settings.config.title",

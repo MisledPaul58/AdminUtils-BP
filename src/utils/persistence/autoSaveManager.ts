@@ -10,7 +10,7 @@ export class AutoSaveManager {
         eventSource.on("ready", () => {
            system.runInterval(() => this.processQueue(), intervalTicks);
 
-           // Save before the world closes TODO is this actually necessary? Also, servers?
+           // Save before the world closes
            world.beforeEvents.playerLeave.subscribe((event) => {
                if (world.getAllPlayers().length === 1 && world.getAllPlayers()[0] === event.player) {
                    this.flush();
@@ -19,7 +19,7 @@ export class AutoSaveManager {
         });
     }
 
-    public onEntityDirty = (entity: PersistableEntity): void => {
+    public onEntityDirty = (entity: PersistableEntity): void => { //TODO es necesario esto realmente? Sería más fácil pasarle simplemente la instancia de esta clase creada en server.ts a todo lo que necesite un autosave y que llamen siempre al mismo método de esta clase para añadirse a la queue?
         this.saveQueue.add(entity);
     }
 
@@ -32,6 +32,7 @@ export class AutoSaveManager {
         this.saveQueue.clear();
 
         for (const entity of queueSnapshot) {
+            if (!entity.isDirty()) continue;
             try {
                 const success = entity.save();
                 if (success) {
@@ -51,7 +52,10 @@ export class AutoSaveManager {
 
     private flush() {
         for (const entity of this.saveQueue) {
+            if (!entity.isDirty()) continue;
             entity.save();
+            entity.markClean();
         }
+        this.saveQueue.clear();
     }
 }

@@ -98,7 +98,6 @@ export const groupConfig: ActionForm = {
         return context.getData<Group>("selectedGroup")?.displayName ?? "";
     },
     elements: [
-        //Primer botón editar propiedades? Debajo editar herencia, permisos, etc.
         {
             type: "button",
             text: Translations.Ui.Plugins.Permissions.EditProperties,
@@ -146,8 +145,7 @@ export const groupConfig: ActionForm = {
             }
         } as ActionButton
     ],
-    buildErrorMsg: Translations.Msg.Permissions.GroupPropertiesError,
-    back: "groups"
+    buildErrorMsg: Translations.Msg.Permissions.GroupPropertiesError
 };
 
 export const groupProperties: ModalForm = {

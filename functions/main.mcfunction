@@ -1,0 +1,1 @@
+execute unless score AU AUInit matches 1 run function on_initialize

@@ -1,17 +1,11 @@
 import { Group } from "./model/group";
 import { User } from "./model/user";
-import { Player, world } from "@minecraft/server";
+import { CommandPermissionLevel, Player, PlayerPermissionLevel, world } from "@minecraft/server";
 import { Translations } from "../utils/translations";
-import {
-    BaseSerializedData,
-    GroupSerializedData,
-    PermissionHolder,
-    SerializedData,
-    UserSerializedData
-} from "./model/permissionHolder";
+import { BaseSerializedData, GroupSerializedData, SerializedData, UserSerializedData } from "./model/permissionHolder";
 import { AutoSaveManager } from "../utils/persistence/autoSaveManager";
 import { database } from "../database/index";
-import { DatabaseObject, DatabaseValue } from "../database/database";
+import { DatabaseObject } from "../database/database";
 
 export enum PermissionCheckError {
     INVALID_PERMISSION
@@ -23,6 +17,13 @@ export class PermissionManager {
     private groups = new Map<string, Group>();
     private users = new Map<string, User>();
 
+    public readonly PERMISSIONS = [
+        "adminWand",
+        "settings",
+        "au",
+        "plugins"
+    ];
+
     constructor(autoSaveManager: AutoSaveManager) {
         this.autoSave = autoSaveManager;
     }
@@ -30,6 +31,10 @@ export class PermissionManager {
     public isValidPermission(permission: string): boolean {
         const permissionRegex = /^([a-zA-Z0-9_-]+)(\.([a-zA-Z0-9_-]+))*(\.\*)?$/;
         return permissionRegex.test(permission);
+    }
+
+    public isEnabled(): boolean {
+        return !!database.permissions.get("-auEnabled");
     }
 
     createGroup(sender: Player, identifier: string, displayName: string, weight: number, parents?: Group[]): Group | void {
@@ -130,10 +135,20 @@ export class PermissionManager {
         return this.users.values();
     }
 
-    hasPermission(permission: string, target: PermissionHolder, defaultTrue: boolean = false): boolean | PermissionCheckError { //TODO check if the plugin is actually enabled, if not, just check if the player is an admin or operator?
-        //TODO check permission is valid, etc
+    hasPermission(permission: string, player: Player, defaultTrue: boolean = false): boolean | PermissionCheckError {
         if (!this.isValidPermission(permission))
             return PermissionCheckError.INVALID_PERMISSION;
+
+        if (!this.isEnabled()) {
+            return player.commandPermissionLevel === CommandPermissionLevel.Admin
+                || player.commandPermissionLevel === CommandPermissionLevel.Host
+                || player.commandPermissionLevel === CommandPermissionLevel.Owner;
+        }
+
+        if (player.playerPermissionLevel === PlayerPermissionLevel.Operator) return true;
+
+        const target = this.users.get(player.name);
+        if (!target) return false;
 
         const result = target.resolvePermission(permission);
         if (defaultTrue && result === undefined) return true;
@@ -143,7 +158,7 @@ export class PermissionManager {
 
     *loadPlugin() {
         try {
-            const groups = database.permissions.get("groups") ?? {}
+            const groups = database.permissions.get("groups") ?? {};
             const users = database.permissions.get("users") ?? {};
 
             // Load groups
@@ -176,6 +191,21 @@ export class PermissionManager {
                 yield* user.loadParentsFromData(userData, this.groups);
             }
 
+            // Load new users
+            for (const player of world.getPlayers()) {
+                if (this.users.has(player.name)) continue;
+
+                const newUser = new User(player.name, this.autoSave.onEntityDirty);
+                this.users.set(player.name, newUser);
+            }
+
+            const callback = world.afterEvents.playerJoin.subscribe(event => {
+                if (!this.isEnabled()) return world.afterEvents.playerJoin.unsubscribe(callback);
+                if (this.users.has(event.playerName)) return;
+
+                const newUser = new User(event.playerName, this.autoSave.onEntityDirty);
+                this.users.set(event.playerName, newUser);
+            });
         } catch (e) {
             console.error("Couldn't load permissions plugin:", e);
         }
