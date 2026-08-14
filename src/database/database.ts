@@ -1,26 +1,15 @@
 import { world } from "@minecraft/server";
-import { DatabaseName } from "./index";
 
-type DatabasePrimitive = string | number | boolean;
-type DatabaseArray = string[] | number[] | boolean[];
-export type DatabaseObject = { [key: string]: DatabaseValue };
-export type DatabaseValue =
-    | DatabasePrimitive
-    | DatabaseArray
-    | DatabaseObject;
+export class Database<Schema extends Record<string, any>> {
+    public readonly tableName: string;
+    private memory: Partial<Schema>;
 
-export type DatabaseMemory = { [key: string]: DatabaseValue };
-
-export class Database {
-    public readonly tableName: DatabaseName;
-    private memory: DatabaseMemory;
-
-    constructor(tableName: DatabaseName) {
+    constructor(tableName: string) {
         this.tableName = tableName;
         this.memory = {};
     }
 
-    public *fetch(): Generator<string | object> {
+    public *fetch(): Generator<void, void, unknown> {
         const chunksLength = world.getDynamicProperty(`db_${this.tableName}_length`) ?? 0;
         if (typeof chunksLength !== "number") {
             console.warn(`[DATABASE]: '${this.tableName}' has improper setup. Wiping data.`);
@@ -28,7 +17,10 @@ export class Database {
             return this.wipe();
         }
 
-        if (chunksLength <= 0) return this.memory = {};
+        if (chunksLength <= 0) {
+            this.memory = {};
+            return;
+        }
 
         let collectedData = "";
         for (let i = 0; i < chunksLength; i++) {
@@ -39,7 +31,8 @@ export class Database {
                 return this.wipe();
             }
 
-            yield collectedData += dataChunk;
+            collectedData += dataChunk;
+            yield;
         }
 
         if (!collectedData.startsWith("{") || !collectedData.endsWith("}")) {
@@ -47,7 +40,12 @@ export class Database {
 
             return this.wipe();
         }
-        yield this.memory = JSON.parse(collectedData);
+        try {
+            this.memory = JSON.parse(collectedData);
+        } catch (e) {
+            console.warn(`[DATABASE]: Error parsing '${this.tableName}'s JSON. Wiping data.`);
+            return this.wipe();
+        }
     }
 
     saveData() {
@@ -76,7 +74,7 @@ export class Database {
      * Sets the specified `key` to the given `value` in the database table.
      * Save is true by default.
      */
-    set(key: string, value: DatabaseValue, save: boolean = true): Database {
+    set<K extends keyof Schema>(key: K, value: Schema[K], save: boolean = true): this {
         this.memory[key] = value;
         if (save) this.saveData();
         return this;
@@ -86,32 +84,37 @@ export class Database {
      * Gets a value from this table.
      * @returns the value associated with the given key in the database table.
      */
-    get(key: string): DatabaseValue | undefined {
+    get<K extends keyof Schema>(key: K): Schema[K] | undefined {
         return this.memory[key];
     }
 
     /**
      * Gets all the keys in the table.
      */
-    keys(): string[] {
+    keys(): (keyof Schema)[] {
         return Object.keys(this.memory);
     }
 
     /**
      * Gets all the values in the table.
      */
-    values(): DatabaseValue[] {
-        return Object.values(this.memory);
+    values(): Schema[keyof Schema][] {
+        return Object.values(this.memory) as Schema[keyof Schema][];
     }
 
-    assign(key: string, value: DatabaseValue, save: boolean = true): Database {
-        let data = this.get(key);
+    assign<K extends keyof Schema>(key: K, value: Partial<Schema[K]>, save: boolean = true): this {
+        let data = this.memory[key];
+
         if (data === undefined) {
-            data = {};
-            this.memory[key] = data;
+            this.memory[key] = value as Schema[K];
+        }
+        else if (typeof data === "object" && data !== null && !Array.isArray(data)) {
+            Object.assign(data, value);
+        }
+        else {
+            this.memory[key] = value as Schema[K];
         }
 
-        Object.assign(data, value);
         if (save) this.saveData();
         return this;
     }
@@ -119,7 +122,7 @@ export class Database {
     /**
      * Assigns the values of an object to their respective keys in the database memory.
      */
-    assignMemory(source: DatabaseMemory) {
+    assignMemory(source: Partial<Schema>) {
         Object.assign(this.memory, source);
         this.saveData();
     }
@@ -127,14 +130,14 @@ export class Database {
     /**
      * Checks if the key exists in the table.
      */
-    has(key: string): boolean {
+    has<K extends keyof Schema>(key: K): boolean {
         return this.memory.hasOwnProperty(key); //TODO does Object.hasOwn work?
     }
 
     /**
      * Deletes a key from the table.
      */
-    delete(key: string): boolean {
+    delete<K extends keyof Schema>(key: K): boolean {
         if (!this.has(key)) return false;
         delete this.memory[key];
         this.saveData();
@@ -159,11 +162,11 @@ export class Database {
             if (id.startsWith(`db_${this.tableName}`)) world.setDynamicProperty(id, undefined);
         }
     }
-    
+
     /**
      * Returns the table object with all its keys and values.
      */
-    getTable(): DatabaseMemory {
+    getTable(): Partial<Schema> {
         return this.memory;
     }
 }

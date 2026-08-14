@@ -1,6 +1,6 @@
 import { UIManager } from "./ui/builder";
 import { defaultConfig } from "./config/defaultConfig";
-import { database, loadDatabases } from "./database/index";
+import { DB, DBManager } from "./database/index";
 import { EventEmitter } from "./events/eventEmitter";
 import { world, system } from "@minecraft/server";
 import { PermissionManager } from "./permissions/permissionManager";
@@ -12,13 +12,13 @@ export class ServerBootstrap extends EventEmitter {
         const self = this;
         console.warn(`${JSON.stringify(Array.from(this.ui.forms.keys()))}`);
         system.runJob(function* () {
-            yield* loadDatabases();
+            yield* DBManager.loadAll();
             yield* loadUIs(self);
-            if (database.loadData.get("loadedAtLeastOnce") === false) {
+            if (DB.LoadData.get("loadedAtLeastOnce") === false) {
                 // First time loading
                 self.resetConfig();
             }
-            if (database.permissions.get("-auEnabled")) {
+            if (DB.Permissions.get("-auEnabled")) {
                 yield* self.permission.loadPlugin();
             }
             server._isInitialized = true;
@@ -29,8 +29,8 @@ export class ServerBootstrap extends EventEmitter {
         return this._isInitialized;
     }
     resetConfig() {
-        database.config.clear();
-        database.config.assignMemory(defaultConfig);
+        DB.Config.clear();
+        DB.Config.assignMemory(defaultConfig);
     }
 }
 class Server extends ServerBootstrap {
@@ -52,6 +52,12 @@ class Server extends ServerBootstrap {
             with: args
         };
         world.sendMessage(['§l§cAU §6>>§r ', rawMessage]);
+    }
+    getAdmins() {
+        return Array.from(DB.Server.get("admins") ?? []);
+    }
+    isAdmin(username) {
+        return this.getAdmins().includes(username);
     }
 }
 export const server = new Server();

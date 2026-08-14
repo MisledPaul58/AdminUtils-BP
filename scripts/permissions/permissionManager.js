@@ -1,8 +1,9 @@
 import { Group } from "./model/group";
 import { User } from "./model/user";
-import { CommandPermissionLevel, PlayerPermissionLevel, world } from "@minecraft/server";
+import { PlayerPermissionLevel, world } from "@minecraft/server";
 import { Translations } from "../utils/translations";
-import { database } from "../database/index";
+import { DB } from "../database/index";
+import { server } from "../server";
 export var PermissionCheckError;
 (function (PermissionCheckError) {
     PermissionCheckError[PermissionCheckError["INVALID_PERMISSION"] = 0] = "INVALID_PERMISSION";
@@ -13,6 +14,7 @@ export class PermissionManager {
     users = new Map();
     PERMISSIONS = [
         "adminWand",
+        "adminMenuCmd",
         "settings",
         "au",
         "plugins"
@@ -25,7 +27,7 @@ export class PermissionManager {
         return permissionRegex.test(permission);
     }
     isEnabled() {
-        return !!database.permissions.get("-auEnabled");
+        return !!DB.Permissions.get("-auEnabled");
     }
     createGroup(sender, identifier, displayName, weight, parents) {
         if (!isValidIdentifier(identifier))
@@ -62,9 +64,9 @@ export class PermissionManager {
         for (const user of this.getUsers()) {
             user.removeParent(selectedGroup);
         }
-        const memory = database.permissions.get("groups");
+        const memory = DB.Permissions.get("groups");
         delete memory[selectedGroup.identifier];
-        database.permissions.saveData();
+        DB.Permissions.saveData();
         return this.groups.delete(selectedGroup.identifier);
     }
     setGroupWeight(targetGroup, weight) {
@@ -113,9 +115,7 @@ export class PermissionManager {
         if (!this.isValidPermission(permission))
             return PermissionCheckError.INVALID_PERMISSION;
         if (!this.isEnabled()) {
-            return player.commandPermissionLevel === CommandPermissionLevel.Admin
-                || player.commandPermissionLevel === CommandPermissionLevel.Host
-                || player.commandPermissionLevel === CommandPermissionLevel.Owner;
+            return server.isAdmin(player.name);
         }
         if (player.playerPermissionLevel === PlayerPermissionLevel.Operator)
             return true;
@@ -129,8 +129,8 @@ export class PermissionManager {
     }
     *loadPlugin() {
         try {
-            const groups = database.permissions.get("groups") ?? {};
-            const users = database.permissions.get("users") ?? {};
+            const groups = DB.Permissions.get("groups") ?? {};
+            const users = DB.Permissions.get("users") ?? {};
             // Load groups
             for (const groupData of Object.values(groups)) {
                 const { id, displayName, weight } = groupData;

@@ -2,10 +2,10 @@ import { Group } from "./model/group";
 import { User } from "./model/user";
 import { CommandPermissionLevel, Player, PlayerPermissionLevel, world } from "@minecraft/server";
 import { Translations } from "../utils/translations";
-import { BaseSerializedData, GroupSerializedData, SerializedData, UserSerializedData } from "./model/permissionHolder";
+import { BaseSerializedData, GroupSerializedData, UserSerializedData } from "./model/permissionHolder";
 import { AutoSaveManager } from "../utils/persistence/autoSaveManager";
-import { database } from "../database/index";
-import { DatabaseObject } from "../database/database";
+import { DB } from "../database/index";
+import { server } from "../server";
 
 export enum PermissionCheckError {
     INVALID_PERMISSION
@@ -19,10 +19,11 @@ export class PermissionManager {
 
     public readonly PERMISSIONS = [
         "adminWand",
+        "adminMenuCmd",
         "settings",
         "au",
         "plugins"
-    ];
+    ] as const;
 
     constructor(autoSaveManager: AutoSaveManager) {
         this.autoSave = autoSaveManager;
@@ -34,7 +35,7 @@ export class PermissionManager {
     }
 
     public isEnabled(): boolean {
-        return !!database.permissions.get("-auEnabled");
+        return !!DB.Permissions.get("-auEnabled");
     }
 
     createGroup(sender: Player, identifier: string, displayName: string, weight: number, parents?: Group[]): Group | void {
@@ -79,9 +80,9 @@ export class PermissionManager {
             user.removeParent(selectedGroup);
         }
 
-        const memory = database.permissions.get("groups") as DatabaseObject;
+        const memory = DB.Permissions.get("groups")!;
         delete memory[selectedGroup.identifier];
-        database.permissions.saveData();
+        DB.Permissions.saveData();
 
         return this.groups.delete(selectedGroup.identifier);
     }
@@ -140,9 +141,7 @@ export class PermissionManager {
             return PermissionCheckError.INVALID_PERMISSION;
 
         if (!this.isEnabled()) {
-            return player.commandPermissionLevel === CommandPermissionLevel.Admin
-                || player.commandPermissionLevel === CommandPermissionLevel.Host
-                || player.commandPermissionLevel === CommandPermissionLevel.Owner;
+            return server.isAdmin(player.name);
         }
 
         if (player.playerPermissionLevel === PlayerPermissionLevel.Operator) return true;
@@ -158,8 +157,8 @@ export class PermissionManager {
 
     *loadPlugin() {
         try {
-            const groups = database.permissions.get("groups") ?? {};
-            const users = database.permissions.get("users") ?? {};
+            const groups = DB.Permissions.get("groups") ?? {};
+            const users = DB.Permissions.get("users") ?? {};
 
             // Load groups
             for (const groupData of Object.values(groups)) {
@@ -172,7 +171,7 @@ export class PermissionManager {
             }
 
             for (const group of this.groups.values()) {
-                const groupData = ((groups as DatabaseObject)[group.identifier] as unknown as SerializedData) as BaseSerializedData & GroupSerializedData;
+                const groupData = groups[group.identifier]
                 yield* group.loadParentsFromData(groupData, this.groups);
             }
 
@@ -187,7 +186,7 @@ export class PermissionManager {
             }
 
             for (const user of this.users.values()) {
-                const userData = ((users as DatabaseObject)[user.identifier] as unknown as SerializedData) as BaseSerializedData & UserSerializedData;
+                const userData = users[user.identifier];
                 yield* user.loadParentsFromData(userData, this.groups);
             }
 

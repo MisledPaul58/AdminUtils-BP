@@ -2,7 +2,7 @@ import { PermissionNode } from "../permissionNode";
 import { WildcardProcessor } from "../calculator/wildcardProcessor";
 import { ChangeType, Difference } from "./difference";
 import { PersistableEntity } from "../../utils/persistence/persistableEntity";
-import { database } from "../../database/index";
+import { DB } from "../../database/index";
 export var HolderType;
 (function (HolderType) {
     HolderType["USER"] = "USER";
@@ -217,7 +217,8 @@ export class PermissionHolder extends PersistableEntity {
             if (isInitialSave(this))
                 return initialSave(this);
             const keyType = this.getType() === HolderType.GROUP ? "groups" : "users";
-            const memory = database.permissions.get(keyType)[this.identifier];
+            const allHolders = DB.Permissions.get(keyType) ?? {};
+            const memory = allHolders[this.identifier];
             // Apply any permission change
             for (const change of this.permissionChanges.getChanges()) {
                 const node = change.value;
@@ -231,18 +232,19 @@ export class PermissionHolder extends PersistableEntity {
             // Apply any inheritance change
             for (const change of this.inheritanceChanges.getChanges()) {
                 if (change.type === ChangeType.ADD) {
-                    memory["parents"].push(change.value);
+                    memory.parents.push(change.value);
                 }
                 else {
-                    memory["parents"].splice(memory["parents"].indexOf(change.value), 1);
+                    memory.parents.splice(memory.parents.indexOf(change.value), 1);
                 }
             }
             // Apply any metadata change
             if (this.metadataChanged)
                 Object.assign(memory, this.getSpecificData());
             // Save and clear everything
-            const packedData = packData(memory, this.identifier);
-            database.permissions.assign(keyType, packedData);
+            DB.Permissions.assign(keyType, {
+                [this.identifier]: memory
+            });
             this.permissionChanges.clear();
             this.inheritanceChanges.clear();
             return true;
@@ -271,19 +273,17 @@ export class PermissionHolder extends PersistableEntity {
         }
     }
 }
-function packData(data, withKey) {
-    const packedData = {};
-    packedData[withKey] = data;
-    return packedData;
-}
 function isInitialSave(permissionHolder) {
     const keyType = permissionHolder.getType() === HolderType.GROUP ? "groups" : "users";
-    return !database.permissions.get(keyType)?.[permissionHolder.identifier];
+    const data = DB.Permissions.get(keyType);
+    return !data?.[permissionHolder.identifier];
 }
 function initialSave(permissionHolder) {
     const keyType = permissionHolder.getType() === HolderType.GROUP ? "groups" : "users";
-    const packedData = packData(permissionHolder.export(), permissionHolder.identifier);
-    database.permissions.assign(keyType, packedData);
+    const data = permissionHolder.export();
+    DB.Permissions.assign(keyType, {
+        [permissionHolder.identifier]: data
+    });
     permissionHolder.permissionChanges.clear();
     permissionHolder.inheritanceChanges.clear();
     return true;

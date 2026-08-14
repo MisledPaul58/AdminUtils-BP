@@ -1,5 +1,5 @@
 import { server } from "../server";
-import { database } from "../database/index";
+import { DB } from "../database/index";
 import { ActionButton, ActionForm, Divider, Form, Label, ModalElement, ModalForm, TextField, Toggle } from "./builder";
 import { UiIndex } from "./index";
 import { UiLoader } from "./uiLoader";
@@ -62,32 +62,32 @@ const config: ModalForm = {
             type: "toggle",
             inputId: "startupMsg",
             name: Translations.Ui.Settings.Config.Input1Name,
-            default: () => database.config.get("startupMsg")
+            default: () => DB.Config.get("startupMsg")
         } as Toggle,
         {
             type: "textField",
             inputId: "adminTag",
             name: Translations.Ui.Settings.Config.Input2Name,
             placeholder: "-auadmin",
-            default: () => database.config.get("adminTag")
+            default: () => DB.Config.get("adminTag")
         } as TextField,
         {
             type: "textField",
             inputId: "ownerTag",
             name: Translations.Ui.Settings.Config.Input3Name,
             placeholder: "owner",
-            default: () => database.config.get("ownerTag")
+            default: () => DB.Config.get("ownerTag")
         } as TextField
     ],
     submitText: "%ui.submitText.save",
     submit: (inputs, player, context) => {
-        database.config.assignMemory(inputs);
+        DB.Config.assignMemory(inputs);
         player.sendSuccess("%ui.saveSuccess");
         context.back();
     }
 };
 
-const manageAdmins: ActionForm = { //TODO ya no hacen falta los admins?
+const manageAdmins: ActionForm = { //TODO
     type: "action",
     title: Translations.Ui.Settings.Admins.Title,
     body: Translations.Ui.Settings.Admins.Body,

@@ -12,8 +12,10 @@ export class Database {
             console.warn(`[DATABASE]: '${this.tableName}' has improper setup. Wiping data.`);
             return this.wipe();
         }
-        if (chunksLength <= 0)
-            return this.memory = {};
+        if (chunksLength <= 0) {
+            this.memory = {};
+            return;
+        }
         let collectedData = "";
         for (let i = 0; i < chunksLength; i++) {
             const dataChunk = world.getDynamicProperty(`db_${this.tableName}_${i}`);
@@ -21,13 +23,20 @@ export class Database {
                 console.warn(`[DATABASE]: When fetching db_${this.tableName}_${i}, improper data was found. Wiping data.`);
                 return this.wipe();
             }
-            yield collectedData += dataChunk;
+            collectedData += dataChunk;
+            yield;
         }
         if (!collectedData.startsWith("{") || !collectedData.endsWith("}")) {
             console.warn(`[DATABASE]: When fetching '${this.tableName}', improper data was found. Wiping data.`);
             return this.wipe();
         }
-        yield this.memory = JSON.parse(collectedData);
+        try {
+            this.memory = JSON.parse(collectedData);
+        }
+        catch (e) {
+            console.warn(`[DATABASE]: Error parsing '${this.tableName}'s JSON. Wiping data.`);
+            return this.wipe();
+        }
     }
     saveData() {
         const chunks = JSON.stringify(this.memory).match(/.{1,30000}/g);
@@ -78,12 +87,16 @@ export class Database {
         return Object.values(this.memory);
     }
     assign(key, value, save = true) {
-        let data = this.get(key);
+        let data = this.memory[key];
         if (data === undefined) {
-            data = {};
-            this.memory[key] = data;
+            this.memory[key] = value;
         }
-        Object.assign(data, value);
+        else if (typeof data === "object" && data !== null && !Array.isArray(data)) {
+            Object.assign(data, value);
+        }
+        else {
+            this.memory[key] = value;
+        }
         if (save)
             this.saveData();
         return this;

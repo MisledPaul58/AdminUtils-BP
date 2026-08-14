@@ -86,7 +86,7 @@ class ActionUIForm extends UIForm {
         for (const element of resolveElement(this.form.elements)) {
             switch (element.type) {
                 case "button":
-                    if (element.permission && !server.permission.hasPermission(element.permission, context.player))
+                    if (element.permission && server.permission.hasPermission(element.permission, context.player, true) === false) // The "true" value here is important
                         continue;
                     const text = element.subText ? `${resolveElement(element.text)}\n§r§8[ §b§o${resolveElement(element.subText)}§r§8 ]` : resolveElement(element.text);
                     formData.button(text, element.icon);
@@ -316,7 +316,6 @@ export class UIManager {
      * @param wait
      * @returns True if the UI is found. False if the UI isn't found or the player is already in a UI.
      */
-    //TODO make this work with permissions!! Actually implement it while building the uis for a player!
     show(ui, player, wait = false) {
         if (this.displayingUI(player))
             return false;

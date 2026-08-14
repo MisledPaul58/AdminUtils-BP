@@ -1,5 +1,5 @@
 import { Translations } from "../../../utils/translations";
-import { database } from "../../../database/index";
+import { DB } from "../../../database/index";
 import { server } from "../../../server";
 import { ActionButton, ActionForm, Divider, Dropdown, Label, ModalForm, TextField, Toggle } from "../../builder";
 import { RawMessage, system } from "@minecraft/server";
@@ -13,7 +13,7 @@ export const permissions: ActionForm = {
     title: Translations.Ui.Plugins.Permissions.Title,
     elements: () => {
         // Permissions enabled
-        if (database.permissions.get("-auEnabled")) {
+        if (DB.Permissions.get("-auEnabled")) {
             return [
                 {
                     type: "button",
@@ -24,7 +24,7 @@ export const permissions: ActionForm = {
                         context.confirm(Translations.Ui.Plugins.Permissions.Title,
                             Translations.Ui.Plugins.Permissions.ConfirmDisableBody,
                             (context) => {
-                                database.permissions.set("-auEnabled", false);
+                                DB.Permissions.set("-auEnabled", false);
                                 context.back();
                             }
                         );
@@ -70,7 +70,7 @@ export const permissions: ActionForm = {
                         Translations.Ui.Plugins.Permissions.ConfirmEnableBody,
                         (context) => {
                             // Load plugin
-                            database.permissions.set("-auEnabled", true);
+                            DB.Permissions.set("-auEnabled", true);
                             system.runJob(server.permission.loadPlugin() as Generator<void, void, void>);
 
                             context.back();
@@ -151,9 +151,9 @@ export const addPermission: ModalForm = {
         {
             type: "dropdown",
             inputId: "permissionList",
-            name: Translations.Ui.Plugins.Permissions.PermissionList, //TODO make a global list, even with the permissions you manually create
+            name: Translations.Ui.Plugins.Permissions.PermissionList,
             items: context => {
-                return [""];
+                return server.permission.PERMISSIONS;
             }
         } as Dropdown
     ],

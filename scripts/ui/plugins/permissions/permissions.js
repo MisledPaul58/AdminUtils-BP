@@ -1,5 +1,5 @@
 import { Translations } from "../../../utils/translations";
-import { database } from "../../../database/index";
+import { DB } from "../../../database/index";
 import { server } from "../../../server";
 import { system } from "@minecraft/server";
 import { PermissionNode } from "../../../permissions/permissionNode";
@@ -8,7 +8,7 @@ export const permissions = {
     title: Translations.Ui.Plugins.Permissions.Title,
     elements: () => {
         // Permissions enabled
-        if (database.permissions.get("-auEnabled")) {
+        if (DB.Permissions.get("-auEnabled")) {
             return [
                 {
                     type: "button",
@@ -17,7 +17,7 @@ export const permissions = {
                     icon: "",
                     action: (context) => {
                         context.confirm(Translations.Ui.Plugins.Permissions.Title, Translations.Ui.Plugins.Permissions.ConfirmDisableBody, (context) => {
-                            database.permissions.set("-auEnabled", false);
+                            DB.Permissions.set("-auEnabled", false);
                             context.back();
                         });
                     }
@@ -57,7 +57,7 @@ export const permissions = {
                 action: (context) => {
                     context.confirm(Translations.Ui.Plugins.Permissions.Title, Translations.Ui.Plugins.Permissions.ConfirmEnableBody, (context) => {
                         // Load plugin
-                        database.permissions.set("-auEnabled", true);
+                        DB.Permissions.set("-auEnabled", true);
                         system.runJob(server.permission.loadPlugin());
                         context.back();
                     });
@@ -132,9 +132,9 @@ export const addPermission = {
         {
             type: "dropdown",
             inputId: "permissionList",
-            name: Translations.Ui.Plugins.Permissions.PermissionList, //TODO make a global list, even with the permissions you manually create
+            name: Translations.Ui.Plugins.Permissions.PermissionList,
             items: context => {
-                return [""];
+                return server.permission.PERMISSIONS;
             }
         }
     ],

@@ -3,8 +3,7 @@ import { Group } from "./group";
 import { WildcardProcessor } from "../calculator/wildcardProcessor";
 import { ChangeType, Difference } from "./difference";
 import { DirtyListener, PersistableEntity } from "../../utils/persistence/persistableEntity";
-import { database } from "../../database/index";
-import { DatabaseObject } from "../../database/database";
+import { DB } from "../../database/index";
 
 export enum HolderType {
     USER = "USER",
@@ -19,16 +18,14 @@ export interface BaseSerializedData {
     parents: string[];
 }
 
-export interface GroupSerializedData {
+export interface GroupSerializedData extends BaseSerializedData{
     displayName: string;
     weight: number;
 }
 
-export interface UserSerializedData {
+export interface UserSerializedData extends BaseSerializedData {
 
 }
-
-export type SerializedData = BaseSerializedData & (GroupSerializedData | UserSerializedData);
 
 export type Tristate = boolean | undefined;
 
@@ -235,7 +232,7 @@ export abstract class PermissionHolder extends PersistableEntity {
         return false;
     }
 
-    export(): SerializedData {
+    export(): GroupSerializedData | UserSerializedData {
         const permissions: { [key: string]: boolean } = {};
         const wildcards: { [key: string]: boolean } = {};
 
@@ -274,7 +271,8 @@ export abstract class PermissionHolder extends PersistableEntity {
             if (isInitialSave(this)) return initialSave(this);
 
             const keyType = this.getType() === HolderType.GROUP ? "groups" : "users";
-            const memory = (database.permissions.get(keyType) as DatabaseObject)[this.identifier] as unknown as SerializedData;
+            const allHolders = DB.Permissions.get(keyType) ?? {};
+            const memory = allHolders[this.identifier];
 
             // Apply any permission change
             for (const change of this.permissionChanges.getChanges()) {
@@ -289,9 +287,9 @@ export abstract class PermissionHolder extends PersistableEntity {
             // Apply any inheritance change
             for (const change of this.inheritanceChanges.getChanges()) {
                 if (change.type === ChangeType.ADD) {
-                    memory["parents"].push(change.value);
+                    memory.parents.push(change.value);
                 } else {
-                    memory["parents"].splice(memory["parents"].indexOf(change.value), 1);
+                    memory.parents.splice(memory.parents.indexOf(change.value), 1);
                 }
             }
 
@@ -299,9 +297,10 @@ export abstract class PermissionHolder extends PersistableEntity {
             if (this.metadataChanged) Object.assign(memory, this.getSpecificData());
 
             // Save and clear everything
-            const packedData = packData(memory, this.identifier);
+            DB.Permissions.assign(keyType, {
+                [this.identifier]: memory
+            });
 
-            database.permissions.assign(keyType, packedData as {});
             this.permissionChanges.clear();
             this.inheritanceChanges.clear();
             return true;
@@ -311,7 +310,7 @@ export abstract class PermissionHolder extends PersistableEntity {
         }
     }
 
-    *loadPermissionsFromData(data: SerializedData) {
+    *loadPermissionsFromData(data: GroupSerializedData | UserSerializedData) {
         for (const [permission, value] of Object.entries(data.permissions)) {
             const node = new PermissionNode(permission, value);
             yield this.nodeMap.set(permission, node);
@@ -323,7 +322,7 @@ export abstract class PermissionHolder extends PersistableEntity {
         }
     }
 
-    *loadParentsFromData(data: SerializedData, groupMap: Map<string, Group>) {
+    *loadParentsFromData(data: GroupSerializedData | UserSerializedData, groupMap: Map<string, Group>) {
         for (const groupId of data.parents) {
             const group = groupMap.get(groupId);
             if (group) {
@@ -333,29 +332,28 @@ export abstract class PermissionHolder extends PersistableEntity {
     }
 }
 
-function packData<T>(data: T, withKey: string) {
-    const packedData: { [key: string]: T } = {};
-    packedData[withKey] = data;
-    return packedData;
-}
-
 function isInitialSave(permissionHolder: PermissionHolder): boolean {
     const keyType = permissionHolder.getType() === HolderType.GROUP ? "groups" : "users";
-    return !(database.permissions.get(keyType) as DatabaseObject | undefined)?.[permissionHolder.identifier];
+
+    const data = DB.Permissions.get(keyType);
+    return !data?.[permissionHolder.identifier];
 }
 
 function initialSave(permissionHolder: PermissionHolder): boolean {
     const keyType = permissionHolder.getType() === HolderType.GROUP ? "groups" : "users";
-    const packedData = packData(permissionHolder.export(), permissionHolder.identifier);
 
-    database.permissions.assign(keyType, packedData as {});
+    const data: GroupSerializedData | UserSerializedData = permissionHolder.export();
+
+    DB.Permissions.assign(keyType, {
+        [permissionHolder.identifier]: data
+    });
 
     permissionHolder.permissionChanges.clear();
     permissionHolder.inheritanceChanges.clear();
     return true;
 }
 
-function addPermissionChange(memory: SerializedData, permissionNode: PermissionNode) {
+function addPermissionChange(memory: GroupSerializedData | UserSerializedData, permissionNode: PermissionNode) {
     const directory = permissionNode.isWildcard() ? "wildcards" : "permissions";
     if (typeof memory[directory] !== "object") {
         memory[directory] = {};

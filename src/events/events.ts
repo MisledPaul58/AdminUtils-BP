@@ -1,6 +1,6 @@
 import { server } from "../server";
 import { system, world } from "@minecraft/server";
-import { database } from "../database/index";
+import { DB } from "../database/index";
 import { Translations } from "../utils/translations";
 
 let worldReady = false;
@@ -16,18 +16,18 @@ system.runInterval(() => {
          * Emit to "ready" event.
          */
         server.emit("ready", { tickLoadTime: tickCount, msLoadTime });
-        database.loadData
+        DB.LoadData
             .set("ready", true, false)
             .set("lastTickLoadTime", tickCount, false)
             .set("lastMsLoadTime", msLoadTime, true);
 
-        const firstLoad = database.loadData.get("loadedAtLeastOnce");
+        const firstLoad = DB.LoadData.get("loadedAtLeastOnce");
         if (!firstLoad) {
             /**
              * Emit to "firstLoad" event.
              */
             server.emit("firstLoad");
-            database.loadData.set("loadedAtLeastOnce", true);
+            DB.LoadData.set("loadedAtLeastOnce", true);
 
         } else if (tickCount <= 5) server.sendCustomMessage(Translations.Msg.SystemReload, [msLoadTime.toString()]);
     }

@@ -9,6 +9,7 @@ import {
 import { Player, RawMessage, system, world } from "@minecraft/server";
 import { Translations, TranslationsType } from "../utils/translations";
 import { server } from "../server";
+import { PermissionManager } from "../permissions/permissionManager";
 
 export type FormData = ActionFormData | ModalFormData | MessageFormData;
 
@@ -87,10 +88,11 @@ export interface Button {
     action: UIAction<void>
 }
 
+export type PermissionType = (PermissionManager["PERMISSIONS"])[number];
 export interface ActionButton extends Button {
     subText?: DynamicElement<string>;
     icon?: string;
-    permission?: string;
+    permission?: PermissionType;
 }
 
 export type ActionElement = ActionButton | Header | Label | Divider;
@@ -225,7 +227,7 @@ class ActionUIForm extends UIForm { //TODO add only view buttons if you have a p
         for (const element of resolveElement(this.form.elements)) {
             switch (element.type) {
                 case "button":
-                    if (element.permission && !server.permission.hasPermission(element.permission, context.player))
+                    if (element.permission && server.permission.hasPermission(element.permission, context.player, true) === false) // The "true" value here is important
                         continue;
 
                     const text = element.subText ? `${resolveElement(element.text)}\n§r§8[ §b§o${resolveElement(element.subText)}§r§8 ]` : resolveElement(element.text);
@@ -394,7 +396,7 @@ class MessageUIForm extends UIForm {
     }
 }
 
-class MenuContext { //TODO hacer que si yo pongo un cancel que se overridee la ui anterior en el stack y utilice el cancel que le he puesto, lo mismo con el back
+class MenuContext {
     private stack: StackFrame[] = [];
     private data: ContextData = {};
     public readonly player: Player;
@@ -505,7 +507,6 @@ export class UIManager {
      * @param wait
      * @returns True if the UI is found. False if the UI isn't found or the player is already in a UI.
      */
-    //TODO make this work with permissions!! Actually implement it while building the uis for a player!
     show(ui: string, player: Player, wait: boolean = false): boolean {
         if (this.displayingUI(player)) return false;
 

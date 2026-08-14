@@ -1,5 +1,5 @@
 import { server } from "../server";
-import { database } from "../database/index";
+import { DB } from "../database/index";
 import { UiLoader } from "./uiLoader";
 import { Translations } from "../utils/translations";
 const mainSettings = {
@@ -50,26 +50,26 @@ const config = {
             type: "toggle",
             inputId: "startupMsg",
             name: Translations.Ui.Settings.Config.Input1Name,
-            default: () => database.config.get("startupMsg")
+            default: () => DB.Config.get("startupMsg")
         },
         {
             type: "textField",
             inputId: "adminTag",
             name: Translations.Ui.Settings.Config.Input2Name,
             placeholder: "-auadmin",
-            default: () => database.config.get("adminTag")
+            default: () => DB.Config.get("adminTag")
         },
         {
             type: "textField",
             inputId: "ownerTag",
             name: Translations.Ui.Settings.Config.Input3Name,
             placeholder: "owner",
-            default: () => database.config.get("ownerTag")
+            default: () => DB.Config.get("ownerTag")
         }
     ],
     submitText: "%ui.submitText.save",
     submit: (inputs, player, context) => {
-        database.config.assignMemory(inputs);
+        DB.Config.assignMemory(inputs);
         player.sendSuccess("%ui.saveSuccess");
         context.back();
     }

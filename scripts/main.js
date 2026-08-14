@@ -4,7 +4,7 @@
  */
 import { EffectTypes, EntityComponentTypes, GameMode, ItemComponentTypes, Player, system, TicksPerSecond, world } from "@minecraft/server";
 import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
-import { database } from "./database/index";
+import { DB } from "./database/index";
 import "./utils/players.js";
 import { server } from "./server";
 import "./events/events";
@@ -14,7 +14,7 @@ export const delay = ticks => new Promise(res => system.runTimeout(res, ticks));
 let overworld;
 let scoreboardsLoaded = false;
 let players = [];
-let admins = [];
+let admins = []; // Deprecated
 let stuckJailedPlayers = [];
 let invChests = [];
 system.beforeEvents.watchdogTerminate.subscribe(watchdog => {
@@ -23,11 +23,6 @@ system.beforeEvents.watchdogTerminate.subscribe(watchdog => {
 server.on("tick", async () => {
     overworld = world.getDimension("overworld");
     players = world.getAllPlayers();
-    try {
-        admins = [...world.scoreboard.getObjective('-au').getParticipants().map(admin => admin.displayName)];
-    }
-    catch (e) {
-    }
     if (scoreboardsLoaded === false) {
         try {
             world.scoreboard.addObjective('-au', '-au');
@@ -90,7 +85,7 @@ server.on("tick", async () => {
         catch (e) {
         }
         scoreboardsLoaded = true;
-        if (database.config.get("startupMsg")) {
+        if (DB.Config.get("startupMsg")) {
             system.runTimeout(() => {
                 world.sendMessage("%adminutils.startupMsg");
             }, 8 * TicksPerSecond);
@@ -238,8 +233,8 @@ server.on("tick", async () => {
             }
         }
     }
-    const ownerTag = database.config?.get("ownerTag");
-    const adminTag = database.config?.get("adminTag");
+    const ownerTag = DB.Config.get("ownerTag");
+    const adminTag = DB.Config.get("adminTag");
     for (const player of players) {
         if (typeof ownerTag === "string" && typeof adminTag === "string") {
             if (player.hasTag(ownerTag)) {
@@ -261,7 +256,9 @@ server.on("tick", async () => {
             if (player.hasTag(adminTag)) {
                 player.removeTag(adminTag);
                 try {
-                    world.scoreboard.getObjective("-au").setScore(`-au${player.name}-au`, 0);
+                    const admins = server.getAdmins();
+                    admins.push(player.name);
+                    DB.Server.set("admins", admins);
                     world.sendMessage(`§aThe player §b${player.name}§a has been added successfully as an admin.`);
                 }
                 catch (e) {
@@ -426,7 +423,7 @@ server.on("tick", async () => {
     }
 });
 world.beforeEvents.chatSend.subscribe(event => {
-    if (isAdmin(event.sender.name) && event.message.toLowerCase() === "-au") {
+    if (server.isAdmin(event.sender.name) && event.message.toLowerCase() === "-au") {
         event.cancel = true;
         const { sender } = event;
         system.run(() => {
@@ -639,7 +636,7 @@ world.beforeEvents.itemUse.subscribe(data => {
     if (isJailed(player.name)) {
         data.cancel = true;
     }
-    else if (data.itemStack.typeId === "au:wand" && isAdmin(player.name)) {
+    else if (data.itemStack.typeId === "au:wand" && server.isAdmin(player.name)) {
         system.run(() => {
             server.ui.show("mainMenu", player);
             player.playSound("au.menuOpen");
@@ -717,7 +714,7 @@ function adminSettings(p) {
                 { //Set an admin
                     setAnAdmin();
                     function setAnAdmin() {
-                        const nonAdmins = players.filter(player => !isAdmin(player.name)).map(player => player.name);
+                        const nonAdmins = players.filter(player => !server.isAdmin(player.name)).map(player => player.name);
                         const form = new ActionFormData()
                             .title("Admin settings: set an admin")
                             .body("Select an online player to set as an admin (all other admins will be deleted)")
@@ -749,7 +746,7 @@ function adminSettings(p) {
                                         p.sendMessage("§cError, the username you entered is invalid.");
                                         p.playSound("au.error");
                                     }
-                                    else if (isAdmin(player)) {
+                                    else if (server.isAdmin(player)) {
                                         p.sendMessage("§cError, the specified player is already an admin.");
                                         p.playSound("au.error");
                                     }
@@ -772,7 +769,7 @@ function adminSettings(p) {
                             }
                             else if (selection >= 2) {
                                 const selectedPlayer = nonAdmins[selection - 2];
-                                if (isAdmin(selectedPlayer)) {
+                                if (server.isAdmin(selectedPlayer)) {
                                     p.sendMessage("§cError, the selected player has recently been added as an admin by another user.");
                                     p.playSound("au.error");
                                 }
@@ -785,7 +782,7 @@ function adminSettings(p) {
                                         .show(p).then(result => {
                                         if (result.canceled || result.selection === 1)
                                             return setAnAdmin();
-                                        if (isAdmin(selectedPlayer)) {
+                                        if (server.isAdmin(selectedPlayer)) {
                                             p.sendMessage("§cError, the selected player has recently been added as an admin by another user.");
                                             p.playSound("au.error");
                                         }
@@ -815,7 +812,7 @@ function adminSettings(p) {
                 { //Add an admin
                     addAnAdmin();
                     function addAnAdmin() {
-                        const nonAdmins = players.filter(player => !isAdmin(player.name)).map(player => player.name);
+                        const nonAdmins = players.filter(player => !server.isAdmin(player.name)).map(player => player.name);
                         const form = new ActionFormData()
                             .title("Admin settings: add an admin")
                             .body("Select an online player to add as an admin")
@@ -847,7 +844,7 @@ function adminSettings(p) {
                                         p.sendMessage("§cError, the username you entered is invalid.");
                                         p.playSound("au.error");
                                     }
-                                    else if (isAdmin(player)) {
+                                    else if (server.isAdmin(player)) {
                                         p.sendMessage("§cError, the specified player is already an admin.");
                                         p.playSound("au.error");
                                     }
@@ -866,7 +863,7 @@ function adminSettings(p) {
                             }
                             else if (selection >= 2) {
                                 const selectedPlayer = nonAdmins[selection - 2];
-                                if (isAdmin(selectedPlayer)) {
+                                if (server.isAdmin(selectedPlayer)) {
                                     p.sendMessage("§cError, the selected player has recently been added as an admin by another user.");
                                     p.playSound("au.error");
                                 }
@@ -879,7 +876,7 @@ function adminSettings(p) {
                                         .show(p).then(result => {
                                         if (result.canceled || result.selection === 1)
                                             return addAnAdmin();
-                                        if (isAdmin(selectedPlayer)) {
+                                        if (server.isAdmin(selectedPlayer)) {
                                             p.sendMessage("§cError, the selected player has recently been added as an admin by another user.");
                                             p.playSound("au.error");
                                         }
@@ -937,7 +934,7 @@ function adminSettings(p) {
                                         p.sendMessage("§cError, the username you entered is invalid.");
                                         p.playSound("au.error");
                                     }
-                                    else if (!isAdmin(admin)) {
+                                    else if (!server.isAdmin(admin)) {
                                         p.sendMessage("§cError, the specified player is not an admin.");
                                         p.playSound("au.error");
                                     }
@@ -960,7 +957,7 @@ function adminSettings(p) {
                             }
                             else if (selection >= 2) {
                                 const selectedAdmin = locAdmins[selection - 2];
-                                if (!isAdmin(selectedAdmin)) {
+                                if (!server.isAdmin(selectedAdmin)) {
                                     p.sendMessage("§cError, the selected admin has recently been removed by another user.");
                                     p.playSound("au.error");
                                 }
@@ -977,7 +974,7 @@ function adminSettings(p) {
                                         .show(p).then(result => {
                                         if (result.canceled || result.selection === 1)
                                             return removeAnAdmin();
-                                        if (!isAdmin(selectedAdmin)) {
+                                        if (!server.isAdmin(selectedAdmin)) {
                                             p.sendMessage("§cError, the selected admin has recently been removed by another user.");
                                             p.playSound("au.error");
                                         }
@@ -1005,7 +1002,7 @@ function adminSettings(p) {
                 break;
             case 4:
                 { //Show admins
-                    if (!isAdmin(p.name)) {
+                    if (!server.isAdmin(p.name)) {
                         p.sendMessage("§cError, you have recently been removed from the admins by another user.");
                         p.playSound("au.error");
                     }
@@ -1601,7 +1598,7 @@ function banPlayer(p) {
     form.button("§l<-- Back", "textures/icons/back.png");
     form.button("Type an offline/online player instead", "textures/icons/pencil.png");
     for (const player of playersArray) {
-        if (!isBanned(player) && !isAdmin(player) && !isOwner(player)) {
+        if (!isBanned(player) && !server.isAdmin(player) && !isOwner(player)) {
             form.button(player, "textures/icons/steve_icon.png");
             notBannedPlayers.push(player);
         }
@@ -1643,7 +1640,7 @@ function banPlayer(p) {
                         p.sendMessage(`§cError, the specified player is already banned.`);
                         p.playSound("au.error");
                     }
-                    else if (isAdmin(player)) {
+                    else if (server.isAdmin(player)) {
                         p.sendMessage(`§cError, the specified player is an admin, cannot ban.`);
                         p.playSound("au.error");
                     }
@@ -1701,7 +1698,7 @@ function banPlayer(p) {
                         p.sendMessage(`§cError, the specified player is already banned.`);
                         p.playSound("au.error");
                     }
-                    else if (isAdmin(player)) {
+                    else if (server.isAdmin(player)) {
                         p.sendMessage(`§cError, the specified player is an admin, cannot ban.`);
                         p.playSound("au.error");
                     }
@@ -1763,7 +1760,7 @@ function banPlayer(p) {
                         p.sendMessage(`§cError, the selected player has recently been banned by another user.`);
                         p.playSound("au.error");
                     }
-                    else if (isAdmin(selectedPlayer)) {
+                    else if (server.isAdmin(selectedPlayer)) {
                         p.sendMessage(`§cError, the selected player has recently been set as an admin, cannot ban.`);
                         p.playSound("au.error");
                     }
@@ -1817,7 +1814,7 @@ function banPlayer(p) {
                         p.sendMessage(`§cError, the selected player has recently been banned by another user.`);
                         p.playSound("au.error");
                     }
-                    else if (isAdmin(selectedPlayer)) {
+                    else if (server.isAdmin(selectedPlayer)) {
                         p.sendMessage(`§cError, the selected player has recently been set as an admin, cannot ban.`);
                         p.playSound("au.error");
                     }
@@ -1991,7 +1988,7 @@ function jailPlayer(p) {
         form.button("Type an offline/online player instead", "textures/icons/pencil.png");
         for (const player of players.map(player => player.name)) {
             if (!isJailed(player)) {
-                if (!isAdmin(player) && !isOwner(player)) {
+                if (!server.isAdmin(player) && !isOwner(player)) {
                     form.button(player, "textures/icons/steve_icon.png");
                     availablePlayers.push(player);
                 }
@@ -2036,7 +2033,7 @@ function jailPlayer(p) {
                             p.sendMessage(`§cError, the specified player is currently banned.`);
                             p.playSound("au.error");
                         }
-                        else if (isAdmin(player)) {
+                        else if (server.isAdmin(player)) {
                             p.sendMessage(`§cError, the specified player is an admin, cannot jail.`);
                             p.playSound("au.error");
                         }
@@ -2140,7 +2137,7 @@ function jailPlayer(p) {
                             p.sendMessage(`§cError, the specified player is currently banned.`);
                             p.playSound("au.error");
                         }
-                        else if (isAdmin(player)) {
+                        else if (server.isAdmin(player)) {
                             p.sendMessage(`§cError, the specified player is an admin, cannot jail.`);
                             p.playSound("au.error");
                         }
@@ -2253,7 +2250,7 @@ function jailPlayer(p) {
                                 p.sendMessage(`§cError, the selected player has recently been banned by another user.`);
                                 p.playSound("au.error");
                             }
-                            else if (isAdmin(selectedPlayer)) {
+                            else if (server.isAdmin(selectedPlayer)) {
                                 p.sendMessage(`§cError, the selected player has recently been set as an admin, cannot jail.`);
                                 p.playSound("au.error");
                             }
@@ -2352,7 +2349,7 @@ function jailPlayer(p) {
                                 p.sendMessage(`§cError, the selected player has recently been banned by another user.`);
                                 p.playSound("au.error");
                             }
-                            else if (isAdmin(selectedPlayer)) {
+                            else if (server.isAdmin(selectedPlayer)) {
                                 p.sendMessage(`§cError, the selected player has recently been set as an admin, cannot jail.`);
                                 p.playSound("au.error");
                             }
@@ -3638,9 +3635,6 @@ export function isValidUsername(username) {
     else if (username.match(/^ | $/) === null && username.match(/[^A-Za-z0-9À-ÿ\u00f1\u00d1 \(\)]+/) === null && username !== "") {
         return true;
     }
-}
-function isAdmin(username) {
-    return admins.includes(`-au${username}-au`);
 }
 function isOwner(username) {
     return world.scoreboard.getObjective('-auOwner')?.getParticipants()[0]?.displayName === `-au${username}-au`;

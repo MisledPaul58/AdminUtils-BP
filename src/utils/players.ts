@@ -1,21 +1,21 @@
 import { world, Player, RawMessage, system } from "@minecraft/server";
-import { database } from "../database/index";
+import { DB } from "../database/index";
 import { TranslationsType } from "./translations";
 
 world.beforeEvents.playerLeave.subscribe(event => {
     const { player } = event;
-    let data = database.playerData.get(player.name) ?? {};
+    let data = DB.PlayerData.get(player.name) ?? {};
 
     data.lastDimension = player.dimension.id;
     data.lastLoc = player.location;
     data.lastGameMode = player.getGameMode();
 
-    database.playerData.set(player.name, data);
+    DB.PlayerData.set(player.name, data);
 
-    let freeCam = database.freeCam.get(player.name);
+    let freeCam = DB.Freecam.get(player.name);
     if (freeCam) {
         freeCam.autoChunkLoad.lastLoadLoc = {};
-        database.freeCam.set(player.name, freeCam);
+        DB.Freecam.set(player.name, freeCam);
     }
 });
 
@@ -43,7 +43,7 @@ Player.prototype.sendCustomMessage = function (msg: TranslationsType | string, a
         translate: msg,
         with: args
     };
-    this.sendMessage(['§l§cAU §6>>§r ', rawMessage]); //TODO change to §l§9AU §3>> or §l§3AU §9>>? And keep this one for the errors
+    this.sendMessage(['§l§cAU §6>>§r ', rawMessage]);
 };
 
 Player.prototype.sendSuccess = function (msg: TranslationsType | string, args?: string[]): void {
