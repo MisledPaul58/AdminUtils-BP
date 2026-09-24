@@ -1,8 +1,8 @@
 import { Translations } from "../../../utils/translations";
-import { DB } from "../../../database/index";
+import { DB } from "../../../database/databaseManager";
 import { server } from "../../../server";
 import { system } from "@minecraft/server";
-import { PermissionNode } from "../../../permissions/permissionNode";
+import { PermissionNode } from "../../../permissions/model/permissionNode";
 export const permissions = {
     type: "action",
     title: Translations.Ui.Plugins.Permissions.Title,
@@ -15,6 +15,7 @@ export const permissions = {
                     text: Translations.Ui.General.StateEnabled,
                     subText: Translations.Ui.General.SubTextToggle,
                     icon: "",
+                    permission: "ui.plugins.permissions.toggle",
                     action: (context) => {
                         context.confirm(Translations.Ui.Plugins.Permissions.Title, Translations.Ui.Plugins.Permissions.ConfirmDisableBody, (context) => {
                             DB.Permissions.set("-auEnabled", false);
@@ -26,6 +27,7 @@ export const permissions = {
                     type: "button",
                     text: Translations.Ui.Plugins.Permissions.Groups,
                     icon: "",
+                    permission: "ui.plugins.permissions.groups",
                     action: (context) => {
                         context.goTo("groups");
                     }
@@ -34,6 +36,7 @@ export const permissions = {
                     type: "button",
                     text: Translations.Ui.Plugins.Permissions.Users,
                     icon: "",
+                    permission: "ui.plugins.permissions.users",
                     action: (context) => {
                         context.goTo("users");
                     }
@@ -54,6 +57,7 @@ export const permissions = {
                 text: Translations.Ui.General.StateDisabled,
                 subText: Translations.Ui.General.SubTextToggle,
                 icon: "",
+                permission: "ui.plugins.permissions.toggle",
                 action: (context) => {
                     context.confirm(Translations.Ui.Plugins.Permissions.Title, Translations.Ui.Plugins.Permissions.ConfirmEnableBody, (context) => {
                         // Load plugin
@@ -80,6 +84,7 @@ export const managePermissions = {
                 type: "button",
                 text: "%plugins.permissions.generic.addNewPermission",
                 icon: "",
+                permission: "ui.plugins.permissions.genericHolder.managePermissions.addPerm",
                 action: context => {
                     context.goTo("addPermission");
                 }
@@ -92,6 +97,7 @@ export const managePermissions = {
                 text: `§l${permission.permission}`,
                 subText: (context) => `%plugins.permissions.value: ${permission.value ? "%plugins.permissions.true" : "%plugins.permissions.false"}`,
                 icon: "",
+                permission: "ui.plugins.permissions.genericHolder.managePermissions.permission",
                 action: (context) => {
                     context.setData("selectedPermNode", permission);
                     context.goTo("editPermission");
@@ -113,7 +119,7 @@ export const addPermission = {
         {
             type: "textField",
             inputId: "permission",
-            placeholder: "e.g. au.banSys.*",
+            placeholder: "e.g. ui.settings or 3",
             name: Translations.Ui.Plugins.Permissions.AddPermissionName
         },
         {
@@ -130,17 +136,25 @@ export const addPermission = {
             type: "divider",
         },
         {
-            type: "dropdown",
-            inputId: "permissionList",
-            name: Translations.Ui.Plugins.Permissions.PermissionList,
-            items: context => {
-                return server.permission.PERMISSIONS;
+            type: "label",
+            text: context => {
+                let list = server.permission.PERMISSIONS.map((permission, index) => {
+                    return `${index + 1} ` + permission;
+                }).join("\n");
+                return list;
             }
         }
     ],
     submitText: Translations.Ui.Plugins.Permissions.AddPermissionSubmit,
     submit: (inputs, player, context) => {
-        const { permission, value } = inputs;
+        let permission = inputs.permission;
+        const { value } = inputs;
+        const index = Number(permission);
+        if (!Number.isNaN(index)) {
+            const selectedPerm = server.permission.PERMISSIONS[index - 1];
+            if (selectedPerm)
+                permission = selectedPerm;
+        }
         if (!server.permission.isValidPermission(permission))
             return player.sendError(Translations.Msg.Permissions.InvalidPermission);
         const permissionHolder = context.getData("selectedPHolder");
@@ -164,11 +178,19 @@ export const editPermission = {
         if (!node)
             throw Error("The selected permission couldn't be found.");
         return [
+            {
+                type: "label",
+                text: { translate: "plugins.permissions.editPermissionLabel", with: [node.permission] }
+            },
+            {
+                type: "divider"
+            },
             // Toggle value
             {
                 type: "button",
                 text: `§l%plugins.permissions.value:§r ${node.value ? "%plugins.permissions.true" : "%plugins.permissions.false"}`,
                 subText: "%ui.subText.toggle",
+                permission: "ui.plugins.permissions.genericHolder.managePermissions.permission.toggle",
                 action: context1 => {
                     try {
                         const holder = context.getData("selectedPHolder");
@@ -195,6 +217,7 @@ export const editPermission = {
             {
                 type: "button",
                 text: "%plugins.permissions.deletePermission",
+                permission: "ui.plugins.permissions.genericHolder.managePermissions.permission.delete",
                 action: context1 => {
                     const holder = context.getData("selectedPHolder");
                     if (!holder) {

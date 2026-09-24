@@ -1,4 +1,3 @@
-import { adminUtils } from "../main";
 import { ActionButton, ActionForm, Form } from "./builder";
 import { UiIndex } from "./index";
 import { UiLoader } from "./uiLoader";
@@ -13,7 +12,7 @@ const mainMenu: ActionForm = {
             text: Translations.Ui.MainMenu.Button1Text,
             subText: Translations.Ui.General.SubTextOpen,
             icon: "textures/icons/settings1.png",
-            permission: "settings",
+            permission: "ui.settings",
             action: (context) => {
                 context.goTo("mainSettings");
             }
@@ -23,9 +22,9 @@ const mainMenu: ActionForm = {
             text: Translations.Ui.MainMenu.Button2Text,
             subText: Translations.Ui.General.SubTextOpen,
             icon: "textures/icons/adminUtils.png",
-            permission: "au",
-            action: (_, player) => {
-                adminUtils(player);
+            permission: "ui.au",
+            action: (context) => {
+                context.goTo("auMain");
             }
         } as ActionButton,
         {
@@ -33,7 +32,7 @@ const mainMenu: ActionForm = {
             text: Translations.Ui.MainMenu.Button3Text,
             subText: Translations.Ui.General.SubTextOpen,
             icon: "",
-            permission: "plugins",
+            permission: "ui.plugins",
             action: (context) => {
                 context.goTo("pluginsMain");
             }

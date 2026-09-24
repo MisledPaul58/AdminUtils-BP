@@ -1,5 +1,5 @@
 import { world, Player } from "@minecraft/server";
-import { DB } from "../database/index";
+import { DB } from "../database/databaseManager";
 world.beforeEvents.playerLeave.subscribe(event => {
     const { player } = event;
     let data = DB.PlayerData.get(player.name) ?? {};

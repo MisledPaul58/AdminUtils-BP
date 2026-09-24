@@ -86,7 +86,7 @@ class ActionUIForm extends UIForm {
         for (const element of resolveElement(this.form.elements)) {
             switch (element.type) {
                 case "button":
-                    if (element.permission && server.permission.hasPermission(element.permission, context.player, true) === false) // The "true" value here is important
+                    if (element.permission && server.permission.hasPermission(element.permission, context.player, true) === false) // The "true" value here is important. Only skip the button if the permission value is false, not undefined
                         continue;
                     const text = element.subText ? `${resolveElement(element.text)}\n§r§8[ §b§o${resolveElement(element.subText)}§r§8 ]` : resolveElement(element.text);
                     formData.button(text, element.icon);
@@ -259,18 +259,20 @@ class MenuContext {
                 previousFrame = this.stack.pop();
             }
         }
+        const currentForm = currentFrame?.form;
+        if (currentForm instanceof ActionUIForm && currentForm.form.back) {
+            // Override previous form
+            const backForm = UIForm.resolve(currentForm.form.back, this);
+            return this.goTo(backForm);
+        }
         if (!currentFrame || !previousFrame)
             return;
-        const currentForm = currentFrame.form;
         const previousForm = previousFrame.form;
         this.data = { ...previousFrame.data };
         if (currentForm instanceof ActionUIForm) {
             if (!currentForm.form.back) {
                 return this.goTo(previousForm.id);
             }
-            // Override previous form
-            const backForm = UIForm.resolve(currentForm.form.back, this);
-            return this.goTo(backForm);
         }
         return this.goTo(previousForm.id);
     }

@@ -22,6 +22,7 @@ export const users: ActionForm = {
                 type: "button",
                 text: user.identifier,
                 subText: "%ui.subText.manage",
+                permission: "ui.plugins.permissions.users.manageUsers",
                 action: context => {
                     context.setData("selectedUser", user);
                     context.goTo("userConfig");
@@ -43,6 +44,7 @@ export const users: ActionForm = {
                 type: "button",
                 text: user.identifier,
                 subText: "%ui.subText.manage",
+                permission: "ui.plugins.permissions.users.manageUsers",
                 action: context => {
                     context.setData("selectedUser", user);
                     context.goTo("userConfig");
@@ -64,6 +66,7 @@ export const userConfig: ActionForm = {
         {
             type: "button",
             text: "%plugins.permissions.managePermissions",
+            permission: "ui.plugins.permissions.users.manageUsers.managePermissions",
             action: context => {
                 context.setData("selectedPHolder", context.getData("selectedUser") as User);
                 context.goTo("managePermissions")
@@ -72,6 +75,7 @@ export const userConfig: ActionForm = {
         {
             type: "button",
             text: "%plugins.permissions.manageInheritance",
+            permission : "ui.plugins.permissions.users.manageUsers.manageInheritance",
             action: context => {
                 context.setData("selectedPHolder", context.getData("selectedUser") as User);
                 context.goTo("manageInheritance");

@@ -1,5 +1,5 @@
 import { Translations } from "../../utils/translations";
-import { DB } from "../../database/index";
+import { DB } from "../../database/databaseManager";
 import { ActionButton, ActionForm, Form } from "../builder";
 import { UiIndex } from "../index";
 
@@ -12,6 +12,7 @@ const pluginsMain: ActionForm = {
             text: () => DB.Permissions.get("-auEnabled") ? `§l§a${Translations.Ui.Plugins.Main.PermissionsButtonText}§r` : `§c${Translations.Ui.Plugins.Main.PermissionsButtonText}§r`,
             subText: Translations.Ui.General.SubTextManage,
             icon: "",
+            permission: "ui.plugins.permissions",
             action: (context) => {
                 context.goTo("permissions");
             }

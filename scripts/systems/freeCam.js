@@ -1,9 +1,9 @@
 import { EasingType, TicksPerSecond, system, world, GameMode } from "@minecraft/server";
 import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
-import { adminUtils, areObjectsEqual, delay, isValidUsername, toDimId, toFancyDim } from "../main";
+import { areObjectsEqual, delay, isValidUsername, toDimId, toFancyDim } from "../main";
 import { server } from "../server";
 import Utils from "../utils/utils";
-import { DB, DBManager } from "../database/index";
+import { DB, DBManager } from "../database/databaseManager";
 import moment from "../utils/moment/moment";
 class FreeCam {
     init(p) {
@@ -24,7 +24,7 @@ class FreeCam {
             const { selection } = response;
             switch (selection) {
                 case 0: //Back
-                    adminUtils(p);
+                    server.ui.show("auMain", p);
                     break;
                 case extraButton:
                     this.#manageFreeCamGUI(p);

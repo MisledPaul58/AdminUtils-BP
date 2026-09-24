@@ -1,6 +1,6 @@
 import { server } from "../server";
 import { system, world } from "@minecraft/server";
-import { DB } from "../database/index";
+import { DB } from "../database/databaseManager";
 import { Translations } from "../utils/translations";
 
 let worldReady = false;

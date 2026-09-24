@@ -12,6 +12,7 @@ export const manageInheritance = {
             {
                 type: "button",
                 text: "%plugins.permissions.inheritance.addNewParent",
+                permission: "ui.plugins.permissions.genericHolder.manageInheritance.addParent",
                 action: context => {
                     context.goTo("addParent");
                 }
@@ -23,6 +24,7 @@ export const manageInheritance = {
                 type: "button",
                 text: parent.displayName,
                 icon: "",
+                permission: "ui.plugins.permissions.genericHolder.manageInheritance.parent",
                 action: context1 => {
                     context1.setData("selectedParent", parent);
                     context1.goTo("manageSelectedParent");
@@ -72,6 +74,7 @@ export const manageSelectedParent = {
         {
             type: "button",
             text: "%plugins.permissions.inheritance.editGroup",
+            permission: "ui.plugins.permissions.genericHolder.manageInheritance.parent.edit",
             action: context => {
                 context.setData("selectedGroup", context.getData("selectedParent"));
                 // context.back(3);
@@ -81,6 +84,7 @@ export const manageSelectedParent = {
         {
             type: "button",
             text: "%plugins.permissions.inheritance.removeParent",
+            permission: "ui.plugins.permissions.genericHolder.manageInheritance.parent.remove",
             action: context => {
                 const parent = context.getData("selectedParent");
                 const currentHolder = context.getData("selectedPHolder");

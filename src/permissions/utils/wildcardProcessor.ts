@@ -31,4 +31,12 @@ export class WildcardProcessor {
         }
         return false;
     }
+
+    public static getIncludedPermissions(wildcard: string, permissions: Iterable<string>): string[] {
+        const includedPermissions: string[] = [];
+        for (const permission of permissions) {
+            if (this.includesPermission(wildcard, permission)) includedPermissions.push(permission);
+        }
+        return includedPermissions;
+    }
 }

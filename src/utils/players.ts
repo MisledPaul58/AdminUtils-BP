@@ -1,5 +1,5 @@
 import { world, Player, RawMessage, system } from "@minecraft/server";
-import { DB } from "../database/index";
+import { DB } from "../database/databaseManager";
 import { TranslationsType } from "./translations";
 
 world.beforeEvents.playerLeave.subscribe(event => {

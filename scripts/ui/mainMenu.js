@@ -1,4 +1,3 @@
-import { adminUtils } from "../main";
 import { UiLoader } from "./uiLoader";
 import { Translations } from "../utils/translations";
 const mainMenu = {
@@ -10,7 +9,7 @@ const mainMenu = {
             text: Translations.Ui.MainMenu.Button1Text,
             subText: Translations.Ui.General.SubTextOpen,
             icon: "textures/icons/settings1.png",
-            permission: "settings",
+            permission: "ui.settings",
             action: (context) => {
                 context.goTo("mainSettings");
             }
@@ -20,9 +19,9 @@ const mainMenu = {
             text: Translations.Ui.MainMenu.Button2Text,
             subText: Translations.Ui.General.SubTextOpen,
             icon: "textures/icons/adminUtils.png",
-            permission: "au",
-            action: (_, player) => {
-                adminUtils(player);
+            permission: "ui.au",
+            action: (context) => {
+                context.goTo("auMain");
             }
         },
         {
@@ -30,7 +29,7 @@ const mainMenu = {
             text: Translations.Ui.MainMenu.Button3Text,
             subText: Translations.Ui.General.SubTextOpen,
             icon: "",
-            permission: "plugins",
+            permission: "ui.plugins",
             action: (context) => {
                 context.goTo("pluginsMain");
             }

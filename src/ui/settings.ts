@@ -1,9 +1,10 @@
 import { server } from "../server";
-import { DB } from "../database/index";
+import { DB } from "../database/databaseManager";
 import { ActionButton, ActionForm, Divider, Form, Label, ModalElement, ModalForm, TextField, Toggle } from "./builder";
 import { UiIndex } from "./index";
 import { UiLoader } from "./uiLoader";
 import { Translations } from "../utils/translations";
+import { world } from "@minecraft/server";
 
 const mainSettings: ActionForm = {
     type: "action",
@@ -12,6 +13,7 @@ const mainSettings: ActionForm = {
         {
             type: "button",
             text: "%settings.main.resetConfig",
+            permission: "ui.settings.resetConfig",
             action: context => {
                 context.confirm(
                     "%settings.main.resetConfig",
@@ -29,6 +31,7 @@ const mainSettings: ActionForm = {
             text: Translations.Ui.Settings.Main.Config,
             subText: Translations.Ui.General.SubTextEdit,
             icon: "textures/icons/settings1.png",
+            permission: "ui.settings.config",
             action: (context) => {
                 context.goTo("config");
             }
@@ -38,9 +41,20 @@ const mainSettings: ActionForm = {
         } as Divider,
         {
             type: "button",
+            text: "%settings.main.admins",
+            subText: "%ui.subText.manage",
+            icon: "textures/icons/admin.png",
+            permission: "ui.settings.admins",
+            action: context => {
+                context.goTo("manageAdmins");
+            }
+        } as ActionButton,
+        {
+            type: "button",
             text: Translations.Ui.Settings.Main.Database,
             subText: Translations.Ui.General.SubTextManage,
             icon: "textures/icons/settings2.png",
+            permission: "ui.settings.database",
             action: (context, player) => {
                 context.confirm(
                     "Database",
@@ -87,28 +101,93 @@ const config: ModalForm = {
     }
 };
 
-const manageAdmins: ActionForm = { //TODO
+const manageAdmins: ActionForm = {
     type: "action",
-    title: Translations.Ui.Settings.Admins.Title,
-    body: Translations.Ui.Settings.Admins.Body,
+    title: "%settings.admins.title",
     elements: [
         {
             type: "button",
-            text: Translations.Ui.Settings.Admins.Button1Text,
-            icon: "",
-            action: () => {
-
+            text: "%settings.admins.add",
+            icon: "textures/icons/add.png",
+            action: (context) => {
+                context.goTo("addAdmin");
             }
-        } as ActionButton
+        } as ActionButton,
+        {
+            type: "button",
+            text: "%settings.admins.remove",
+            icon: "textures/icons/delete.png",
+            action: (context) => {
+                context.goTo("removeAdmin");
+            }
+        } as ActionButton,
+        {
+            type: "button",
+            text: "%settings.admins.showAll",
+            icon: "textures/icons/users.png",
+            action: (context) => {
+                context.goTo("showAdmins");
+            }
+        } as ActionButton,
     ]
 };
 
-class AdminSettingsLoader extends UiLoader {
+const addAdmin: ActionForm = {
+    type: "action",
+    title: "%settings.admins.add",
+    elements: (context) => {
+        const buttons: ActionButton[] = [
+            {
+                type: "button",
+                text: "%ui.typePlayer",
+                icon: "textures/icons/pencil.png",
+                action: (context) => {
+
+                }
+            } as ActionButton
+        ];
+
+        for (const player of world.getAllPlayers()) {
+            if (server.isAdmin(player.name)) continue;
+            buttons.push({
+                type: "button",
+                text: player.name,
+                icon: "textures/icons/user.png",
+                action: () => {
+                    context.confirm();
+                }
+            } as ActionButton);
+        }
+
+        return buttons;
+    }
+};
+
+const removeAdmin: ActionForm = {
+    type: "action",
+    title: "%settings.admins.remove",
+    elements: (context) => {
+
+    }
+};
+
+const showAdmins: ActionForm = {
+    type: "action",
+    title: "%settings.admins.showAll",
+    elements: (context) => {
+
+    }
+};
+
+class SettingsLoader extends UiLoader {
     uiIndex: UiIndex = {
         mainSettings,
         config,
-        manageAdmins
+        manageAdmins,
+        addAdmin,
+        removeAdmin,
+        showAdmins
     };
 }
 
-export const adminSettingsLoader = new AdminSettingsLoader();
+export const settingsLoader = new SettingsLoader();

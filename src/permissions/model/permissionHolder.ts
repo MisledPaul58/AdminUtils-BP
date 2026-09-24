@@ -1,9 +1,9 @@
-import { PermissionNode } from "../permissionNode";
+import { PermissionNode } from "./permissionNode";
 import { Group } from "./group";
-import { WildcardProcessor } from "../calculator/wildcardProcessor";
-import { ChangeType, Difference } from "./difference";
+import { WildcardProcessor } from "../utils/wildcardProcessor";
+import { ChangeType, Difference } from "../utils/difference";
 import { DirtyListener, PersistableEntity } from "../../utils/persistence/persistableEntity";
-import { DB } from "../../database/index";
+import { DB } from "../../database/databaseManager";
 
 export enum HolderType {
     USER = "USER",
@@ -100,7 +100,7 @@ export abstract class PermissionHolder extends PersistableEntity {
         if (wildcard) {
             const result = wildcard.value;
             // Save in cache
-            this.cache.set(wildcard.permission, result);
+            this.cache.set(permission, result);
             return result;
         }
 
@@ -117,7 +117,6 @@ export abstract class PermissionHolder extends PersistableEntity {
         }
         const resolvedValue = highestPermission.value;
         if (resolvedValue !== undefined) {
-            this.cache.set(permission, resolvedValue);
             return resolvedValue;
         }
 
@@ -145,7 +144,10 @@ export abstract class PermissionHolder extends PersistableEntity {
 
         if (permissionNode.isWildcard()) {
             this.wildcardMap.set(permission, permissionNode);
-            this.cache.clear();
+            // Reset the cache for all the affected permissions by the wildcard
+            WildcardProcessor.getIncludedPermissions(permission, this.cache.keys()).forEach(includedPermission => {
+                this.cache.delete(includedPermission);
+            });
         } else {
             this.nodeMap.set(permission, permissionNode);
             this.cache.set(permission, permissionNode.value);
@@ -164,6 +166,9 @@ export abstract class PermissionHolder extends PersistableEntity {
 
         } else if (this.wildcardMap.has(permission)) {
             node = this.wildcardMap.get(permission)!;
+            WildcardProcessor.getIncludedPermissions(permission, this.cache.keys()).forEach(includedPermission => {
+                this.cache.delete(includedPermission);
+            });
             this.wildcardMap.delete(permission);
 
         } else return false;
@@ -178,7 +183,7 @@ export abstract class PermissionHolder extends PersistableEntity {
         if (this.inheritanceMap.has(parent.identifier) || !this.isNewParentValid(parent)) return false;
 
         this.inheritanceMap.set(parent.identifier, parent);
-        this.inheritanceChanges.recordChange(ChangeType.ADD, parent.identifier); // Clearing cache shouldn't be necessary
+        this.inheritanceChanges.recordChange(ChangeType.ADD, parent.identifier);
         this.markDirty();
 
         return true;
@@ -186,7 +191,6 @@ export abstract class PermissionHolder extends PersistableEntity {
 
     removeParent(parent: Group): boolean {
         if (this.inheritanceMap.delete(parent.identifier)) {
-            this.cache.clear();
             this.inheritanceChanges.recordChange(ChangeType.REMOVE, parent.identifier);
             this.markDirty();
             return true;
@@ -220,9 +224,7 @@ export abstract class PermissionHolder extends PersistableEntity {
     }
 
     *getDirectParents(): Generator<Group> {
-        for (const group of this.inheritanceMap.values()) {
-            yield group;
-        }
+        yield* this.inheritanceMap.values();
     }
 
     isChildOf(parent: Group): boolean {

@@ -2,7 +2,7 @@ import { Group } from "./model/group";
 import { User } from "./model/user";
 import { PlayerPermissionLevel, world } from "@minecraft/server";
 import { Translations } from "../utils/translations";
-import { DB } from "../database/index";
+import { DB } from "../database/databaseManager";
 import { server } from "../server";
 export var PermissionCheckError;
 (function (PermissionCheckError) {
@@ -15,9 +15,43 @@ export class PermissionManager {
     PERMISSIONS = [
         "adminWand",
         "adminMenuCmd",
-        "settings",
-        "au",
-        "plugins"
+        "ui.settings",
+        "ui.settings.resetConfig",
+        "ui.settings.config",
+        "ui.settings.admins",
+        "ui.settings.database",
+        "ui.au",
+        "ui.au.ban",
+        "ui.au.jail",
+        "ui.au.vanish",
+        "ui.au.freeze",
+        "ui.au.seeInv",
+        "ui.au.freecam",
+        "ui.au.projectilePowers",
+        "ui.au.kill",
+        "ui.au.launch",
+        "ui.plugins",
+        "ui.plugins.permissions",
+        "ui.plugins.permissions.toggle",
+        "ui.plugins.permissions.groups",
+        "ui.plugins.permissions.groups.createNew",
+        "ui.plugins.permissions.groups.manageGroups",
+        "ui.plugins.permissions.groups.manageGroups.editProperties",
+        "ui.plugins.permissions.groups.manageGroups.managePermissions",
+        "ui.plugins.permissions.groups.manageGroups.manageInheritance",
+        "ui.plugins.permissions.groups.manageGroups.deleteGroup",
+        "ui.plugins.permissions.users",
+        "ui.plugins.permissions.users.manageUsers",
+        "ui.plugins.permissions.users.manageUsers.managePermissions",
+        "ui.plugins.permissions.users.manageUsers.manageInheritance",
+        "ui.plugins.permissions.genericHolder.managePermissions.addPerm",
+        "ui.plugins.permissions.genericHolder.managePermissions.permission",
+        "ui.plugins.permissions.genericHolder.managePermissions.permission.toggle",
+        "ui.plugins.permissions.genericHolder.managePermissions.permission.delete",
+        "ui.plugins.permissions.genericHolder.manageInheritance.addParent",
+        "ui.plugins.permissions.genericHolder.manageInheritance.parent",
+        "ui.plugins.permissions.genericHolder.manageInheritance.parent.edit",
+        "ui.plugins.permissions.genericHolder.manageInheritance.parent.remove"
     ];
     constructor(autoSaveManager) {
         this.autoSave = autoSaveManager;

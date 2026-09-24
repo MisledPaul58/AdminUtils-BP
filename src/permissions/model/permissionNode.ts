@@ -1,4 +1,4 @@
-import { WildcardProcessor } from "./calculator/wildcardProcessor";
+import { WildcardProcessor } from "../utils/wildcardProcessor";
 
 export interface SerializedPermissionNode {
     permission: string;

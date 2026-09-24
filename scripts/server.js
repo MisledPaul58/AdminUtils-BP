@@ -1,6 +1,6 @@
 import { UIManager } from "./ui/builder";
 import { defaultConfig } from "./config/defaultConfig";
-import { DB, DBManager } from "./database/index";
+import { DB, DBManager } from "./database/databaseManager";
 import { EventEmitter } from "./events/eventEmitter";
 import { world, system } from "@minecraft/server";
 import { PermissionManager } from "./permissions/permissionManager";

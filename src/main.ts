@@ -16,7 +16,7 @@ import {
     Entity
 } from "@minecraft/server";
 import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
-import { DB } from "./database/index";
+import { DB } from "./database/databaseManager";
 import "./utils/players.js";
 import { server } from "./server";
 import "./events/events";
@@ -1072,147 +1072,7 @@ export function adminUtils(p) {
             }
                 break;
             case 4: { //Freeze or unfreeze a player
-                freezeUnfreeze();
-
-                function freezeUnfreeze() {
-                    const form = new ActionFormData()
-                        .title("Freeze or unfreeze a player")
-                        .body("Select an option")
-                        .button("§l<-- Back", "textures/icons/back.png")
-                        .button("Freeze a player", "textures/icons/freeze.png")
-                        .button("Unfreeze a player", "textures/icons/unFreeze.png");
-                    form.show(p).then((response) => {
-                        if (response.selection === 0) {
-                            adminUtils(p);
-                        } else if (response.selection === 1) {
-                            freezePlayer();
-
-                            function freezePlayer() {
-                                const locPlayers = players.filter(player => !isFrozen(player.name));
-                                const form = new ActionFormData()
-                                    .title("Freeze a player")
-                                    .body("Select an online player to freeze.\nIf you don't see someone here, it means they're already frozen.")
-                                    .button("§l<-- Back", "textures/icons/back.png")
-                                    .button("Type an offline/online player manually instead", "textures/icons/pencil.png");
-                                for (const player of locPlayers) {
-                                    form.button(player.name, "textures/icons/steve_icon.png");
-                                }
-
-                                form.show(p).then((response) => {
-                                    if (response.selection === 0) {
-                                        freezeUnfreeze();
-                                    } else if (response.selection === 1) {
-                                        const form = new ModalFormData()
-                                            .title("Freeze a player")
-                                            .textField("Type below the player you would like to freeze. In case the player is offline, they will get frozen as soon as they join the world.", "Player's name");
-                                        form.show(p).then(async result => {
-                                            if (result.canceled === true) return freezePlayer();
-                                            const playerName = result.formValues[0];
-                                            if (!isValidUsername(playerName)) {
-                                                p.sendMessage('§cError, the username you entered is invalid.');
-                                                p.playSound("au.error");
-
-                                            } else if (isFrozen(playerName)) {
-                                                p.sendMessage('§cError, the player is already frozen.');
-                                                p.playSound("au.error");
-
-                                            } else {
-                                                try {
-                                                    const query = {
-                                                        name: playerName
-                                                    };
-                                                    const selectedPlayer = [...world.getPlayers(query)][0];
-                                                    if (selectedPlayer !== undefined) {
-                                                        p.runCommand(`scoreboard players set "-auname${playerName} -au${selectedPlayer.location.x} -au${selectedPlayer.location.y} -au${selectedPlayer.location.z}" -auFrozen 0`);
-                                                        p.sendMessage(`§aThe player §b${playerName}§a has been successfully frozen.`);
-                                                        p.playSound("au.success");
-                                                    } else {
-                                                        p.runCommand(`scoreboard players set "-auname${playerName} -au+ -au+ -au+" -auFrozen 0`);
-                                                        p.sendMessage(`§aThe player §b${playerName}§a has been successfully frozen.`);
-                                                        p.playSound("au.success");
-                                                    }
-                                                } catch (e) {
-                                                    p.sendMessage(`§cError, the player couldn't be frozen.`);
-                                                    p.playSound("au.error");
-                                                }
-                                            }
-                                        });
-                                    } else if (response.selection >= 2) {
-                                        const selectedPlayer = locPlayers[response.selection - 2];
-                                        const form = new MessageFormData()
-                                            .title("Freeze a player")
-                                            .body(`Are you sure you want to freeze §b${selectedPlayer.name}§r?`)
-                                            .button1("Yes")
-                                            .button2("No");
-                                        form.show(p).then(async result => {
-                                            if (result.canceled || result.selection === 1) return freezePlayer();
-
-                                            if (isFrozen(selectedPlayer.name)) {
-                                                p.sendMessage("§cError, the selected player has recently been frozen by another user.");
-                                                p.playSound("au.error");
-
-                                            } else {
-                                                try {
-                                                    selectedPlayer.dimension.runCommand(`scoreboard players set "-auname${selectedPlayer.name} -au${selectedPlayer.location.x} -au${selectedPlayer.location.y} -au${selectedPlayer.location.z}" -auFrozen 0`);
-                                                    p.sendMessage(`§aThe player §b${selectedPlayer.name}§a has been successfully frozen.`);
-                                                    p.playSound("au.success");
-                                                } catch (e) {
-                                                    p.sendMessage(`§cError, the player couldn't be frozen.`);
-                                                    p.playSound("au.error");
-                                                }
-                                            }
-                                        });
-                                    }
-                                });
-                            }
-                        } else if (response.selection === 2) {
-                            unFreezePlayer();
-
-                            function unFreezePlayer() {
-                                const frozenPlayers = [...world.scoreboard.getObjective('-auFrozen').getParticipants().map(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1])];
-                                const form = new ActionFormData()
-                                    .title("Unfreeze a player")
-                                    .body("Select an online/offline frozen player to unfreeze")
-                                    .button("§l<-- Back", "textures/icons/back.png");
-                                for (const player of frozenPlayers) {
-                                    form.button(player, "textures/icons/steve_icon.png");
-                                }
-
-                                form.show(p).then((response) => {
-                                    if (response.selection === 0) {
-                                        freezeUnfreeze();
-                                    } else if (response.selection >= 1) {
-                                        const selectedPlayer = frozenPlayers[response.selection - 1];
-                                        const form = new MessageFormData()
-                                            .title("Unfreeze a player")
-                                            .body(`Are you sure you want to unfreeze §b${selectedPlayer}§r?`)
-                                            .button1("Yes")
-                                            .button2("No");
-                                        form.show(p).then(async result => {
-                                            if (result.canceled || result.selection === 1) return unFreezePlayer();
-
-                                            if (!isFrozen(selectedPlayer)) {
-                                                p.sendMessage("§cError, the selected player has recently been unfrozen by another user.");
-                                                p.playSound("au.error");
-
-                                            } else {
-                                                try {
-                                                    const scoreboard = world.scoreboard.getObjective('-auFrozen').getParticipants().filter(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1] === selectedPlayer)[0].displayName;
-                                                    p.runCommand(`scoreboard players reset "${scoreboard}" -auFrozen`);
-                                                    p.sendMessage(`§aThe player §b${selectedPlayer}§a has been successfully unfrozen.`);
-                                                    p.playSound("au.success");
-                                                } catch (e) {
-                                                    p.sendMessage(`§cError, the player couldn't be unfrozen.`);
-                                                    p.playSound("au.error");
-                                                }
-                                            }
-                                        });
-                                    }
-                                });
-                            }
-                        }
-                    });
-                }
+                freezeUnfreeze(p);
             }
                 break;
             case 5: { //See an inventory
@@ -1228,365 +1088,18 @@ export function adminUtils(p) {
             }
                 break;
             case 8: { //Kill a player
-                killAPlayer();
-
-                function killAPlayer() {
-                    const playersArray = players.map(pname => pname.name);
-                    const form = new ActionFormData()
-                        .title("Kill a player")
-                        .body("Select an online player to kill")
-                        .button("§l<-- Back", "textures/icons/back.png")
-                        .button("Type an online player instead", "textures/icons/pencil.png");
-                    for (const player of playersArray) {
-                        form.button(player, "textures/icons/steve_icon.png");
-                    }
-
-                    form.show(p).then((response) => {
-                        if (response.selection === 0) {
-                            adminUtils(p);
-                        } else if (response.selection === 1) {
-                            const form = new ModalFormData()
-                                .title("Kill a player")
-                                .textField("Type below the player you would like to kill.", "Player's name")
-                                .toggle("Force death", { defaultValue: true });
-                            form.show(p).then(async result => {
-                                if (result.canceled === true) return killAPlayer();
-                                const playerName = result.formValues[0];
-                                const player = world.getPlayers({ name: playerName })?.[0];
-                                const health = player?.getComponent(EntityComponentTypes.Health);
-
-                                if (!isValidUsername(playerName)) {
-                                    p.sendMessage(`§cError, the username you entered is invalid.`);
-                                    p.playSound("au.error");
-
-                                } else if (result.formValues[1] === true) { //Force death true
-                                    try {
-                                        if (!player?.isValid || !health || health.currentValue === 0) {
-                                            throw '';
-                                        }
-
-                                        const rawPlayer = world.getPlayers({
-                                            name: playerName,
-                                            gameMode: GameMode.Survival
-                                        })[0];
-                                        const rawPlayer2 = world.getPlayers({
-                                            name: playerName,
-                                            gameMode: GameMode.Adventure
-                                        })[0];
-                                        if (!rawPlayer && !rawPlayer2) {
-                                            let gamemode = "survival";
-                                            if (world.getPlayers({ name: playerName, gameMode: GameMode.Creative })[0]) {
-                                                gamemode = "creative";
-                                            } else if (world.getPlayers({
-                                                name: playerName,
-                                                gameMode: GameMode.Spectator
-                                            })[0]) {
-                                                gamemode = "spectator;"
-                                            }
-
-                                            p.runCommand(`tag "${playerName}" add "-aukill${gamemode}"`);
-                                            p.runCommand(`gamemode survival "${playerName}"`);
-                                        }
-
-                                        p.runCommand(`kill "${playerName}"`);
-
-                                        const tick = system.currentTick;
-                                        new Promise((resolve, reject) => {
-                                            const callback = (event) => {
-                                                if (event.deadEntity === player) {
-                                                    system.clearRun(run);
-                                                    world.afterEvents.entityDie.unsubscribe(callback);
-                                                    resolve();
-                                                }
-                                            };
-
-                                            world.afterEvents.entityDie.subscribe(callback);
-
-                                            const run = system.runInterval(() => {
-                                                if (system.currentTick - tick >= 10) {
-                                                    system.clearRun(run);
-                                                    world.afterEvents.entityDie.unsubscribe(callback);
-                                                    reject();
-                                                }
-                                            }, 1);
-                                        }).then(() => {
-                                            p.sendMessage(`§aThe player §b${playerName}§a has been killed successfully.`);
-                                            p.playSound("au.success");
-                                        }, () => {
-                                            p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
-                                            p.playSound("au.error");
-                                        });
-                                    } catch (e) {
-                                        p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
-                                        p.playSound("au.error");
-                                    }
-                                } else if (result.formValues[1] === false) { //Force death false
-                                    try {
-                                        if (!player?.isValid || !health || health.currentValue === 0) { //If the player is already dead or offline
-                                            throw '';
-                                        }
-
-                                        p.runCommand(`kill "${playerName}"`);
-
-                                        const tick = system.currentTick;
-                                        new Promise((resolve, reject) => {
-                                            const callback = (event) => {
-                                                if (event.deadEntity === player) {
-                                                    system.clearRun(run);
-                                                    world.afterEvents.entityDie.unsubscribe(callback);
-                                                    resolve();
-                                                }
-                                            };
-
-                                            world.afterEvents.entityDie.subscribe(callback);
-
-                                            const run = system.runInterval(() => {
-                                                if (system.currentTick - tick >= 10) {
-                                                    system.clearRun(run);
-                                                    world.afterEvents.entityDie.unsubscribe(callback);
-                                                    reject();
-                                                }
-                                            }, 1);
-                                        }).then(() => {
-                                            p.sendMessage(`§aThe player §b${playerName}§a has been killed successfully.`);
-                                            p.playSound("au.success");
-                                        }, () => {
-                                            p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
-                                            p.playSound("au.error");
-                                        });
-                                    } catch (e) {
-                                        p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
-                                        p.playSound("au.error");
-                                    }
-                                }
-                            });
-                        } else if (response.selection > 1) {
-                            const selectedPlayersName = playersArray[response.selection - 2];
-                            const player = world.getPlayers({ name: selectedPlayersName })?.[0];
-                            const health = player?.getComponent(EntityComponentTypes.Health);
-
-                            const form = new ModalFormData()
-                                .title("Kill a player")
-                                .toggle("Force death", { defaultValue: true });
-                            form.show(p).then(async result => {
-                                if (result.canceled === true) return killAPlayer();
-                                if (result.formValues[0] === true) { //Force death true
-                                    try {
-                                        if (!player?.isValid || !health || health.currentValue === 0) {
-                                            throw '';
-                                        }
-
-                                        const rawPlayer = world.getPlayers({
-                                            name: selectedPlayersName,
-                                            gameMode: GameMode.Survival
-                                        })[0];
-                                        const rawPlayer2 = world.getPlayers({
-                                            name: selectedPlayersName,
-                                            gameMode: GameMode.Adventure
-                                        })[0];
-                                        if (!rawPlayer && !rawPlayer2) {
-                                            let gamemode = "survival";
-                                            if (world.getPlayers({
-                                                name: selectedPlayersName,
-                                                gameMode: GameMode.Creative
-                                            })[0]) {
-                                                gamemode = "creative";
-                                            } else if (world.getPlayers({
-                                                name: selectedPlayersName,
-                                                gameMode: GameMode.Spectator
-                                            })[0]) {
-                                                gamemode = "spectator;"
-                                            }
-
-                                            p.runCommand(`tag "${selectedPlayersName}" add "-aukill${gamemode}"`);
-                                            p.runCommand(`gamemode survival "${selectedPlayersName}"`);
-                                        }
-
-                                        p.runCommand(`kill "${selectedPlayersName}"`);
-
-                                        const tick = system.currentTick;
-                                        new Promise((resolve, reject) => {
-                                            const callback = (event) => {
-                                                if (event.deadEntity === player) {
-                                                    system.clearRun(run);
-                                                    world.afterEvents.entityDie.unsubscribe(callback);
-                                                    resolve();
-                                                }
-                                            };
-
-                                            world.afterEvents.entityDie.subscribe(callback);
-
-                                            const run = system.runInterval(() => {
-                                                if (system.currentTick - tick >= 10) {
-                                                    system.clearRun(run);
-                                                    world.afterEvents.entityDie.unsubscribe(callback);
-                                                    reject();
-                                                }
-                                            }, 1);
-                                        }).then(() => {
-                                            p.sendMessage(`§aThe player §b${selectedPlayersName}§a has been killed successfully.`);
-                                            p.playSound("au.success");
-                                        }, () => {
-                                            p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
-                                            p.playSound("au.error");
-                                        });
-                                    } catch (e) {
-                                        p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
-                                        p.playSound("au.error");
-                                    }
-                                } else if (result.formValues[0] === false) { //Force death false
-                                    try {
-                                        if (!player?.isValid || !health || health.currentValue === 0) { //If the player is already dead or offline
-                                            throw '';
-                                        }
-
-                                        p.runCommand(`kill "${selectedPlayersName}"`);
-
-                                        const tick = system.currentTick;
-                                        new Promise((resolve, reject) => {
-                                            const callback = (event) => {
-                                                if (event.deadEntity === player) {
-                                                    system.clearRun(run);
-                                                    world.afterEvents.entityDie.unsubscribe(callback);
-                                                    resolve();
-                                                }
-                                            };
-
-                                            world.afterEvents.entityDie.subscribe(callback);
-
-                                            const run = system.runInterval(() => {
-                                                if (system.currentTick - tick >= 10) {
-                                                    system.clearRun(run);
-                                                    world.afterEvents.entityDie.unsubscribe(callback);
-                                                    reject();
-                                                }
-                                            }, 1);
-                                        }).then(() => {
-                                            p.sendMessage(`§aThe player §b${selectedPlayersName}§a has been killed successfully.`);
-                                            p.playSound("au.success");
-                                        }, () => {
-                                            p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
-                                            p.playSound("au.error");
-                                        });
-                                    } catch (e) {
-                                        p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
-                                        p.playSound("au.error");
-                                    }
-                                }
-                            });
-                        }
-                    });
-                }
+                killAPlayer(p);
             }
                 break;
             case 9: { //Launch a player
-                launchPlayer();
-
-                function launchPlayer() {
-                    const locPlayers = players;
-                    const form = new ActionFormData()
-                        .title("Launch a player")
-                        .body("Select an online player to launch")
-                        .button("§l<-- Back", "textures/icons/back.png")
-                        .button("Type an online player instead", "textures/icons/pencil.png");
-                    for (const player of locPlayers) {
-                        form.button(player.name, "textures/icons/steve_icon.png");
-                    }
-
-                    form.show(p).then((response) => {
-                        if (response.selection === 0) {
-                            adminUtils(p);
-                        } else if (response.selection === 1) {
-                            const form = new ModalFormData()
-                                .title("Launch a player")
-                                .textField("Type below the player you would like to launch", "Player's name");
-                            form.show(p).then(async result => {
-                                if (result.canceled) return launchPlayer();
-
-                                const player = result.formValues[0];
-                                const rawPlayer = world.getPlayers({ name: player })?.[0];
-
-                                if (!isValidUsername(player)) {
-                                    p.sendMessage('§cError, the username you entered is invalid.');
-                                    p.playSound("au.error");
-                                } else {
-                                    if (!rawPlayer) {
-                                        p.sendMessage('§cError, the player you entered is not online.');
-                                        p.playSound("au.error");
-                                    } else {
-                                        try {
-                                            const query = {
-                                                name: player
-                                            };
-                                            const rawPlayer = [...world.getPlayers(query)][0];
-                                            rawPlayer.runCommand('playsound player_launch @a ~ ~ ~ 100');
-                                            rawPlayer.runCommand('summon fireworks_rocket');
-                                            for (let i = 0; i < 5; i++) {
-                                                rawPlayer.runCommand('particle minecraft:cauldron_explosion_emitter');
-                                            }
-                                            particles();
-
-                                            async function particles() {
-                                                for (let i = 0; i < 23; i++) {
-                                                    await delay(0.05);
-                                                    rawPlayer.runCommand(`particle minecraft:explosion_manual`);
-                                                }
-                                            }
-
-                                            rawPlayer.runCommand('effect @s levitation 3 150 true');
-                                            p.sendMessage(`§aThe player §b${player}§a has been launched successfully.`);
-                                            p.playSound("au.success");
-                                        } catch (e) {
-                                            p.sendMessage(`§cError, the player §4${player}§c couldn't be launched.`);
-                                            p.playSound("au.error");
-                                        }
-                                    }
-                                }
-                            });
-                        } else if (response.selection > 1) {
-                            const selectedPlayerRaw = locPlayers[response.selection - 2];
-
-                            const form = new MessageFormData()
-                                .title("Launch a player")
-                                .body(`Are you sure you want to launch §b${selectedPlayerRaw.name}§r?`)
-                                .button1("Yes")
-                                .button2("No");
-                            form.show(p).then(async result => {
-                                if (result.canceled || result.selection === 1) return launchPlayer();
-
-                                try {
-                                    selectedPlayerRaw.runCommand('playsound player_launch @a ~ ~ ~ 100');
-                                    selectedPlayerRaw.runCommand('summon fireworks_rocket');
-                                    for (let i = 0; i < 5; i++) {
-                                        selectedPlayerRaw.runCommand('particle minecraft:cauldron_explosion_emitter');
-                                    }
-                                    particles();
-
-                                    async function particles() {
-                                        for (let i = 0; i < 23; i++) {
-                                            await delay(0.05);
-                                            selectedPlayerRaw.runCommand(`particle minecraft:explosion_manual`);
-                                        }
-                                    }
-
-                                    selectedPlayerRaw.runCommand('effect @s levitation 3 150 true');
-                                    p.sendMessage(`§aThe player §b${selectedPlayerRaw.name}§a has been launched successfully.`)
-                                    p.playSound("au.success");
-                                } catch (e) {
-                                    p.sendMessage(`§cError, the player §4${selectedPlayerRaw.name}§c couldn't be launched.`)
-                                    p.playSound("au.error");
-                                }
-                            });
-                        }
-                    });
-                }
+                launchPlayer(p);
             }
                 break;
         }
     });
 }
 
-function banUnbanMenu(p) {
+export function banUnbanMenu(p: Player) {
     const form = new ActionFormData()
         .title("Ban/unban menu")
         .body("Select an option")
@@ -1595,7 +1108,7 @@ function banUnbanMenu(p) {
         .button("Unban a player", "textures/icons/tick.png");
     form.show(p).then((response) => {
         if (response.selection === 0) {
-            adminUtils(p);
+            server.ui.show("auMain", p);
         } else if (response.selection === 1) {
             banPlayer(p);
         } else if (response.selection === 2) {
@@ -1936,7 +1449,7 @@ function unBanPlayer(p) {
     });
 }
 
-function jailMenu(p) {
+export function jailMenu(p) {
     const form = new ActionFormData()
         .title("Jail menu")
         .body("Select an option")
@@ -1949,7 +1462,7 @@ function jailMenu(p) {
     form.show(p).then((response) => {
         switch (response.selection) {
             case 0:
-                adminUtils(p);
+                server.ui.show("auMain", p);
                 break;
             case 1:
                 jailLearn(p);
@@ -2969,7 +2482,7 @@ function jailExitLocConfig(p) {
     });
 }
 
-function projectilePowers(p) {
+export function projectilePowers(p) {
     const form = new ActionFormData()
         .title("Projectile powers")
         .body("Select an option")
@@ -2982,7 +2495,7 @@ function projectilePowers(p) {
         const { selection } = response;
 
         if (selection === 0) {
-            adminUtils(p);
+            server.ui.show("auMain", p);
 
         } else if (selection >= 1) {
             selectPlayer();
@@ -3110,7 +2623,354 @@ function projectilePowers(p) {
     });
 }
 
-function vanishMenu(p) {
+export function killAPlayer(p: Player) {
+    const playersArray = players.map(pname => pname.name);
+    const form = new ActionFormData()
+        .title("Kill a player")
+        .body("Select an online player to kill")
+        .button("§l<-- Back", "textures/icons/back.png")
+        .button("Type an online player instead", "textures/icons/pencil.png");
+    for (const player of playersArray) {
+        form.button(player, "textures/icons/steve_icon.png");
+    }
+
+    form.show(p).then((response) => {
+        if (response.selection === 0) {
+            server.ui.show("auMain", p);
+        } else if (response.selection === 1) {
+            const form = new ModalFormData()
+                .title("Kill a player")
+                .textField("Type below the player you would like to kill.", "Player's name")
+                .toggle("Force death", { defaultValue: true });
+            form.show(p).then(async result => {
+                if (result.canceled === true) return killAPlayer(p);
+                const playerName = result.formValues[0];
+                const player = world.getPlayers({ name: playerName })?.[0];
+                const health = player?.getComponent(EntityComponentTypes.Health);
+
+                if (!isValidUsername(playerName)) {
+                    p.sendMessage(`§cError, the username you entered is invalid.`);
+                    p.playSound("au.error");
+
+                } else if (result.formValues[1] === true) { //Force death true
+                    try {
+                        if (!player?.isValid || !health || health.currentValue === 0) {
+                            throw '';
+                        }
+
+                        const rawPlayer = world.getPlayers({
+                            name: playerName,
+                            gameMode: GameMode.Survival
+                        })[0];
+                        const rawPlayer2 = world.getPlayers({
+                            name: playerName,
+                            gameMode: GameMode.Adventure
+                        })[0];
+                        if (!rawPlayer && !rawPlayer2) {
+                            let gamemode = "survival";
+                            if (world.getPlayers({ name: playerName, gameMode: GameMode.Creative })[0]) {
+                                gamemode = "creative";
+                            } else if (world.getPlayers({
+                                name: playerName,
+                                gameMode: GameMode.Spectator
+                            })[0]) {
+                                gamemode = "spectator;"
+                            }
+
+                            p.runCommand(`tag "${playerName}" add "-aukill${gamemode}"`);
+                            p.runCommand(`gamemode survival "${playerName}"`);
+                        }
+
+                        p.runCommand(`kill "${playerName}"`);
+
+                        const tick = system.currentTick;
+                        new Promise((resolve, reject) => {
+                            const callback = (event) => {
+                                if (event.deadEntity === player) {
+                                    system.clearRun(run);
+                                    world.afterEvents.entityDie.unsubscribe(callback);
+                                    resolve();
+                                }
+                            };
+
+                            world.afterEvents.entityDie.subscribe(callback);
+
+                            const run = system.runInterval(() => {
+                                if (system.currentTick - tick >= 10) {
+                                    system.clearRun(run);
+                                    world.afterEvents.entityDie.unsubscribe(callback);
+                                    reject();
+                                }
+                            }, 1);
+                        }).then(() => {
+                            p.sendMessage(`§aThe player §b${playerName}§a has been killed successfully.`);
+                            p.playSound("au.success");
+                        }, () => {
+                            p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
+                            p.playSound("au.error");
+                        });
+                    } catch (e) {
+                        p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
+                        p.playSound("au.error");
+                    }
+                } else if (result.formValues[1] === false) { //Force death false
+                    try {
+                        if (!player?.isValid || !health || health.currentValue === 0) { //If the player is already dead or offline
+                            throw '';
+                        }
+
+                        p.runCommand(`kill "${playerName}"`);
+
+                        const tick = system.currentTick;
+                        new Promise((resolve, reject) => {
+                            const callback = (event) => {
+                                if (event.deadEntity === player) {
+                                    system.clearRun(run);
+                                    world.afterEvents.entityDie.unsubscribe(callback);
+                                    resolve();
+                                }
+                            };
+
+                            world.afterEvents.entityDie.subscribe(callback);
+
+                            const run = system.runInterval(() => {
+                                if (system.currentTick - tick >= 10) {
+                                    system.clearRun(run);
+                                    world.afterEvents.entityDie.unsubscribe(callback);
+                                    reject();
+                                }
+                            }, 1);
+                        }).then(() => {
+                            p.sendMessage(`§aThe player §b${playerName}§a has been killed successfully.`);
+                            p.playSound("au.success");
+                        }, () => {
+                            p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
+                            p.playSound("au.error");
+                        });
+                    } catch (e) {
+                        p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
+                        p.playSound("au.error");
+                    }
+                }
+            });
+        } else if (response.selection > 1) {
+            const selectedPlayersName = playersArray[response.selection - 2];
+            const player = world.getPlayers({ name: selectedPlayersName })?.[0];
+            const health = player?.getComponent(EntityComponentTypes.Health);
+
+            const form = new ModalFormData()
+                .title("Kill a player")
+                .toggle("Force death", { defaultValue: true });
+            form.show(p).then(async result => {
+                if (result.canceled === true) return killAPlayer(p);
+                if (result.formValues[0] === true) { //Force death true
+                    try {
+                        if (!player?.isValid || !health || health.currentValue === 0) {
+                            throw '';
+                        }
+
+                        const rawPlayer = world.getPlayers({
+                            name: selectedPlayersName,
+                            gameMode: GameMode.Survival
+                        })[0];
+                        const rawPlayer2 = world.getPlayers({
+                            name: selectedPlayersName,
+                            gameMode: GameMode.Adventure
+                        })[0];
+                        if (!rawPlayer && !rawPlayer2) {
+                            let gamemode = "survival";
+                            if (world.getPlayers({
+                                name: selectedPlayersName,
+                                gameMode: GameMode.Creative
+                            })[0]) {
+                                gamemode = "creative";
+                            } else if (world.getPlayers({
+                                name: selectedPlayersName,
+                                gameMode: GameMode.Spectator
+                            })[0]) {
+                                gamemode = "spectator;"
+                            }
+
+                            p.runCommand(`tag "${selectedPlayersName}" add "-aukill${gamemode}"`);
+                            p.runCommand(`gamemode survival "${selectedPlayersName}"`);
+                        }
+
+                        p.runCommand(`kill "${selectedPlayersName}"`);
+
+                        const tick = system.currentTick;
+                        new Promise((resolve, reject) => {
+                            const callback = (event) => {
+                                if (event.deadEntity === player) {
+                                    system.clearRun(run);
+                                    world.afterEvents.entityDie.unsubscribe(callback);
+                                    resolve();
+                                }
+                            };
+
+                            world.afterEvents.entityDie.subscribe(callback);
+
+                            const run = system.runInterval(() => {
+                                if (system.currentTick - tick >= 10) {
+                                    system.clearRun(run);
+                                    world.afterEvents.entityDie.unsubscribe(callback);
+                                    reject();
+                                }
+                            }, 1);
+                        }).then(() => {
+                            p.sendMessage(`§aThe player §b${selectedPlayersName}§a has been killed successfully.`);
+                            p.playSound("au.success");
+                        }, () => {
+                            p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
+                            p.playSound("au.error");
+                        });
+                    } catch (e) {
+                        p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
+                        p.playSound("au.error");
+                    }
+                } else if (result.formValues[0] === false) { //Force death false
+                    try {
+                        if (!player?.isValid || !health || health.currentValue === 0) { //If the player is already dead or offline
+                            throw '';
+                        }
+
+                        p.runCommand(`kill "${selectedPlayersName}"`);
+
+                        const tick = system.currentTick;
+                        new Promise((resolve, reject) => {
+                            const callback = (event) => {
+                                if (event.deadEntity === player) {
+                                    system.clearRun(run);
+                                    world.afterEvents.entityDie.unsubscribe(callback);
+                                    resolve();
+                                }
+                            };
+
+                            world.afterEvents.entityDie.subscribe(callback);
+
+                            const run = system.runInterval(() => {
+                                if (system.currentTick - tick >= 10) {
+                                    system.clearRun(run);
+                                    world.afterEvents.entityDie.unsubscribe(callback);
+                                    reject();
+                                }
+                            }, 1);
+                        }).then(() => {
+                            p.sendMessage(`§aThe player §b${selectedPlayersName}§a has been killed successfully.`);
+                            p.playSound("au.success");
+                        }, () => {
+                            p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
+                            p.playSound("au.error");
+                        });
+                    } catch (e) {
+                        p.sendMessage(`§cError, the player couldn't be killed or wasn't found.`);
+                        p.playSound("au.error");
+                    }
+                }
+            });
+        }
+    });
+}
+
+export function launchPlayer(p: Player) {
+    const locPlayers = players;
+    const form = new ActionFormData()
+        .title("Launch a player")
+        .body("Select an online player to launch")
+        .button("§l<-- Back", "textures/icons/back.png")
+        .button("Type an online player instead", "textures/icons/pencil.png");
+    for (const player of locPlayers) {
+        form.button(player.name, "textures/icons/steve_icon.png");
+    }
+
+    form.show(p).then((response) => {
+        if (response.selection === 0) {
+            server.ui.show("auMain", p);
+        } else if (response.selection === 1) {
+            const form = new ModalFormData()
+                .title("Launch a player")
+                .textField("Type below the player you would like to launch", "Player's name");
+            form.show(p).then(async result => {
+                if (result.canceled) return launchPlayer(p);
+
+                const player = result.formValues[0];
+                const rawPlayer = world.getPlayers({ name: player })?.[0];
+
+                if (!isValidUsername(player)) {
+                    p.sendMessage('§cError, the username you entered is invalid.');
+                    p.playSound("au.error");
+                } else {
+                    if (!rawPlayer) {
+                        p.sendMessage('§cError, the player you entered is not online.');
+                        p.playSound("au.error");
+                    } else {
+                        try {
+                            const query = {
+                                name: player
+                            };
+                            const rawPlayer = [...world.getPlayers(query)][0];
+                            rawPlayer.runCommand('playsound player_launch @a ~ ~ ~ 100');
+                            rawPlayer.runCommand('summon fireworks_rocket');
+                            for (let i = 0; i < 5; i++) {
+                                rawPlayer.runCommand('particle minecraft:cauldron_explosion_emitter');
+                            }
+                            particles();
+
+                            async function particles() {
+                                for (let i = 0; i < 23; i++) {
+                                    await delay(0.05);
+                                    rawPlayer.runCommand(`particle minecraft:explosion_manual`);
+                                }
+                            }
+
+                            rawPlayer.runCommand('effect @s levitation 3 150 true');
+                            p.sendMessage(`§aThe player §b${player}§a has been launched successfully.`);
+                            p.playSound("au.success");
+                        } catch (e) {
+                            p.sendMessage(`§cError, the player §4${player}§c couldn't be launched.`);
+                            p.playSound("au.error");
+                        }
+                    }
+                }
+            });
+        } else if (response.selection > 1) {
+            const selectedPlayerRaw = locPlayers[response.selection - 2];
+
+            const form = new MessageFormData()
+                .title("Launch a player")
+                .body(`Are you sure you want to launch §b${selectedPlayerRaw.name}§r?`)
+                .button1("Yes")
+                .button2("No");
+            form.show(p).then(async result => {
+                if (result.canceled || result.selection === 1) return launchPlayer(p);
+
+                try {
+                    selectedPlayerRaw.runCommand('playsound player_launch @a ~ ~ ~ 100');
+                    selectedPlayerRaw.runCommand('summon fireworks_rocket');
+                    for (let i = 0; i < 5; i++) {
+                        selectedPlayerRaw.runCommand('particle minecraft:cauldron_explosion_emitter');
+                    }
+                    particles();
+
+                    async function particles() {
+                        for (let i = 0; i < 23; i++) {
+                            await delay(0.05);
+                            selectedPlayerRaw.runCommand(`particle minecraft:explosion_manual`);
+                        }
+                    }
+
+                    selectedPlayerRaw.runCommand('effect @s levitation 3 150 true');
+                    p.sendMessage(`§aThe player §b${selectedPlayerRaw.name}§a has been launched successfully.`)
+                    p.playSound("au.success");
+                } catch (e) {
+                    p.sendMessage(`§cError, the player §4${selectedPlayerRaw.name}§c couldn't be launched.`)
+                    p.playSound("au.error");
+                }
+            });
+        }
+    });
+}
+
+export function vanishMenu(p) {
     const form = new ActionFormData()
         .title("Vanish menu")
         .body("Select an option")
@@ -3120,7 +2980,7 @@ function vanishMenu(p) {
     form.show(p).then((response) => {
         switch (response.selection) {
             case 0:
-                adminUtils(p);
+                server.ui.show("auMain", p);
                 break;
             case 1:
                 enableVanishGUI(p);
@@ -3339,7 +3199,147 @@ function disableVanishGUI(p) {
     });
 }
 
-function seeInventoryMenu(p: Player) {
+export function freezeUnfreeze(p: Player) {
+    const form = new ActionFormData()
+        .title("Freeze or unfreeze a player")
+        .body("Select an option")
+        .button("§l<-- Back", "textures/icons/back.png")
+        .button("Freeze a player", "textures/icons/freeze.png")
+        .button("Unfreeze a player", "textures/icons/unFreeze.png");
+    form.show(p).then((response) => {
+        if (response.selection === 0) {
+            server.ui.show("auMain", p);
+        } else if (response.selection === 1) {
+            freezePlayer();
+
+            function freezePlayer() {
+                const locPlayers = players.filter(player => !isFrozen(player.name));
+                const form = new ActionFormData()
+                    .title("Freeze a player")
+                    .body("Select an online player to freeze.\nIf you don't see someone here, it means they're already frozen.")
+                    .button("§l<-- Back", "textures/icons/back.png")
+                    .button("Type an offline/online player manually instead", "textures/icons/pencil.png");
+                for (const player of locPlayers) {
+                    form.button(player.name, "textures/icons/steve_icon.png");
+                }
+
+                form.show(p).then((response) => {
+                    if (response.selection === 0) {
+                        freezeUnfreeze(p);
+                    } else if (response.selection === 1) {
+                        const form = new ModalFormData()
+                            .title("Freeze a player")
+                            .textField("Type below the player you would like to freeze. In case the player is offline, they will get frozen as soon as they join the world.", "Player's name");
+                        form.show(p).then(async result => {
+                            if (result.canceled === true) return freezePlayer();
+                            const playerName = result.formValues[0];
+                            if (!isValidUsername(playerName)) {
+                                p.sendMessage('§cError, the username you entered is invalid.');
+                                p.playSound("au.error");
+
+                            } else if (isFrozen(playerName)) {
+                                p.sendMessage('§cError, the player is already frozen.');
+                                p.playSound("au.error");
+
+                            } else {
+                                try {
+                                    const query = {
+                                        name: playerName
+                                    };
+                                    const selectedPlayer = [...world.getPlayers(query)][0];
+                                    if (selectedPlayer !== undefined) {
+                                        p.runCommand(`scoreboard players set "-auname${playerName} -au${selectedPlayer.location.x} -au${selectedPlayer.location.y} -au${selectedPlayer.location.z}" -auFrozen 0`);
+                                        p.sendMessage(`§aThe player §b${playerName}§a has been successfully frozen.`);
+                                        p.playSound("au.success");
+                                    } else {
+                                        p.runCommand(`scoreboard players set "-auname${playerName} -au+ -au+ -au+" -auFrozen 0`);
+                                        p.sendMessage(`§aThe player §b${playerName}§a has been successfully frozen.`);
+                                        p.playSound("au.success");
+                                    }
+                                } catch (e) {
+                                    p.sendMessage(`§cError, the player couldn't be frozen.`);
+                                    p.playSound("au.error");
+                                }
+                            }
+                        });
+                    } else if (response.selection >= 2) {
+                        const selectedPlayer = locPlayers[response.selection - 2];
+                        const form = new MessageFormData()
+                            .title("Freeze a player")
+                            .body(`Are you sure you want to freeze §b${selectedPlayer.name}§r?`)
+                            .button1("Yes")
+                            .button2("No");
+                        form.show(p).then(async result => {
+                            if (result.canceled || result.selection === 1) return freezePlayer();
+
+                            if (isFrozen(selectedPlayer.name)) {
+                                p.sendMessage("§cError, the selected player has recently been frozen by another user.");
+                                p.playSound("au.error");
+
+                            } else {
+                                try {
+                                    selectedPlayer.dimension.runCommand(`scoreboard players set "-auname${selectedPlayer.name} -au${selectedPlayer.location.x} -au${selectedPlayer.location.y} -au${selectedPlayer.location.z}" -auFrozen 0`);
+                                    p.sendMessage(`§aThe player §b${selectedPlayer.name}§a has been successfully frozen.`);
+                                    p.playSound("au.success");
+                                } catch (e) {
+                                    p.sendMessage(`§cError, the player couldn't be frozen.`);
+                                    p.playSound("au.error");
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+        } else if (response.selection === 2) {
+            unFreezePlayer();
+
+            function unFreezePlayer() {
+                const frozenPlayers = [...world.scoreboard.getObjective('-auFrozen').getParticipants().map(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1])];
+                const form = new ActionFormData()
+                    .title("Unfreeze a player")
+                    .body("Select an online/offline frozen player to unfreeze")
+                    .button("§l<-- Back", "textures/icons/back.png");
+                for (const player of frozenPlayers) {
+                    form.button(player, "textures/icons/steve_icon.png");
+                }
+
+                form.show(p).then((response) => {
+                    if (response.selection === 0) {
+                        freezeUnfreeze(p);
+                    } else if (response.selection >= 1) {
+                        const selectedPlayer = frozenPlayers[response.selection - 1];
+                        const form = new MessageFormData()
+                            .title("Unfreeze a player")
+                            .body(`Are you sure you want to unfreeze §b${selectedPlayer}§r?`)
+                            .button1("Yes")
+                            .button2("No");
+                        form.show(p).then(async result => {
+                            if (result.canceled || result.selection === 1) return unFreezePlayer();
+
+                            if (!isFrozen(selectedPlayer)) {
+                                p.sendMessage("§cError, the selected player has recently been unfrozen by another user.");
+                                p.playSound("au.error");
+
+                            } else {
+                                try {
+                                    const scoreboard = world.scoreboard.getObjective('-auFrozen').getParticipants().filter(participant => participant.displayName.match(/-auname([^]*) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+) -au-?(?:[0-9]+[^]*|\+)/)[1] === selectedPlayer)[0].displayName;
+                                    p.runCommand(`scoreboard players reset "${scoreboard}" -auFrozen`);
+                                    p.sendMessage(`§aThe player §b${selectedPlayer}§a has been successfully unfrozen.`);
+                                    p.playSound("au.success");
+                                } catch (e) {
+                                    p.sendMessage(`§cError, the player couldn't be unfrozen.`);
+                                    p.playSound("au.error");
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+        }
+    });
+}
+
+export function seeInventoryMenu(p: Player) {
     const playersArray = players.map(pname => pname.name);
     const form = new ActionFormData()
         .title("See an inventory");
@@ -3359,7 +3359,7 @@ function seeInventoryMenu(p: Player) {
         if (response.canceled === true) return;
         const { selection } = response;
         if (selection === 0) { //Back
-            adminUtils(p);
+            server.ui.show("auMain", p);
 
         } else if (selection === 1) { //Type manually
             const form = new ModalFormData()
@@ -3595,6 +3595,10 @@ function seeInventoryMenu(p: Player) {
             }
         }
     });
+}
+
+export function freecamMenu(player: Player) {
+    freeCam.init(player);
 }
 
 function waitForPlayer(queryOptions: EntityQueryOptions, tickInterval: number = 1): Promise<Player> {

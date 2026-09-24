@@ -10,6 +10,7 @@ export const groups = {
                 type: "button",
                 text: Translations.Ui.Plugins.Permissions.CreateNewGroup,
                 icon: "",
+                permission: "ui.plugins.permissions.groups.createNew",
                 action: (context) => {
                     context.goTo("createGroup");
                 }
@@ -21,6 +22,7 @@ export const groups = {
                 text: group.displayName,
                 icon: "",
                 subText: Translations.Ui.General.SubTextManage,
+                permission: "ui.plugins.permissions.groups.manageGroups",
                 action: (context) => {
                     context.setData("selectedGroup", group);
                     context.goTo("groupConfig");
@@ -93,6 +95,7 @@ export const groupConfig = {
             type: "button",
             text: Translations.Ui.Plugins.Permissions.EditProperties,
             icon: "",
+            permission: "ui.plugins.permissions.groups.manageGroups.editProperties",
             action: (context) => {
                 context.goTo("groupProperties");
             }
@@ -101,6 +104,7 @@ export const groupConfig = {
             type: "button",
             text: Translations.Ui.Plugins.Permissions.ManagePermissions,
             icon: "",
+            permission: "ui.plugins.permissions.groups.manageGroups.managePermissions",
             action: (context) => {
                 context.setData("selectedPHolder", context.getData("selectedGroup"));
                 context.goTo("managePermissions");
@@ -110,6 +114,7 @@ export const groupConfig = {
             type: "button",
             text: Translations.Ui.Plugins.Permissions.ManageInheritance,
             icon: "",
+            permission: "ui.plugins.permissions.groups.manageGroups.manageInheritance",
             action: (context) => {
                 context.setData("selectedPHolder", context.getData("selectedGroup"));
                 context.goTo("manageInheritance");
@@ -119,6 +124,7 @@ export const groupConfig = {
             type: "button",
             text: "%plugins.permissions.deleteGroup",
             icon: "",
+            permission: "ui.plugins.permissions.groups.manageGroups.deleteGroup",
             action: (context, player) => {
                 context.confirm(context.getData("selectedGroup")?.displayName ?? "", "%plugins.permissions.confirmDeleteGroup", () => {
                     const selectedGroup = context.getData("selectedGroup");

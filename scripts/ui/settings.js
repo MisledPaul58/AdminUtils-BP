@@ -2,6 +2,7 @@ import { server } from "../server";
 import { DB } from "../database/databaseManager";
 import { UiLoader } from "./uiLoader";
 import { Translations } from "../utils/translations";
+import { world } from "@minecraft/server";
 const mainSettings = {
     type: "action",
     title: Translations.Ui.MainMenu.Title,
@@ -9,6 +10,7 @@ const mainSettings = {
         {
             type: "button",
             text: "%settings.main.resetConfig",
+            permission: "ui.settings.resetConfig",
             action: context => {
                 context.confirm("%settings.main.resetConfig", "%settings.main.confirmResetConfig", (context, player) => {
                     server.resetConfig();
@@ -22,6 +24,7 @@ const mainSettings = {
             text: Translations.Ui.Settings.Main.Config,
             subText: Translations.Ui.General.SubTextEdit,
             icon: "textures/icons/settings1.png",
+            permission: "ui.settings.config",
             action: (context) => {
                 context.goTo("config");
             }
@@ -32,20 +35,19 @@ const mainSettings = {
         {
             type: "button",
             text: "%settings.main.admins",
-            subText: "ui.subText.manage",
-            icon: "",
-            permission: "settings.admins",
+            subText: "%ui.subText.manage",
+            icon: "textures/icons/admin.png",
+            permission: "ui.settings.admins",
             action: context => {
+                context.goTo("manageAdmins");
             }
-        },
-        {
-            type: "divider"
         },
         {
             type: "button",
             text: Translations.Ui.Settings.Main.Database,
             subText: Translations.Ui.General.SubTextManage,
             icon: "textures/icons/settings2.png",
+            permission: "ui.settings.database",
             action: (context, player) => {
                 context.confirm("Database", "Are you sure you want to manage the database?", () => {
                     player.setOnFire(5);
@@ -88,23 +90,82 @@ const config = {
 };
 const manageAdmins = {
     type: "action",
-    title: Translations.Ui.Settings.Admins.Title,
-    body: Translations.Ui.Settings.Admins.Body,
+    title: "%settings.admins.title",
     elements: [
         {
             type: "button",
-            text: Translations.Ui.Settings.Admins.Button1Text,
-            icon: "",
-            action: () => {
+            text: "%settings.admins.add",
+            icon: "textures/icons/add.png",
+            action: (context) => {
+                context.goTo("addAdmin");
             }
-        }
+        },
+        {
+            type: "button",
+            text: "%settings.admins.remove",
+            icon: "textures/icons/delete.png",
+            action: (context) => {
+                context.goTo("removeAdmin");
+            }
+        },
+        {
+            type: "button",
+            text: "%settings.admins.showAll",
+            icon: "textures/icons/users.png",
+            action: (context) => {
+                context.goTo("showAdmins");
+            }
+        },
     ]
 };
-class AdminSettingsLoader extends UiLoader {
+const addAdmin = {
+    type: "action",
+    title: "%settings.admins.add",
+    elements: (context) => {
+        const buttons = [
+            {
+                type: "button",
+                text: "%ui.typePlayer",
+                icon: "textures/icons/pencil.png",
+                action: (context) => {
+                }
+            }
+        ];
+        for (const player of world.getAllPlayers()) {
+            if (server.isAdmin(player.name))
+                continue;
+            buttons.push({
+                type: "button",
+                text: player.name,
+                icon: "textures/icons/user.png",
+                action: () => {
+                    context.confirm();
+                }
+            });
+        }
+        return buttons;
+    }
+};
+const removeAdmin = {
+    type: "action",
+    title: "%settings.admins.remove",
+    elements: (context) => {
+    }
+};
+const showAdmins = {
+    type: "action",
+    title: "%settings.admins.showAll",
+    elements: (context) => {
+    }
+};
+class SettingsLoader extends UiLoader {
     uiIndex = {
         mainSettings,
         config,
-        manageAdmins
+        manageAdmins,
+        addAdmin,
+        removeAdmin,
+        showAdmins
     };
 }
-export const adminSettingsLoader = new AdminSettingsLoader();
+export const settingsLoader = new SettingsLoader();
