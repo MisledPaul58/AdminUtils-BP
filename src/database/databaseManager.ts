@@ -67,6 +67,18 @@ class DatabaseManager {
         this.loaded = true;
         console.warn("[DATABASE] All databases have been loaded successfully.");
     }
+
+    /**
+     * Saves all tables that have unsaved in-memory changes.
+     * Called by AutoSaveManager to flush any deferred writes.
+     */
+    public flushAll(): void {
+        for (const table of Object.values(this.tables)) {
+            if (table.isDirty) {
+                table.saveData();
+            }
+        }
+    }
 }
 
 export const DBManager = new DatabaseManager();

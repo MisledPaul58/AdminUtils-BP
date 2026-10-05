@@ -1,6 +1,7 @@
 import { system, world } from "@minecraft/server";
 import { PersistableEntity } from "./persistableEntity";
 import { EventEmitter } from "../../events/eventEmitter";
+import { DBManager } from "../../database/databaseManager";
 
 export class AutoSaveManager {
     private saveQueue = new Set<PersistableEntity>();
@@ -47,15 +48,23 @@ export class AutoSaveManager {
             }
         }
 
+        // Flush any Database tables that were mutated with save=false
+        DBManager.flushAll();
+
         this.isSaving = false;
     }
 
-    private flush() {
+    /**
+     * Immediately saves all pending entities and dirty database tables.
+     * Called when the last player leaves to avoid losing data on world close.
+     */
+    public flush() {
         for (const entity of this.saveQueue) {
             if (!entity.isDirty()) continue;
             entity.save();
             entity.markClean();
         }
         this.saveQueue.clear();
+        DBManager.flushAll();
     }
 }
