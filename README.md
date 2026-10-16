@@ -97,8 +97,6 @@ Once the world is loaded:
 
 - The **Beta APIs experiment** is mandatory; without it the scripts never start.
 - Both packs must be installed together (the RP's `manifest.json` is referenced by this pack).
-- One-time listeners currently skip later listeners for the same event in the internal event
-  emitter (regression test in `test/eventEmitter.test.ts`).
 - Type checking still reports legacy errors in `src/main.ts` and `src/systems/freeCam.ts` — the
   build keeps emitting while that is being paid down (see [Building from source](#building-from-source)).
 
