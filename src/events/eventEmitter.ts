@@ -32,7 +32,7 @@ export class EventEmitter {
         let status = false;
         for (const listenerObject of this.listeners) {
             if (listenerObject.eventName === eventName) {
-                if (listenerObject.once && listenerObject.executed) return status;
+                if (listenerObject.once && listenerObject.executed) continue;
 
                 listenerObject.listener(...args);
                 status = true;

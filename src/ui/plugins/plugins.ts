@@ -21,7 +21,7 @@ const pluginsMain: ActionForm = {
 }
 
 import { UiLoader } from "../uiLoader";
-import { permissions, managePermissions, addPermission, editPermission } from "./permissions/permissions";
+import { permissions, managePermissions, addPermission, addPermissionChoice, addPermissionByIndex, editPermission } from "./permissions/permissions";
 import { manageInheritance, addParent, manageSelectedParent } from "./permissions/holder";
 import { createGroup, groupConfig, groupProperties, groups } from "./permissions/group";
 import { users, userConfig } from "./permissions/user";
@@ -31,6 +31,8 @@ class PluginsLoader extends UiLoader {
         pluginsMain,
         permissions,
         managePermissions,
+        addPermissionChoice,
+        addPermissionByIndex,
         addPermission,
         editPermission,
         manageInheritance,

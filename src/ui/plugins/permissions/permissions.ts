@@ -1,7 +1,7 @@
 import { Translations } from "../../../utils/translations";
 import { DB } from "../../../database/databaseManager";
 import { server } from "../../../server";
-import { ActionButton, ActionForm, Divider, Dropdown, Label, ModalForm, TextField, Toggle } from "../../builder";
+import { ActionButton, ActionForm, Divider, DynamicElement, Label, LocalizedText, ModalForm, TextField, Toggle } from "../../builder";
 import { RawMessage, system } from "@minecraft/server";
 import { PermissionHolder } from "../../../permissions/model/permissionHolder";
 import { PermissionNode } from "../../../permissions/model/permissionNode";
@@ -102,7 +102,7 @@ export const managePermissions: ActionForm = {
                 icon: "",
                 permission: "ui.plugins.permissions.genericHolder.managePermissions.addPerm",
                 action: context => {
-                    context.goTo("addPermission");
+                    context.goTo("addPermissionChoice");
                 }
             } as ActionButton
         ]
@@ -126,64 +126,112 @@ export const managePermissions: ActionForm = {
     }
 };
 
-export const addPermission: ModalForm = { // TODO actually make it so that you can choose a permission from the list, without wildcards of course
-    type: "modal",
-    title: context => {
-        return {
-            translate: Translations.Ui.Plugins.Permissions.AddPermission,
-            with: [context.getData<PermissionHolder>("selectedPHolder")?.identifier ?? ""]
-        } as RawMessage;
-    },
+const addPermissionTitle: DynamicElement<LocalizedText> = context => ({
+    translate: "%plugins.permissions.addPermission",
+    with: [context.getData<PermissionHolder>("selectedPHolder")?.identifier ?? ""]
+} as RawMessage);
+
+export const addPermissionChoice: ActionForm = {
+    type: "action",
+    title: addPermissionTitle,
     elements: [
         {
-            type: "textField",
-            inputId: "permission",
-            placeholder: "e.g. ui.settings or 3",
-            name: Translations.Ui.Plugins.Permissions.AddPermissionName
-        } as TextField,
+            type: "button",
+            text: "%plugins.permissions.addPermissionFromScratch",
+            icon: "",
+            permission: "ui.plugins.permissions.genericHolder.managePermissions.addPerm",
+            action: context => {
+                context.setData("pendingPermission", "");
+                context.setData("addPermissionBackDepth", 2);
+                context.goTo("addPermission");
+            }
+        } as ActionButton,
         {
-            type: "toggle",
-            inputId: "value",
-            name: Translations.Ui.Plugins.Permissions.PermissionFalseTrue,
-            default: true
-        } as Toggle,
+            type: "button",
+            text: "%plugins.permissions.addPermissionFromList",
+            icon: "",
+            permission: "ui.plugins.permissions.genericHolder.managePermissions.addPerm",
+            action: context => {
+                context.goTo("addPermissionByIndex");
+            }
+        } as ActionButton
+    ]
+};
+
+export const addPermissionByIndex: ModalForm = {
+    type: "modal",
+    title: addPermissionTitle,
+    elements: [
         {
             type: "label",
-            text: Translations.Ui.Plugins.Permissions.AddPermissionLabel
+            text: () => server.permission.PERMISSIONS.map((permission, index) => `${index + 1} ${permission}`).join("\n")
         } as Label,
         {
             type: "divider",
         } as Divider,
         {
-            type: "label",
-            text: context => {
-                let list: string = server.permission.PERMISSIONS.map((permission, index) => {
-                    return `${index + 1} ` + permission;
-                }).join("\n");
-                return list;
-            }
-        } as Label
+            type: "textField",
+            inputId: "index",
+            name: "%plugins.permissions.addPermissionIndexName",
+            placeholder: "e.g. 5"
+        } as TextField
     ],
-    submitText: Translations.Ui.Plugins.Permissions.AddPermissionSubmit,
-    submit: (inputs, player, context) => { //TODO make it so that you can choose the permission with its index
-        let permission = inputs.permission as string;
-        const { value } = inputs;
+    submitText: "%plugins.permissions.addPermissionIndexSubmit",
+    submit: (inputs, player, context) => {
+        const index = Number((inputs.index as string).trim());
 
-        const index = Number(permission);
-        if (!Number.isNaN(index)) {
-            const selectedPerm = server.permission.PERMISSIONS[index - 1];
-            if (selectedPerm) permission = selectedPerm;
+        if (!Number.isInteger(index) || index < 1 || index > server.permission.PERMISSIONS.length) {
+            player.sendError(Translations.Msg.Permissions.InvalidPermission);
+            context.goTo("addPermissionByIndex"); // Reopen so the player can try again
+            return;
         }
 
-        if (!server.permission.isValidPermission(permission))
-            return player.sendError(Translations.Msg.Permissions.InvalidPermission);
+        context.setData("pendingPermission", server.permission.PERMISSIONS[index - 1]);
+        context.setData("addPermissionBackDepth", 3);
+        context.goTo("addPermission");
+    }
+};
+
+export const addPermission: ModalForm = {
+    type: "modal",
+    title: addPermissionTitle,
+    elements: [
+        {
+            type: "textField",
+            inputId: "permission",
+            placeholder: "e.g. ui.settings or ui.settings.*",
+            name: "%plugins.permissions.addPermissionName",
+            default: context => context.getData<string>("pendingPermission") ?? ""
+        } as TextField,
+        {
+            type: "toggle",
+            inputId: "value",
+            name: "%plugins.permissions.permissionFalseTrue",
+            default: true
+        } as Toggle,
+        {
+            type: "label",
+            text: "%plugins.permissions.addPermissionLabel"
+        } as Label
+    ],
+    submitText: "%plugins.permissions.addPermissionSubmit",
+    submit: (inputs, player, context) => {
+        const permission = inputs.permission as string;
+        const { value } = inputs;
+
+        if (!server.permission.isValidPermission(permission)) {
+            player.sendError(Translations.Msg.Permissions.InvalidPermission);
+            context.setData("pendingPermission", permission); // Keep the invalid input so it can be fixed
+            context.goTo("addPermission"); // Reopen so the player can try again
+            return;
+        }
 
         const permissionHolder = context.getData("selectedPHolder") as PermissionHolder;
         permissionHolder.addPermissionNode(new PermissionNode(permission, value as boolean));
 
         const prefixColor = value ? "§b" : "§c";
         player.sendSuccess(Translations.Msg.Permissions.AddPermSuccess, [permission, `${prefixColor}${(value as boolean).toString()}`]);
-        context.back();
+        context.back(context.getData<number>("addPermissionBackDepth") ?? 2);
     }
 };
 

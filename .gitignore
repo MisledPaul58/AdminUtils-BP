@@ -1,3 +1,19 @@
-scripts/database.ts
-scripts/database2.ts
-/scripts/xd.ts
+# Dependencies (installed from package-lock.json)
+node_modules/
+
+# IDE / editor
+.idea/
+*.iml
+
+# Generated build output (source of truth is /src)
+/scripts/
+
+# Packaged artifacts
+/dist/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# OS cruft
+.DS_Store
+Thumbs.db

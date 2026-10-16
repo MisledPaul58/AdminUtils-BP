@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [dev, release]
+  pull_request:
+    branches: [dev, release]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      # Pre-existing type debt lives in src/main.ts and src/systems/freeCam.ts.
+      # This step is informational until that is cleaned up; then drop
+      # `continue-on-error` to make it a hard gate.
+      - name: Type check (informational)
+        continue-on-error: true
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Package .mcpack
+        run: node tools/pack.mjs
+
+      - name: Upload addon artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AdminUtils-BP
+          path: dist/*.mcpack
+          if-no-files-found: error

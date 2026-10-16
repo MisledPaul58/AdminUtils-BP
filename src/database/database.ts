@@ -166,7 +166,7 @@ export class Database<Schema extends Record<string, any>> {
     }
 
     /**
-     * Saves a snapshot of known-good serialized data to backup slots.
+     * Saves a snapshot of known-good serialized data to back up slots.
      */
     private saveBackup(serialized: string): void {
         const chunks = serialized.match(new RegExp(`.{1,${Database.CHUNK_SIZE}}`, "g")) ?? ["{}"];
