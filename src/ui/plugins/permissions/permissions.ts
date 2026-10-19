@@ -176,7 +176,7 @@ export const addPermissionByIndex: ModalForm = {
             placeholder: "e.g. 5"
         } as TextField
     ],
-    submitText: "%plugins.permissions.addPermissionIndexSubmit",
+    submitText: "%ui.submitText.next",
     submit: (inputs, player, context) => {
         const index = Number((inputs.index as string).trim());
 

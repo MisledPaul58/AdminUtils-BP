@@ -6,7 +6,7 @@ import {
     ModalFormData,
     ModalFormResponse
 } from "@minecraft/server-ui";
-import { Player, RawMessage, system, world } from "@minecraft/server";
+import { Player, RawMessage, system } from "@minecraft/server";
 import { Translations, TranslationsType } from "../utils/translations";
 import { server } from "../server";
 import { PermissionManager } from "../permissions/permissionManager";
@@ -19,11 +19,13 @@ interface BuildResult<T extends FormData> {
 }
 
 export type UIAction<T> = (context: MenuContext, player: Player) => T;
-export type SubmitAction = (inputs: { [key: string]: string | number | boolean }, player: Player, context: MenuContext) => void;
+export type SubmitAction = (inputs: {
+    [key: string]: string | number | boolean
+}, player: Player, context: MenuContext) => void;
 type ModalBuildData = { [key: string]: any }[];
 export type BuildData = UIAction<void>[] | string[] | ModalBuildData;
 export type ContextData = { [key: string]: any };
-export type LocalizedText =  string | RawMessage; //TODO add Translations type
+export type LocalizedText = string | RawMessage; //TODO add Translations type
 
 export type DynamicElement<T> = T | UIAction<T>;
 
@@ -89,6 +91,7 @@ export interface Button {
 }
 
 export type PermissionType = (PermissionManager["PERMISSIONS"])[number];
+
 export interface ActionButton extends Button {
     subText?: DynamicElement<string>;
     icon?: string;
@@ -226,7 +229,7 @@ class ActionUIForm extends UIForm { //TODO add only view buttons if you have a p
 
         for (const element of resolveElement(this.form.elements)) {
             switch (element.type) {
-                case "button":
+                case "button": {
                     if (element.permission && server.permission.hasPermission(element.permission, context.player, true) === false) // The "true" value here is important. Only skip the button if the permission value is false, not undefined
                         continue;
 
@@ -234,6 +237,7 @@ class ActionUIForm extends UIForm { //TODO add only view buttons if you have a p
                     formData.button(text, element.icon);
                     actions.push(element.action);
                     break;
+                }
 
                 case "header":
                     formData.header(resolveElement(element.text));
@@ -268,7 +272,7 @@ class ModalUIForm extends UIForm {
     readonly form: ModalForm;
     private readonly submitAction: SubmitAction;
 
-    constructor(form: any, name: string) {
+    constructor(form: ModalForm, name: string) {
         super(form, name);
         this.form = form;
         this.submitAction = this.form.submit;
@@ -294,16 +298,20 @@ class ModalUIForm extends UIForm {
                     break;
 
                 case "slider":
-                    formData.slider(resolveElement(element.name), resolveElement(element.minimum), resolveElement(element.maximum), { defaultValue: resolveElement(element.default), valueStep: resolveElement(element.step) });
+                    formData.slider(resolveElement(element.name), resolveElement(element.minimum), resolveElement(element.maximum), {
+                        defaultValue: resolveElement(element.default),
+                        valueStep: resolveElement(element.step)
+                    });
                     inputData.push({ id: element.inputId });
                     break;
 
-                case "dropdown":
+                case "dropdown": {
                     let items: LocalizedText[] = resolveElement(element.items);
                     if (items.length === 0) items = [""];
                     formData.dropdown(resolveElement(element.name), items, { defaultValueIndex: resolveElement(element.default) });
                     inputData.push({ id: element.inputId, items });
                     break;
+                }
 
                 case "header":
                     formData.header(resolveElement(element.text));
@@ -344,7 +352,7 @@ class ModalUIForm extends UIForm {
                 const currentInput = inputData[index];
 
                 if (currentInput === undefined || currentInput === null) continue;
-                if ("items" in currentInput)  { // If the input is a dropdown
+                if ("items" in currentInput) { // If the input is a dropdown
                     const itemIndex = value as number;
                     inputs[currentInput.id] = currentInput.items[itemIndex]; // Save in inputs the selected item with the input name as the key
                 } else {
@@ -421,7 +429,7 @@ class MenuContext {
         if (this.stack.length >= 100) throw Error("UI stack overflow");
 
         if (form && this.stack[this.stack.length - 1]?.form !== form) { //TODO vigilar bien los confirms o los messageformdatas en this.stack
-            this.stack.push({ form, data: {...this.data} });
+            this.stack.push({ form, data: { ...this.data } });
         }
         return this.manager._goTo(ui, this.player, this, wait);
     }
@@ -448,7 +456,7 @@ class MenuContext {
         if (!currentFrame || !previousFrame) return;
 
         const previousForm = previousFrame.form;
-        this.data = {...previousFrame.data};
+        this.data = { ...previousFrame.data };
 
         if (currentForm instanceof ActionUIForm) {
             if (!currentForm.form.back) {
@@ -470,6 +478,33 @@ class MenuContext {
             button2: { text: "%ui.confirm.no", action: defaultAction },
             onRespond,
             cancel: defaultAction
+        }, formId);
+
+        this.stack.push({ form, data: { ...this.data } });
+
+        this.manager.queue.delete(this.player);
+        this.manager.queue.set(this.player, form);
+        form.enter(this, false);
+    }
+
+    typePlayer(title: LocalizedText, onSubmit: (player: string) => void): void {
+        const formId = `__internal_typeForm_${Date.now()}__`;
+
+        const form = new ModalUIForm({
+            type: "modal",
+            title,
+            elements: [
+                {
+                    type: "textField",
+                    inputId: "player",
+                    name: "%ui.player",
+                    placeholder: "Steve"
+                } as TextField
+            ],
+            submit: (inputs) => {
+                const { player } = inputs;
+                onSubmit(player as string);
+            }
         }, formId);
 
         this.stack.push({ form, data: { ...this.data } });

@@ -75,6 +75,10 @@ class Server extends ServerBootstrap {
     isAdmin(username: string) {
         return this.getAdmins().includes(username);
     }
+
+    isValidUsername(username: string): boolean {
+        return !(/^ | $/.test(username) || /[^A-Za-z0-9À-ÿ\u00f1\u00d1 \(\)]+/.test(username) || username === "");
+    }
 }
 
 export const server = new Server();
