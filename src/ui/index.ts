@@ -1,7 +1,7 @@
 import { ServerBootstrap } from "../server";
 import { Form } from "./builder";
 import { mainMenuLoader } from "./mainMenu";
-import { settingsLoader } from "./settings";
+import { settingsLoader } from "./settings/settings";
 import { auLoader } from "./au/auMain";
 import { pluginsLoader } from "./plugins/plugins";
 

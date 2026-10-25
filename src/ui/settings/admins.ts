@@ -1,107 +1,9 @@
-import { server } from "../server";
-import { DB } from "../database/databaseManager";
-import { ActionButton, ActionForm, Divider, Form, Label, ModalElement, ModalForm, TextField, Toggle } from "./builder";
-import { UiIndex } from "./index";
-import { UiLoader } from "./uiLoader";
-import { Translations } from "../utils/translations";
+import { ActionButton, ActionElement, ActionForm, Label } from "../builder";
+import { DB } from "../../database/databaseManager";
+import { server } from "../../server";
 import { RawMessage, world } from "@minecraft/server";
 
-const mainSettings: ActionForm = {
-    type: "action",
-    title: Translations.Ui.MainMenu.Title,
-    elements: [
-        {
-            type: "button",
-            text: "%settings.resetConfig",
-            permission: "ui.settings.resetConfig",
-            action: context => {
-                context.confirm(
-                    "%settings.resetConfig",
-                    "%settings.confirmResetConfig",
-                    (context, player) => {
-                        server.resetConfig();
-                        player.sendSuccess("%settings.resetConfigSuccess");
-                        context.back();
-                    }
-                );
-            }
-        } as ActionButton,
-        {
-            type: "button",
-            text: "%settings.config",
-            subText: Translations.Ui.General.SubTextEdit,
-            icon: "textures/icons/settings1.png",
-            permission: "ui.settings.config",
-            action: (context) => {
-                context.goTo("config");
-            }
-        } as ActionButton,
-        {
-            type: "divider"
-        } as Divider,
-        {
-            type: "button",
-            text: "%settings.admins",
-            subText: "%ui.subText.manage",
-            icon: "textures/icons/admin.png",
-            permission: "ui.settings.admins",
-            action: context => {
-                context.goTo("manageAdmins");
-            }
-        } as ActionButton,
-        {
-            type: "button",
-            text: "%settings.database",
-            subText: Translations.Ui.General.SubTextManage,
-            icon: "textures/icons/settings2.png",
-            permission: "ui.settings.database",
-            action: (context, player) => {
-                context.confirm(
-                    "Database",
-                    "Are you sure you want to manage the database?",
-                    () => {
-                        player.setOnFire(5);
-                    },
-                )
-            }
-        } as ActionButton
-    ]
-};
-
-const config: ModalForm = {
-    type: "modal",
-    title: Translations.Ui.Settings.Config.Title,
-    elements: [
-        {
-            type: "toggle",
-            inputId: "startupMsg",
-            name: Translations.Ui.Settings.Config.Input1Name,
-            default: () => DB.Config.get("startupMsg")
-        } as Toggle,
-        {
-            type: "textField",
-            inputId: "adminTag",
-            name: Translations.Ui.Settings.Config.Input2Name,
-            placeholder: "-auadmin",
-            default: () => DB.Config.get("adminTag")
-        } as TextField,
-        {
-            type: "textField",
-            inputId: "ownerTag",
-            name: Translations.Ui.Settings.Config.Input3Name,
-            placeholder: "owner",
-            default: () => DB.Config.get("ownerTag")
-        } as TextField
-    ],
-    submitText: "%ui.submitText.save",
-    submit: (inputs, player, context) => {
-        DB.Config.assignMemory(inputs);
-        player.sendSuccess("%ui.saveSuccess");
-        context.back();
-    }
-};
-
-const manageAdmins: ActionForm = {
+export const manageAdmins: ActionForm = {
     type: "action",
     title: "%settings.admins.title",
     elements: [
@@ -135,7 +37,7 @@ const manageAdmins: ActionForm = {
     ]
 };
 
-const addAdmin: ActionForm = {
+export const addAdmin: ActionForm = {
     type: "action",
     title: "%settings.admins.add",
     elements: (context) => {
@@ -148,7 +50,7 @@ const addAdmin: ActionForm = {
             context.player.sendSuccess("settings.addAdminSuccess", [player]);
         }
 
-        const buttons: ActionButton[] = [
+        const elements: ActionElement[] = [
             {
                 type: "button",
                 text: "%ui.typePlayer",
@@ -167,9 +69,14 @@ const addAdmin: ActionForm = {
             } as ActionButton
         ];
 
+        elements.push({
+            type: "label",
+            text: "%ui.players"
+        } as Label);
+
         for (const player of world.getAllPlayers()) {
             if (server.isAdmin(player.name)) continue;
-            buttons.push({
+            elements.push({
                 type: "button",
                 text: player.name,
                 icon: "textures/icons/steve_icon.png",
@@ -187,11 +94,11 @@ const addAdmin: ActionForm = {
             } as ActionButton);
         }
 
-        return buttons;
+        return elements;
     }
 };
 
-const removeAdmin: ActionForm = {
+export const removeAdmin: ActionForm = {
     type: "action",
     title: "%settings.admins.remove",
     elements: (context) => {
@@ -206,7 +113,7 @@ const removeAdmin: ActionForm = {
             context.player.sendSuccess("settings.removeAdminSuccess", [player]);
         }
 
-        const buttons: ActionButton[] = [
+        const elements: ActionElement[] = [
             {
                 type: "button",
                 text: "%ui.typePlayer",
@@ -225,8 +132,13 @@ const removeAdmin: ActionForm = {
             } as ActionButton
         ];
 
+        elements.push({
+            type: "label",
+            text: "%ui.players"
+        } as Label);
+
         for (const player of server.getAdmins()) {
-            buttons.push({
+            elements.push({
                 type: "button",
                 text: player,
                 icon: "textures/icons/steve_icon.png",
@@ -244,11 +156,11 @@ const removeAdmin: ActionForm = {
             } as ActionButton);
         }
 
-        return buttons;
+        return elements;
     }
 };
 
-const seeAdmins: ActionForm = {
+export const seeAdmins: ActionForm = {
     type: "action",
     title: "%settings.admins.see",
     elements: () => {
@@ -268,16 +180,3 @@ const seeAdmins: ActionForm = {
         return buttons;
     }
 };
-
-class SettingsLoader extends UiLoader {
-    uiIndex: UiIndex = {
-        mainSettings,
-        config,
-        manageAdmins,
-        addAdmin,
-        removeAdmin,
-        seeAdmins
-    };
-}
-
-export const settingsLoader = new SettingsLoader();

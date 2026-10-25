@@ -27,7 +27,7 @@ export class PermissionManager {
         "ui.settings.admins.add",
         "ui.settings.admins.remove",
         "ui.settings.admins.see",
-        "ui.settings.database",
+        "ui.settings.databases",
         "ui.au",
         "ui.au.ban",
         "ui.au.jail",

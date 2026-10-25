@@ -1456,7 +1456,7 @@ export function jailMenu(p) {
         .button("§l<-- Back", "textures/icons/back.png") //0
         .button("Learn how to use", "textures/icons/howToUse.png") //1
         .button("Jail a player", "textures/icons/jail.png") //2
-        .button("Release a player", "textures/icons/jailRelease.png") //3
+        .button("Release a player", "textures/icons/key.png") //3
         .button("Jail location config", "textures/icons/settings1.png") //4
         .button("Jail exit location config", "textures/icons/settings2.png"); //5
     form.show(p).then((response) => {
