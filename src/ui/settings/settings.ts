@@ -12,7 +12,7 @@ import { UiIndex } from "../index";
 import { UiLoader } from "../uiLoader";
 import { Translations } from "../../utils/translations";
 import { addAdmin, manageAdmins, removeAdmin, seeAdmins } from "./admins";
-import { manageDatabases } from "./database";
+import { backupActions, createBackup, databaseSettings, manageBackups, manageDatabases } from "./database";
 
 const mainSettings: ActionForm = {
     type: "action",
@@ -111,7 +111,11 @@ class SettingsLoader extends UiLoader {
         addAdmin,
         removeAdmin,
         seeAdmins,
-        manageDatabases
+        manageDatabases,
+        createBackup,
+        manageBackups,
+        backupActions,
+        databaseSettings
     };
 }
 

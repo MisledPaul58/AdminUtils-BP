@@ -16,6 +16,8 @@ export interface ConfigSchema {
     startupMsg: boolean;
     ownerTag: string;
     adminTag: string;
+    autoBackup: boolean;
+    autoBackupIntervalMinutes: number;
 }
 
 interface PlayerData {

@@ -18,10 +18,23 @@ export class AutoSaveManager {
                }
            });
         });
+
+        // Queued entities hold pre-restore state; drop them instead of letting
+        // the next flush overwrite the restored data.
+        eventSource.on("databaseRestored", () => this.clearQueue());
     }
 
     public onEntityDirty = (entity: PersistableEntity): void => { //TODO es necesario esto realmente? Sería más fácil pasarle simplemente la instancia de esta clase creada en server.ts a todo lo que necesite un autosave y que llamen siempre al mismo método de esta clase para añadirse a la queue?
         this.saveQueue.add(entity);
+    }
+
+    /**
+     * Drops every pending entity save. Called when a database backup is
+     * restored: the queued entities hold pre-restore state and must not
+     * overwrite the restored data on the next flush.
+     */
+    private clearQueue(): void {
+        this.saveQueue.clear();
     }
 
     private processQueue() {

@@ -1,4 +1,4 @@
-export type EventName = "firstLoad" | "ready" | "tick";
+export type EventName = "firstLoad" | "ready" | "tick" | "databaseRestored";
 
 type ListenerObject = { eventName: EventName, listener: Listener, once: boolean, executed: boolean };
 type ListenerArg = { [key: string]: string | number | boolean };

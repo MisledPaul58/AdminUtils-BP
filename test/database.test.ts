@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { __resetDynamicProperties, world } from "./mocks/server";
-import { Database } from "../src/database/database";
+import { Database, getDatabaseRevision } from "../src/database/database";
 
 /** Drains a generator (Database.fetch is a generator that yields between chunks). */
 function exhaust(generator: Generator<unknown, unknown, unknown>): void {
@@ -99,5 +99,17 @@ describe("Database", () => {
         expect(db.delete("obj")).toBe(true);
         expect(db.has("obj")).toBe(false);
         expect(db.delete("obj")).toBe(false);
+    });
+
+    it("replaces the whole table and bumps the database revision", () => {
+        const db = new Database<{ a: number; b?: number }>("Replace");
+        db.set("a", 1);
+
+        const revision = getDatabaseRevision();
+        expect(db.replaceMemory({ a: 2 })).toBe(true);
+
+        expect(db.get("a")).toBe(2);
+        expect(db.has("b")).toBe(false);
+        expect(getDatabaseRevision()).toBe(revision + 1);
     });
 });

@@ -1,11 +1,12 @@
 import { Group } from "./model/group";
 import { User } from "./model/user";
-import { CommandPermissionLevel, Player, PlayerPermissionLevel, world } from "@minecraft/server";
+import { CommandPermissionLevel, Player, PlayerPermissionLevel, system, world } from "@minecraft/server";
 import { Translations } from "../utils/translations";
 import { BaseSerializedData, GroupSerializedData, UserSerializedData } from "./model/permissionHolder";
 import { AutoSaveManager } from "../utils/persistence/autoSaveManager";
 import { DB } from "../database/databaseManager";
 import { server } from "../server";
+import { EventEmitter } from "../events/eventEmitter";
 
 export enum PermissionCheckError {
     INVALID_PERMISSION
@@ -16,6 +17,7 @@ export class PermissionManager {
 
     private groups = new Map<string, Group>();
     private users = new Map<string, User>();
+    private joinSubscribed = false;
 
     public readonly PERMISSIONS = [
         "adminWand",
@@ -28,6 +30,11 @@ export class PermissionManager {
         "ui.settings.admins.remove",
         "ui.settings.admins.see",
         "ui.settings.databases",
+        "ui.settings.databases.backup",
+        "ui.settings.databases.manage",
+        "ui.settings.databases.restore",
+        "ui.settings.databases.delete",
+        "ui.settings.databases.config",
         "ui.au",
         "ui.au.ban",
         "ui.au.jail",
@@ -62,8 +69,15 @@ export class PermissionManager {
         "ui.plugins.permissions.genericHolder.manageInheritance.parent.remove"
     ] as const;
 
-    constructor(autoSaveManager: AutoSaveManager) {
+    constructor(eventSource: EventEmitter, autoSaveManager: AutoSaveManager) {
         this.autoSave = autoSaveManager;
+
+        // Permission groups and users are cached in memory, so they must be
+        // reloaded whenever the database is restored from a backup.
+        eventSource.on("databaseRestored", () => {
+            if (!this.isEnabled()) return;
+            system.runJob(this.loadPlugin() as Generator<void, void, void>);
+        });
     }
 
     public isValidPermission(permission: string): boolean {
@@ -193,6 +207,15 @@ export class PermissionManager {
     }
 
     *loadPlugin() {
+        // Always start from scratch so enabling the plugin after a database
+        // restore cannot keep stale groups or users around.
+        this.groups.clear();
+        this.users.clear();
+        yield* this.loadFromDatabase();
+        this.subscribeToPlayerJoins();
+    }
+
+    private *loadFromDatabase() {
         try {
             const groups = DB.Permissions.get("groups") ?? {};
             const users = DB.Permissions.get("users") ?? {};
@@ -234,17 +257,22 @@ export class PermissionManager {
                 const newUser = new User(player.name, this.autoSave.onEntityDirty);
                 this.users.set(player.name, newUser);
             }
-
-            const callback = world.afterEvents.playerJoin.subscribe(event => {
-                if (!this.isEnabled()) return world.afterEvents.playerJoin.unsubscribe(callback);
-                if (this.users.has(event.playerName)) return;
-
-                const newUser = new User(event.playerName, this.autoSave.onEntityDirty);
-                this.users.set(event.playerName, newUser);
-            });
         } catch (e) {
             console.error("Couldn't load permissions plugin:", e);
         }
+    }
+
+    private subscribeToPlayerJoins() {
+        if (this.joinSubscribed) return;
+        this.joinSubscribed = true;
+
+        world.afterEvents.playerJoin.subscribe(event => {
+            if (!this.isEnabled()) return;
+            if (this.users.has(event.playerName)) return;
+
+            const newUser = new User(event.playerName, this.autoSave.onEntityDirty);
+            this.users.set(event.playerName, newUser);
+        });
     }
 }
 

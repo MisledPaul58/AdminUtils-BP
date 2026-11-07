@@ -7,6 +7,7 @@ import { TranslationsType } from "./utils/translations";
 import { PermissionManager } from "./permissions/permissionManager";
 import { loadUIs } from "./ui/index";
 import { AutoSaveManager } from "./utils/persistence/autoSaveManager";
+import { backups, BackupResult } from "./database/backups";
 
 export abstract class ServerBootstrap extends EventEmitter {
     private _isInitialized: boolean = false;
@@ -38,22 +39,37 @@ export abstract class ServerBootstrap extends EventEmitter {
         return this._isInitialized;
     }
 
-    resetConfig() {
-        DB.Config.clear();
-        DB.Config.assignMemory(defaultConfig);
-    }
+    abstract resetConfig(): void;
 }
 
 class Server extends ServerBootstrap {
     public readonly globalAutoSave = new AutoSaveManager(this);
 
     public ui: UIManager = new UIManager();
-    public permission: PermissionManager = new PermissionManager(this.globalAutoSave);
+    public permission: PermissionManager = new PermissionManager(this, this.globalAutoSave);
 
     constructor() {
         super();
         this.initAdminUtils();
+        this.once("ready", () => backups.startAutoBackup());
         //TODO inicializar todas las variables como ui fuera de la clase en server.once("ready"), por ejemplo
+    }
+
+    resetConfig() {
+        DB.Config.clear();
+        DB.Config.assignMemory(defaultConfig);
+    }
+
+    /**
+     * Restores a database backup and notifies listeners (auto-save, plugins) so
+     * they can drop cached state. Centralised here so callers don't need to know
+     * which systems cache database data; new plugins can subscribe to
+     * "databaseRestored".
+     */
+    public restoreDatabase(slot: number): BackupResult {
+        const result = backups.restore(slot);
+        if (result.ok) this.emit("databaseRestored");
+        return result;
     }
 
     /**

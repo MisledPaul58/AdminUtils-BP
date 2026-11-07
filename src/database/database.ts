@@ -1,6 +1,16 @@
 import { world } from "@minecraft/server";
 import { calculateChecksum } from "./checksum";
 
+let databaseRevision = 0;
+
+/**
+ * Monotonic counter that increases every time a table is persisted.
+ * Cheap way to detect whether the database changed since the last backup.
+ */
+export function getDatabaseRevision(): number {
+    return databaseRevision;
+}
+
 interface TableMeta {
     /** Number of chunks that make up the stored JSON. */
     l: number;
@@ -162,7 +172,21 @@ export class Database<Schema extends Record<string, any>> {
         }
 
         this._isDirty = false;
+        databaseRevision++;
         return true;
+    }
+
+    /**
+     * Replaces the full in-memory table with `data` and persists it.
+     * Used when restoring a backup snapshot.
+     * @returns true when the data was persisted successfully.
+     */
+    public replaceMemory(data: Partial<Schema>): boolean {
+        this.memory = data;
+        this._isDirty = true;
+        const saved = this.saveData();
+        if (saved) this.saveBackup(JSON.stringify(this.memory));
+        return saved;
     }
 
     /**

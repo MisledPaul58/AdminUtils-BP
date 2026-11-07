@@ -4,5 +4,7 @@
 export const defaultConfig = {
     startupMsg: true,
     adminTag: "-auadmin",
-    ownerTag: "owner"
+    ownerTag: "owner",
+    autoBackup: false,
+    autoBackupIntervalMinutes: 30
 };

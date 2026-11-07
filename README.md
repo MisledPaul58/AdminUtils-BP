@@ -56,7 +56,9 @@
 - **Admin & owner tag management** straight from the GUI (Settings → Admins)
 - **Permissions plugin** — groups, users, wildcard nodes (`ui.settings.*`), inheritance and weight
 - **Config editor** — startup message, admin/owner tags, one-click config reset
-- **Reliable storage** — chunked, checksummed, auto-backed-up persistence on dynamic properties
+- **Reliable storage** — chunked, checksummed persistence on dynamic properties
+- **Database backups** — keep up to ten full snapshots, create them on demand or automatically
+  at a configurable interval, then restore or delete them from Settings → Databases
 
 ## Requirements
 
