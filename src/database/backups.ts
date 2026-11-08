@@ -63,11 +63,12 @@ export function backupReasonName(reason: BackupReason): string {
     return REASONS[reason].label;
 }
 
-/** Formats a timestamp as `YYYY-MM-DD HH:MM` (local time). */
+/** Formats a timestamp as `YYYY-MM-DD HH:MM UTC`. Bedrock's runtime reports time in UTC. */
 export function formatBackupDate(timestamp: number): string {
     const date = new Date(timestamp);
     const pad = (value: number) => value.toString().padStart(2, "0");
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+
+    return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())} UTC`;
 }
 
 /** Formats a character count in a compact, human-readable way. */

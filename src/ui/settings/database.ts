@@ -35,6 +35,21 @@ export const manageDatabases: ActionForm = {
     elements: [
         {
             type: "button",
+            text: "%settings.database.settings",
+            subText: () => DB.Config.get("autoBackup")
+                ? `Auto backups: On §8· §7${getAutoBackupIntervalMinutes()} min`
+                : "Auto backups: Off",
+            icon: "textures/icons/settings2.png",
+            permission: "ui.settings.databases.config",
+            action: (context) => {
+                context.goTo("databaseSettings");
+            }
+        } as ActionButton,
+        {
+            type: "divider"
+        } as Divider,
+        {
+            type: "button",
             text: "%settings.database.create",
             icon: "textures/icons/add.png",
             permission: "ui.settings.databases.backup",
@@ -50,21 +65,6 @@ export const manageDatabases: ActionForm = {
             permission: "ui.settings.databases.manage",
             action: (context) => {
                 context.goTo("manageBackups");
-            }
-        } as ActionButton,
-        {
-            type: "divider"
-        } as Divider,
-        {
-            type: "button",
-            text: "%settings.database.auto",
-            subText: () => DB.Config.get("autoBackup")
-                ? `On §8· §7${getAutoBackupIntervalMinutes()} min`
-                : "Off",
-            icon: "textures/icons/settings2.png",
-            permission: "ui.settings.databases.config",
-            action: (context) => {
-                context.goTo("databaseSettings");
             }
         } as ActionButton
     ]
@@ -219,7 +219,7 @@ export const backupActions: ActionForm = {
 
 export const databaseSettings: ModalForm = {
     type: "modal",
-    title: "%settings.database.auto.title",
+    title: "%settings.database.settings.title",
     elements: [
         {
             type: "label",
@@ -243,13 +243,12 @@ export const databaseSettings: ModalForm = {
     ],
     submitText: "%ui.submitText.save",
     submit: (inputs, player, context) => {
-        const enabled = Boolean(inputs.autoBackup);
         DB.Config.assignMemory({
-            autoBackup: enabled,
+            autoBackup: Boolean(inputs.autoBackup),
             autoBackupIntervalMinutes: clampAutoBackupInterval(inputs.autoBackupInterval)
         });
 
-        player.sendSuccess(enabled ? "settings.database.autoOn" : "settings.database.autoOff");
+        player.sendSuccess("settings.database.settings.saved");
         context.back();
     }
 };

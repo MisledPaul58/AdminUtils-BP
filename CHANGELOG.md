@@ -9,7 +9,7 @@ All notable changes to this project are documented here. The format is loosely b
 - Database backups: keep up to ten full snapshots, create them on demand from
   **Settings → Databases**, restore or delete them, and optionally enable automatic backups
   at a configurable interval (only when the database has changed). Restoring a backup snapshots
-  the current database first as a safety backup.
+  the current database first as a safety backup. Timestamps are shown in UTC.
 - Reproducible build pipeline: `npm run build` compiles `src/` to `scripts/`, cleans stale
   output, and injects the pack version into `manifest.json`.
 - Unit test suite (Vitest) with in-memory `@minecraft/server` mocks, covering the checksum and

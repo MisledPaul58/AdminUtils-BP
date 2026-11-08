@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { __resetDynamicProperties, world } from "./mocks/server";
 import { Database } from "../src/database/database";
-import { AUTO_BACKUP_MINUTES, BackupError, BackupManager, clampAutoBackupInterval, DEFAULT_MAX_BACKUPS } from "../src/database/backups";
+import { AUTO_BACKUP_MINUTES, BackupError, BackupManager, clampAutoBackupInterval, DEFAULT_MAX_BACKUPS, formatBackupDate } from "../src/database/backups";
 
 function makeTables() {
     return {
@@ -31,6 +31,11 @@ describe("BackupManager", () => {
         expect(clampAutoBackupInterval(999)).toBe(AUTO_BACKUP_MINUTES.max);
         expect(clampAutoBackupInterval(17)).toBe(15);
         expect(clampAutoBackupInterval(18)).toBe(20);
+    });
+
+    it("formats backup times in UTC", () => {
+        const timestamp = Date.UTC(2026, 10, 8, 13, 32);
+        expect(formatBackupDate(timestamp)).toBe("2026-11-08 13:32 UTC");
     });
 
     it("snapshots every table", () => {
